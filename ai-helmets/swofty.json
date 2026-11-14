@@ -14,6 +14,7 @@
     "game": "f1_25",
     "game_builds": [">=25251167"],
     "launcher": ">=1.8.19",
+    "platforms": ["steam"],
     "seasons": ["f1_2025", "f1_2026"]
   },
   "requires": [{ "id": "swofty.core", "version": ">=0.1.0" }],
