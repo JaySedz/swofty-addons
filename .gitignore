@@ -1,0 +1,18 @@
+# build output: made by build.bat and package.bat
+build/
+bin/
+dist/
+backup-*/
+*.dll
+*.exe
+*.obj
+*.lib
+*.exp
+*.pdb
+__pycache__/
+
+# the encoder Music Replacer ships, kept so package.bat works from a fresh clone
+!music-replacer/third_party/opus/opusenc.exe
+
+# icon-generated.png is a scratch output of ai-helmets/tools/make_icon.py
+icon-generated.png

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "sedz.ai-helmets",
+  "name": "AI Helmets",
+  "version": "1.0.2",
+  "author": "Sedz",
+  "description": "Set AI drivers' helmets. Import helmets of your own or use helmets from the in game database.",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/ai-helmets",
+  "icon": "icon.png",
+  "category": "helmets",
+  "kind": ["native"],
+  "compat": {
+    "game": "f1_25",
+    "game_builds": [">=25251167"],
+    "launcher": ">=1.8.19",
+    "seasons": ["f1_2025", "f1_2026"]
+  },
+  "requires": [{ "id": "swofty.core", "version": ">=0.1.0" }],
+  "options": [
+    {
+      "id": "auto_team_helmets",
+      "type": "toggle",
+      "label": "Team helmet after a move",
+      "description": "Automatically use the new team's helmet after a swap, either a base game helmet or user uploaded. Turning this off means you will need to select each driver's helmet manually.",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "verbose",
+      "type": "toggle",
+      "label": "Verbose log",
+      "description": "Log every Team HQ check to swofty/loader.log, not only changes.",
+      "default": false,
+      "binds": "native"
+    }
+  ],
+  "launcher": {
+    "program": { "windows": "bin/ai-helmets-helper.exe" },
+    "sections": [{ "id": "helmets", "title": "AI Helmets", "icon": "users" }],
+    "build": true
+  },
+  "operations": {
+    "native": [{ "dll": "native/ai_helmets.dll" }]
+  }
+}

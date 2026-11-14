@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "sedz.music-replacer",
+  "name": "Music Replacer",
+  "version": "1.0.2",
+  "author": "Sedz",
+  "description": "Replace any of the 30 soundtrack songs and the 3 theme pieces with songs of your own. Accepts mp3, m4a, wav, wma, and flac.",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/music-replacer",
+  "icon": "logo.png",
+  "category": "utility",
+  "kind": ["files"],
+  "compat": {
+    "game": "f1_25",
+    "game_builds": [">=25251167"],
+    "launcher": ">=1.8.19"
+  },
+  "launcher": {
+    "program": { "windows": "bin/music-replacer-helper.exe" },
+    "sections": [{ "id": "music", "title": "Music Replacer", "icon": "play" }],
+    "build": true
+  }
+}
