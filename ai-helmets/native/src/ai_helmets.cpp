@@ -104,7 +104,8 @@ struct Config {
     std::map<std::string, std::string> addon_drivers;
     struct Custom {
         std::string key, file, from, name;
-        std::string token, shell, stem;  // a converted career-helmet mod: its own folder name, built on shell
+        std::string token, shell, stem;  // a converted helmet mod: its own folder name, built on shell
+        std::string pkg, dir;            // the shell's package and folder (default character_package, drivers/male)
     };
     std::vector<Custom> custom;
 };
@@ -153,7 +154,7 @@ bool parse_config(const std::string &text, Config &c)
     if (auto *custom = j["custom"].if_array())
         for (auto &h : *custom) {
             Config::Custom x{str(h["key"]),   str(h["file"]),  str(h["from"]), str(h["name"]),
-                             str(h["token"]), str(h["shell"]), str(h["stem"])};
+                             str(h["token"]), str(h["shell"]), str(h["stem"]), str(h["pkg"]), str(h["dir"])};
             if (!x.key.empty() && !x.file.empty())
                 c.custom.push_back(std::move(x));
         }
@@ -285,18 +286,24 @@ void register_helmets()
     for (auto &h : g_config.custom) {
         Ref<wearables::Helmet> ref;
         if (!h.token.empty() && !h.shell.empty() && !h.stem.empty()) {
-            // A converted career-helmet mod (the launcher page built its archive on a stock driver's helmet, under
-            // the folder name h.token, and the build registered that archive's asset group): a copy of the shell's
-            // helmet row that points at the converted archive's group, material context and attachments.
+            // A converted helmet mod (the launcher page built its archive on the stock helmet it was made for, a
+            // driver's or a design's such as replica_hamilton20a, under the folder name h.token, and the build
+            // registered that archive's asset group): a copy of the shell's helmet row that points at the
+            // converted archive's group, material context and attachments. Paths use the game's package
+            // placeholders: character_package -> [CHARACTER_PACKAGE], livery_package -> [LIVERY_PACKAGE].
             wearables::Helmet rec{
                 .from = wearables::helmets["game/" + h.shell],
                 .name = Text::literal((h.name.empty() ? h.key : h.name) + " (AIH)"),
             };
-            std::string dir = "drivers/male/" + h.token + "/";
+            std::string pkg = h.pkg.empty() ? "character_package" : h.pkg;
+            for (char &c : pkg)
+                c = char(std::toupper(static_cast<unsigned char>(c)));
+            pkg = "[" + pkg + "]";
+            std::string dir = (h.dir.empty() ? std::string("drivers/male") : h.dir) + "/" + h.token + "/";
             rec.extra = J::Value::object();
-            rec.extra["asset_group"] = "asset_groups/[CHARACTER_PACKAGE]/" + dir + h.stem + ".assetgroup";
+            rec.extra["asset_group"] = "asset_groups/" + pkg + "/" + dir + h.stem + ".assetgroup";
             rec.extra["material_override"] = h.token;
-            rec.extra["attachments_model"] = "eaid://[CHARACTER_PACKAGE]/" + dir + "idf/" + h.stem + "_attachments";
+            rec.extra["attachments_model"] = "eaid://" + pkg + "/" + dir + "idf/" + h.stem + "_attachments";
             ref = wearables::helmets.add(h.key, rec);
         } else
             ref = wearables::helmets.add(h.key, {

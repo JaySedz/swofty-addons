@@ -761,13 +761,15 @@ J::Value view()
                 std::string key(h["key"].as_string()), name(h["name"].as_string(key)), file(h["file"].as_string());
                 bool converted = h["token"].is_string() && !h["token"].as_string().empty();
                 bool pending = !converted && helmet_file_kind(g.helmets_dir() / file) != "ok";
-                std::string type = converted ? "Career helmet mod, converted"
+                std::string type = converted ? "Helmet mod, converted"
                                    : pending ? "Converted at the next Play"
                                              : "Helmet archive";
                 J::Value detail = J::Value::array();
                 if (converted)
-                    detail.push_back(text_block("Converted from a career helmet mod onto Lewis Hamilton's 2026 helmet. "
-                                                "Nothing to set.",
+                    detail.push_back(text_block("Converted onto " +
+                                                    g.helmet_label("game/" + std::string(h["shell"].as_string(convert::kShellToken))) +
+                                                    "'s helmet, the one it was made for (or Lewis Hamilton's 2026 helmet when "
+                                                    "that couldn't be told). Nothing to set.",
                                                 "muted"));
                 else if (pending)
                     detail.push_back(text_block("Imported by an earlier version as it was. It is converted into a helmet "
@@ -1113,7 +1115,8 @@ std::string helmet_file_kind(const fs::path &path)
         if (pos + len > idx.size())
             break;
         std::string name = idx.substr(pos, len);
-        career |= name.find("charname_helmet") != std::string::npos || name.find("markdown/") != std::string::npos;
+        career |= name.find("charname_helmet") != std::string::npos || name.find("markdown/") != std::string::npos ||
+                  (name.find("livery_package") != std::string::npos && name.find("_helmet_d.tif") != std::string::npos);
         helmet |= name.find("_helmet") != std::string::npos;
         pos += len + 16 + (version >= 4 ? 6 : 4);
         if (pos >= idx.size())
@@ -1148,33 +1151,41 @@ std::string unique_key(const std::string &base)
     return key;
 }
 
-// A free same-length folder name for a converted helmet: a001-ferrari_lewis_hamilton, a002-…
-std::string next_token()
+// A free same-length folder name for a helmet converted onto shell_token: a001-ferrari_lewis_hamilton, a002-…,
+// a001ica_hamilton20a for replica_hamilton20a.
+std::string next_token(const std::string &shell_token)
 {
     std::set<std::string> used;
     for (auto &h : g.custom())
         used.insert(std::string(h["token"].as_string()));
-    std::string rest = std::string(convert::kShellToken).substr(4);
     for (int i = 1; i < 1000; i++) {
-        char b[8];
-        std::snprintf(b, sizeof b, "a%03d", i);
-        if (!used.count(b + rest))
-            return b + rest;
+        std::string t = convert::token_for(shell_token, i);
+        if (t.empty())
+            break;
+        if (!used.count(t))
+            return t;
     }
     return {};
 }
 
-// Lewis Hamilton's 2026 helmet archive from the game's clean files: the shell converted helmets are built on.
-fs::path shell_archive()
+// A stock helmet archive (game-relative path) from the game's clean files, else the game folder; empty if absent.
+fs::path shell_archive(const std::string &rel)
 {
     std::error_code ec;
-    J::Value p = call("game_original", J::Value::object({{"rel", convert::kShellRel}}));
+    J::Value p = call("game_original", J::Value::object({{"rel", rel}}));
     if (p.is_string() && fs::is_regular_file(from_utf8(p.as_string()), ec))
         return from_utf8(p.as_string());
     J::Value d = call("game_dir");
-    if (d.is_string() && fs::is_regular_file(from_utf8(d.as_string()) / convert::kShellRel, ec))
-        return from_utf8(d.as_string()) / convert::kShellRel;
+    if (d.is_string() && fs::is_regular_file(from_utf8(d.as_string()) / rel, ec))
+        return from_utf8(d.as_string()) / rel;
     return {};
+}
+
+// "replica_hamilton20a" -> "Lewis Hamilton (2020)" etc. for messages: the catalogue's label when it has the row.
+std::string shell_label(const convert::Shell &s)
+{
+    std::string l = g.helmet_label("game/" + s.token);
+    return l.empty() ? s.token : l;
 }
 
 // Unpacks a zip, 7z or rar pack with Windows' own tar (bsdtar, which reads all three).
@@ -1218,28 +1229,47 @@ std::string add_archive(const fs::path &file, const std::string &base, const std
         return std::string(kAddon) + "/" + key;
     }
     if (kind == "career") {
-        fs::path shell = shell_archive();
-        if (shell.empty()) {
-            done.push_back(label + ": Lewis Hamilton's 2026 helmet isn't in the game folder, and converted helmets are built on it");
-            return {};
-        }
-        std::string token = next_token();
-        if (token.empty()) {
-            done.push_back(label + ": no free name for another converted helmet (999 in use)");
-            return {};
-        }
         std::string key = reuse_key.empty() ? unique_key(base) : reuse_key, out = key + ".erp";
         try {
             erp::Archive mod = erp::load(file);  // read whole before the output may replace it
-            auto r = convert::convert(mod, erp::load(shell), token, g.helmets_dir() / out);
+            // the stock helmet the mod was painted for (its visor attachments have their own UVs), else Hamilton's
+            convert::Detected det = convert::detect(mod);
+            convert::Shell shell;
+            fs::path shell_file;
+            std::string note;
+            if (det.shell) {
+                shell_file = shell_archive(det.shell->rel());
+                if (!shell_file.empty())
+                    shell = *det.shell;
+                else
+                    note = " (made on " + det.shell->token + ", which isn't in the game folder)";
+            }
+            if (shell_file.empty())
+                shell_file = shell_archive(shell.rel());
+            if (shell_file.empty()) {
+                done.push_back(label + ": Lewis Hamilton's 2026 helmet isn't in the game folder, and helmets that can't be "
+                                       "matched are built on it");
+                return {};
+            }
+            std::string token = next_token(shell.token);
+            if (token.empty()) {
+                done.push_back(label + ": no free name for another helmet on " + shell.token + " (999 in use)");
+                return {};
+            }
+            std::string stem = convert::stem_for(shell.stem, shell.token, token);
+            auto r = convert::convert(mod, erp::load(shell_file), shell.token, token, g.helmets_dir() / out);
             g.config["custom"].push_back(J::Value::object({{"key", key},
                                                            {"file", out},
                                                            {"name", title_case(base)},
                                                            {"token", token},
-                                                           {"shell", convert::kShellToken},
-                                                           {"stem", std::string(convert::kShellStem) + "_helmet"}}));
-            done.push_back("Converted " + label + " (a career helmet mod) into " + title_case(base) + ": " +
-                           std::to_string(r.textures) + " texture(s) on Lewis Hamilton's helmet shell");
+                                                           {"shell", shell.token},
+                                                           {"stem", stem},
+                                                           {"shell_stem", shell.stem},
+                                                           {"pkg", shell.pkg},
+                                                           {"dir", shell.dir}}));
+            std::string how = det.shell && note.empty() ? " (detected from its " + det.from + ")" : note;
+            done.push_back("Converted " + label + " into " + title_case(base) + ": " + std::to_string(r.textures) +
+                           " texture(s) on " + shell_label(shell) + "'s helmet" + how);
             return std::string(kAddon) + "/" + key;
         } catch (const std::exception &e) {
             done.push_back(label + ": couldn't convert it (" + e.what() + ")");
@@ -1516,17 +1546,20 @@ J::Value build(const J::Value &params)
             // his, so the group lists only it, as Helmet Exchange's groups do. (0.6.0 listed his stock archive
             // first, as the core does for its own helmet groups; the group then named that archive only, and the
             // game reported the converted helmets' attachments model missing.)
+            // (on the stock helmet the mod was made for; entries converted before that keep Hamilton's folders)
             std::string token(h["token"].as_string()), stem(h["stem"].as_string("lewis_hamilton_helmet"));
-            std::string shell(h["shell"].as_string(convert::kShellToken));
-            std::string erp = "2025_asset_groups/character_package/drivers/male/" + token + "/" + stem + ".erp";
+            std::string shell(h["shell"].as_string(convert::kShellToken)), shell_stem(h["shell_stem"].as_string(stem));
+            std::string at = std::string(h["pkg"].as_string("character_package")) + "/" +
+                             std::string(h["dir"].as_string("drivers/male")) + "/";
+            std::string erp = "2025_asset_groups/" + at + token + "/" + stem + ".erp";
             ops.push_back(J::Value::object({{"op", "file.put"},
                                             {"source", J::Value::object({{"root", "data"}, {"path", "helmets/" + file}})},
                                             {"target", erp}}));
             ops.push_back(J::Value::object(
                 {{"op", "group.register"},
-                 {"group", "asset_groups/character_package/drivers/male/" + token + "/" + stem + ".assetgroup"},
+                 {"group", "asset_groups/" + at + token + "/" + stem + ".assetgroup"},
                  {"erp", erp},
-                 {"template", "asset_groups/character_package/drivers/male/" + shell + "/" + stem + ".assetgroup"}}));
+                 {"template", "asset_groups/" + at + shell + "/" + shell_stem + ".assetgroup"}}));
         } else
             put("helmets/" + file);
         n++;

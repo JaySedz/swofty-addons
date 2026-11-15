@@ -65,7 +65,10 @@ int main(int argc, char **argv)
             std::printf("%zu resource hash(es) match MD5 of their data, %zu don't\n", ok, bad);
         } else if (cmd == "convert" && argc >= 6) {
             erp::Archive shell = erp::load(argv[3]);
-            auto r = convert::convert(a, shell, argv[4], argv[5]);
+            auto r = convert::convert(a, shell, argc >= 7 ? argv[6] : convert::kShellToken, argv[4], argv[5]);
+            auto d = convert::detect(a);
+            if (d.shell)
+                std::printf("detected %s/%s/%s (%s) from its %s\n", d.shell->pkg.c_str(), d.shell->dir.c_str(), d.shell->token.c_str(), d.shell->stem.c_str(), d.from.c_str());
             std::printf("%zu texture(s) replaced, %zu name(s) renamed\n", r.textures, r.renamed);
             for (auto &x : r.replaced)
                 std::printf("  %s\n", x.c_str());

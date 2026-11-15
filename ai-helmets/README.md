@@ -45,10 +45,21 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
     its own: it copies Lewis Hamilton's 2026 helmet archive from your game files, renames its folder to a
     same-length one (`a001-ferrari_lewis_hamilton`, `a002-…`), and puts the mod's helmet, wing and visor textures
     in it. The result goes into the game at the next Play with its own asset group;
-  - a **pack** (`.zip`, `.7z`, `.rar`) holding either; every helmet in it is imported.
-- Everything is made ready to use as it is imported. Helmets an earlier version imported as they were (packs and
-  career-helmet mods, white in game) are converted automatically at the next Play; the teams and drivers using them
-  keep them.
+  - a **design archive**: a whole helmet design from the livery package, such as the SERPs template's
+    `player_helmet.erp` (`unassigned_livery18_helmet_*` textures), which most overtake.gg helmets are painted on.
+    It is converted the same way;
+  - a **pack** (`.zip`, `.7z`, `.rar`) holding any of these; every helmet in it is imported.
+- **Converted helmets are built on the helmet they were painted for.** Every helmet shares one shell
+  (`helmet_bell_hp7`), but each has its own visor attachments mesh with its own UVs, so a visor texture only lines
+  up on the archive it was made for. AI Helmets reads the mod's visor attachments model (else the folder of its
+  helmet texture) and copies that stock archive from your game files. The SERPs template, for example, carries
+  Lewis Hamilton's 2020 replica attachments (`replica_hamilton20a`), so SERPs helmets are built on that. When it
+  can't tell (career-helmet mods name no helmet of their own) or the game doesn't have that helmet, it falls back
+  to Lewis Hamilton's 2026 helmet. The import message says which one it used.
+- Everything is made ready to use as it is imported. Helmets an earlier version imported as they were (packs,
+  career-helmet mods and design archives, white in game) are converted automatically at the next Play; the teams and
+  drivers using them keep them. Helmets already converted onto Hamilton's 2026 helmet stay on it: import the mod
+  again to rebuild it on the helmet it was made for.
 - **MyTeam** tab (0.7.0): your two MyTeam drivers, the one you drive included, from the loaded MyTeam career
   (or the last one you played). Set a helmet for every driver you sign, or one per driver, or import one. With
   nothing set they keep their own helmets: the automatic newcomer helmet never applies to your team. The team is

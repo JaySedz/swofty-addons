@@ -2,7 +2,13 @@
 // character_package_shared/drivers/gender/teamname_charname, usually shipped inside a replacement
 // game_package/markdown/markdown_system.erp) into a helmet archive of its own, without Helmet Exchange.
 //
-// The shell is a stock driver's helmet archive from the player's own game files (Lewis Hamilton's 2026 one):
+// It also converts a design archive (a whole helmet design, such as the SERPs template's
+// livery_package/unassigned/unassigned_livery18/unassigned_livery18_helmet.erp).
+//
+// The shell is a stock helmet archive from the player's own game files: the one the mod was painted for
+// (detect(): the visor attachments model it carries, else the folder of its helmet texture), or Lewis Hamilton's
+// 2026 one when that can't be told. The helmet itself (helmet_bell_hp7) is shared, but each helmet archive has its
+// own visor attachments mesh and UVs, so a visor texture only lines up on the archive it was made for:
 //  * its folder name (2026-ferrari_lewis_hamilton) becomes a same-length one (a001-ferrari_lewis_hamilton)
 //    in every resource name and every string inside the resources, so nothing that refers to it by length or
 //    offset moves. The streamed-mip paths of textures that are not replaced keep the original name: they read
@@ -27,6 +33,21 @@ namespace convert {
 constexpr const char *kShellToken = "2026-ferrari_lewis_hamilton";
 constexpr const char *kShellStem = "lewis_hamilton";
 constexpr const char *kShellRel = "2025_asset_groups/character_package/drivers/male/2026-ferrari_lewis_hamilton/lewis_hamilton_helmet.erp";
+
+// A stock helmet archive a mod is converted onto: 2025_asset_groups/<pkg>/<dir>/<token>/<stem>.erp, with the asset
+// group asset_groups/<pkg>/<dir>/<token>/<stem>.assetgroup. Default: Lewis Hamilton's 2026 helmet.
+struct Shell {
+    std::string pkg = "character_package", dir = "drivers/male", token = kShellToken,
+                stem = std::string(kShellStem) + "_helmet";
+    std::string rel() const { return "2025_asset_groups/" + pkg + "/" + dir + "/" + token + "/" + stem + ".erp"; }
+    bool is_default() const { return token == kShellToken && pkg == "character_package"; }
+};
+
+struct Detected {
+    std::optional<Shell> shell;  // the archive the mod was made on, when it can be told
+    std::string from;            // what told it: "visor attachments model" or "helmet texture"
+    std::string mod_tex;         // the prefix of the mod's own texture names ("unassigned_livery18"), if any
+};
 
 inline void md5(const erp::Resource &r, uint8_t out[16])
 {
@@ -74,6 +95,107 @@ inline bool is_career(const erp::Archive &a)
     return false;
 }
 
+// "eaid://<pkg>/<dir...>/<token>/<sub>/<file>" -> its parts; false when it isn't shaped like that or names one of
+// the game's templates. A "<pkg>_shared" package (where design textures live) counts as <pkg>.
+inline bool split_eaid(const std::string &name, const std::string &sub, std::string &pkg, std::string &dir,
+                       std::string &token, std::string &file)
+{
+    const std::string pre = "eaid://";
+    if (name.rfind(pre, 0) != 0)
+        return false;
+    size_t q = name.find('?');
+    std::string path = name.substr(pre.size(), q == std::string::npos ? std::string::npos : q - pre.size());
+    size_t at = path.rfind("/" + sub + "/");
+    if (at == std::string::npos)
+        return false;
+    file = path.substr(at + sub.size() + 2);
+    std::string head = path.substr(0, at);  // <pkg>/<dir...>/<token>
+    size_t a = head.find('/'), b = head.rfind('/');
+    if (a == std::string::npos || b <= a)
+        return false;
+    pkg = head.substr(0, a);
+    dir = head.substr(a + 1, b - a - 1);
+    token = head.substr(b + 1);
+    if (ends_with(pkg, "_shared"))
+        pkg.resize(pkg.size() - 7);
+    if (token.find("charname") != std::string::npos || dir.find("gender") != std::string::npos ||
+        file.find('/') != std::string::npos)
+        return false;
+    return !pkg.empty() && !dir.empty() && !token.empty() && !file.empty();
+}
+
+// Which stock helmet the mod was painted for. The visor attachments model it carries decides: the SERPs template
+// names its textures and mesh after unassigned_livery18 but carries replica_hamilton20a's attachments model and
+// buffers, byte for byte. Without one, the folder its helmet texture sits in. shell is empty for career-helmet
+// template mods (charname_*) and anything else that names no helmet of its own.
+inline Detected detect(const erp::Archive &mod)
+{
+    Detected d;
+    std::string pkg, dir, token, file;
+    for (const char *want : {"?model", "?lod=all&ib=0", "?lod=0&mesh"}) {
+        for (auto &r : mod.resources) {
+            if (r.name.find(std::string("_helmet_attachments.idf") + want) == std::string::npos ||
+                !split_eaid(r.name, "idf", pkg, dir, token, file))
+                continue;
+            Shell s;
+            s.pkg = pkg, s.dir = dir, s.token = token;
+            s.stem = file.substr(0, file.find("_attachments.idf"));
+            d.shell = s;
+            d.from = "visor attachments model";
+            break;
+        }
+        if (d.shell)
+            break;
+    }
+    for (auto &r : mod.resources) {
+        if (!ends_with(r.name, "_helmet_d.tif.image") || !split_eaid(r.name, "textures", pkg, dir, token, file))
+            continue;
+        std::string tex = file.substr(0, file.size() - std::strlen("_helmet_d.tif.image"));
+        d.mod_tex = tex;
+        if (!d.shell) {
+            Shell s;
+            s.pkg = pkg, s.dir = dir, s.token = token, s.stem = tex + "_helmet";
+            d.shell = s;
+            d.from = "helmet texture";
+        }
+        break;
+    }
+    return d;
+}
+
+// The prefix the shell's own textures are named with (lewis_hamilton, replica_hamilton20a): the file before
+// _helmet_d in the shell's own texture folder.
+inline std::string shell_tex(const erp::Archive &shell, const std::string &shell_token)
+{
+    std::string pkg, dir, token, file;
+    for (auto &r : shell.resources)
+        if (ends_with(r.name, "_helmet_d.tif.image") && split_eaid(r.name, "textures", pkg, dir, token, file) &&
+            token == shell_token)
+            return file.substr(0, file.size() - std::strlen("_helmet_d.tif.image"));
+    return {};
+}
+
+// A same-length name for a converted helmet's folder: "a001" over the token's first four characters
+// (2026-ferrari_lewis_hamilton -> a001-ferrari_lewis_hamilton, replica_hamilton20a -> a001ica_hamilton20a).
+inline std::string token_for(const std::string &shell_token, int n)
+{
+    if (shell_token.size() < 5 || n < 1 || n > 999)
+        return {};
+    char b[8];
+    std::snprintf(b, sizeof b, "a%03d", n);
+    return b + shell_token.substr(4);
+}
+
+// A converted helmet's archive stem: the shell's, with its token renamed when the stem holds it
+// (replica_hamilton20a_helmet -> a001ica_hamilton20a_helmet; lewis_hamilton_helmet stays).
+inline std::string stem_for(const std::string &shell_stem, const std::string &shell_token, const std::string &token)
+{
+    std::string s = shell_stem;
+    for (size_t at = s.find(shell_token); at != std::string::npos; at = s.find(shell_token, at + token.size()))
+        s.replace(at, shell_token.size(), token);
+    return s;
+}
+
 struct Result {
     size_t textures = 0, renamed = 0;
     std::vector<std::string> replaced;
@@ -81,12 +203,19 @@ struct Result {
 
 // The mod's texture for a shell texture suffix ("helmet_d"): the template's charname_<x> first, then (for normal
 // and specular maps) a design's <design>_<x>, which these mods usually ship alongside.
-inline const erp::Resource *mod_texture(const erp::Archive &mod, const std::string &x, const char *ext)
+inline const erp::Resource *mod_texture(const erp::Archive &mod, const std::string &x, const char *ext,
+                                        const std::string &mod_tex)
 {
     std::string want = "/charname_" + x + ext;
     for (auto &r : mod.resources)
         if (ends_with(r.name, want))
             return &r;
+    if (!mod_tex.empty()) {  // a design archive's own textures (unassigned_livery18_visor_attachments_d)
+        want = "/" + mod_tex + "_" + x + ext;
+        for (auto &r : mod.resources)
+            if (ends_with(r.name, want))
+                return &r;
+    }
     if (x.find("visor") != std::string::npos)
         return nullptr;
     std::string tail = "_" + x + ext;
@@ -97,21 +226,31 @@ inline const erp::Resource *mod_texture(const erp::Archive &mod, const std::stri
     return nullptr;
 }
 
-inline Result convert(const erp::Archive &mod, erp::Archive shell, const std::string &token,
-                      const std::filesystem::path &out)
+inline Result convert(const erp::Archive &mod, erp::Archive shell, const std::string &shell_token,
+                      const std::string &token, const std::filesystem::path &out)
 {
-    if (token.size() != std::strlen(kShellToken))
+    if (token.size() != shell_token.size())
         throw std::runtime_error("the new helmet name must be as long as the shell's");
     Result res;
-    const std::string folder = std::string("eaid://character_package/drivers/male/") + kShellToken + "/textures/" +
-                               kShellStem + "_";
+    const std::string tex = shell_tex(shell, shell_token), mod_tex = detect(mod).mod_tex;
+    if (tex.empty())
+        throw std::runtime_error("the helmet shell has no helmet texture of its own");
+    // the shell's own textures: <pkg>[_shared]/<dir>/<token>/textures/<tex>_<x>
+    auto shell_find = [&](const std::string &x, const char *ext) -> erp::Resource * {
+        std::string pkg, dir, t, file;
+        for (auto &r : shell.resources)
+            if (ends_with(r.name, "/" + tex + "_" + x + ext) && split_eaid(r.name, "textures", pkg, dir, t, file) &&
+                t == shell_token)
+                return &r;
+        return nullptr;
+    };
     std::set<std::string> keep_stream;  // surfaces we don't replace: their stream paths stay on the game's files
     for (const char *x : {"helmet_d", "helmet_n", "helmet_s", "helmet_wing_d", "helmet_wing_n", "helmet_wing_s",
                           "visor_attachments_d", "visor_d", "visor_s"}) {
-        erp::Resource *img = shell.find(folder + x + ".tif.image");
-        erp::Resource *srv = shell.find(folder + x + ".tif");
-        const erp::Resource *mimg = mod_texture(mod, x, ".tif.image");
-        const erp::Resource *msrv = mod_texture(mod, x, ".tif");
+        erp::Resource *img = shell_find(x, ".tif.image");
+        erp::Resource *srv = shell_find(x, ".tif");
+        const erp::Resource *mimg = mod_texture(mod, x, ".tif.image", mod_tex);
+        const erp::Resource *msrv = mod_texture(mod, x, ".tif", mod_tex);
         if (!img || !srv || !mimg || !msrv)
             continue;
         auto view = msrv->fragments.empty() ? std::vector<uint8_t>() : msrv->fragments[0].data();
@@ -131,20 +270,20 @@ inline Result convert(const erp::Archive &mod, erp::Archive shell, const std::st
     for (auto &r : shell.resources)
         if (r.kind_name() == "GfxSurfaceRes" && r.fragments.size() >= 3) {
             auto d = r.fragments[2].data();
-            if (std::string(d.begin(), d.end()).find(kShellToken) != std::string::npos)
+            if (std::string(d.begin(), d.end()).find(shell_token) != std::string::npos)
                 keep_stream.insert(r.name);
         }
     // rename the folder everywhere it is written
     for (auto &r : shell.resources) {
         bool changed = false;
         std::string name = r.name;
-        for (size_t at = name.find(kShellToken); at != std::string::npos; at = name.find(kShellToken, at + 1))
+        for (size_t at = name.find(shell_token); at != std::string::npos; at = name.find(shell_token, at + 1))
             name.replace(at, token.size(), token), changed = true;
         for (size_t i = 0; i < r.fragments.size(); i++) {
             if (i == 2 && keep_stream.count(r.name))
                 continue;
             auto d = r.fragments[i].data();
-            size_t n = replace_all(d, kShellToken, token);
+            size_t n = replace_all(d, shell_token, token);
             if (n) {
                 r.fragments[i].set(std::move(d));
                 res.renamed += n;
