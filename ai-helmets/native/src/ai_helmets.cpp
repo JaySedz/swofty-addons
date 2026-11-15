@@ -334,7 +334,7 @@ constexpr uint32_t kNoKey = 0x3fff0000u, kHumanBit = 0x10000000u;
 constexpr size_t kMaxEntrants = 256;
 
 struct Seat {
-    uint32_t driver_stat = 0, team_stat = 0;
+    uint32_t driver_stat = 0, team_stat = 0, vehicle = 0;
     int position = -1;
     bool human = false, has_car = false, has_team = false;
 };
@@ -365,6 +365,7 @@ bool read_lineup(std::vector<Seat> &out)
         s.team_stat = team >> 16;
         s.has_team = !none(team);
         s.has_car = !none(vehicle);
+        s.vehicle = vehicle;
         s.position = (tp >> 8) ? (tp & 0xff) : -1;
         s.human = (flags & kHumanBit) != 0;
         out.push_back(s);
@@ -589,33 +590,85 @@ bool always_newcomer(const std::string &driver)
     return true;
 }
 
+bool same_team(const std::string &team_key, const std::string &home);
+
+// A driver's plain team rows of one season ("2025-tororosso_liam_lawson" -> "tororosso"), each with how many of
+// his rows that season are that team's, its special liveries included ("tororossomiami", "redbulljapan").
+std::map<std::string, int> season_rows(const std::vector<std::string> &looks, const std::string &driver,
+                                       const std::string &year)
+{
+    std::string tail = "_" + driver.substr(driver.find('/') + 1);
+    std::vector<std::string> codes;
+    for (auto &ref : looks) {
+        std::string l = ref.substr(ref.find('/') + 1);
+        if (l.size() < 6 || l.compare(0, 4, year) != 0 || l[4] != '-' || !ends_with(l, tail))
+            continue;
+        std::string code = l.substr(5, l.size() - 5 - tail.size());
+        if (!code.empty() && code.find('-') == std::string::npos)
+            codes.push_back(code);
+    }
+    std::map<std::string, int> out;
+    for (auto &c : codes) {
+        // a plain row is one no shorter row of his is a prefix of ("redbulljapan" is a Red Bull livery)
+        bool livery = false;
+        for (auto &o : codes)
+            if (o.size() < c.size() && c.compare(0, o.size(), o) == 0)
+                livery = true;
+        if (!livery)
+            out[c] = 0;
+    }
+    for (auto &c : codes)
+        for (auto &[team, n] : out)
+            if (c.compare(0, team.size(), team) == 0)
+                n++;
+    return out;
+}
+
+// His team of one season: the one with the most rows, liveries included. Liam Lawson has 2025 rows for Red Bull
+// (where he started 2025) and Racing Bulls (where he raced after, with its Miami and Silverstone liveries), so
+// Racing Bulls; Yuki Tsunoda has the reverse, with Red Bull's Japan livery. A tie goes to the shorter name.
+std::string season_team_of(const std::vector<std::string> &looks, const std::string &driver, const std::string &year)
+{
+    std::string best;
+    int most = 0;
+    for (auto &[team, n] : season_rows(looks, driver, year))
+        if (n > most || (n == most && team.size() < best.size())) {
+            best = team;
+            most = n;
+        }
+    return best;
+}
+
 // The team a driver's own helmet belongs to, from his look rows ("2026-mclaren_lando_norris" -> "mclaren"):
 // the season of the team he races for now (a _26 key is 2026, else 2025), else his newest. F2 rows
-// ("2024-f2-...") are skipped, and of one season's rows the plain one wins over special liveries
-// ("williamsgulf"). Empty for a driver with no such row (rookies, addon drivers).
+// ("2024-f2-...") are skipped. A season row for the team he races for wins (Lawson is at home at Red Bull and
+// at Racing Bulls in 2025); else the season's team above. Empty for a driver with no such row (rookies,
+// addon drivers).
 std::string home_team(const std::string &driver, const std::string &current_team)
 {
     auto it = g_looks.find(driver);
     if (it == g_looks.end())
         return {};
     std::string want_year = ends_with(current_team, "_26") ? "2026" : "2025";
-    std::string tail = "_" + driver.substr(driver.find('/') + 1);
-    std::string best_year, best_team, season_team;
+    auto rows = season_rows(it->second, driver, want_year);
+    std::string at_team;
+    if (!current_team.empty())
+        for (auto &[team, n] : rows)
+            if (same_team(current_team, team) && (at_team.empty() || team.size() < at_team.size()))
+                at_team = team;
+    if (!at_team.empty())
+        return at_team;
+    if (!rows.empty())
+        return season_team_of(it->second, driver, want_year);
+    // no row this season: his newest season's team
+    std::string tail = "_" + driver.substr(driver.find('/') + 1), newest;
     for (auto &ref : it->second) {
         std::string l = ref.substr(ref.find('/') + 1);
-        if (l.size() < 6 || l[4] != '-' || !std::isdigit(static_cast<unsigned char>(l[0])) || !ends_with(l, tail))
-            continue;
-        std::string year = l.substr(0, 4), team = l.substr(5, l.size() - 5 - tail.size());
-        if (team.empty() || team.find('-') != std::string::npos)
-            continue;
-        if (year == want_year && (season_team.empty() || team.size() < season_team.size()))
-            season_team = team;
-        if (year > best_year || (year == best_year && team.size() < best_team.size())) {
-            best_year = year;
-            best_team = team;
-        }
+        if (l.size() >= 6 && l[4] == '-' && std::isdigit(static_cast<unsigned char>(l[0])) && ends_with(l, tail) &&
+            l.substr(0, 4) > newest && !season_rows(it->second, driver, l.substr(0, 4)).empty())
+            newest = l.substr(0, 4);
     }
-    return season_team.empty() ? best_team : season_team;
+    return newest.empty() ? std::string() : season_team_of(it->second, driver, newest);
 }
 
 // Does a team key belong to the team a look names? ("williams_26" and "williams"; "gm_cadillac_26" and "cadillac")
@@ -1017,7 +1070,7 @@ size_t patch(const std::string &driver, const std::string &helmet, std::string &
 // ---------------------------------------------------------------------------------------------------------
 // The launcher page's catalogue
 
-void write_catalogue(const std::vector<Seat> &seats, uint32_t myteam_stat)
+void write_catalogue(const std::vector<Seat> &seats, uint32_t myteam_stat, const std::vector<bool> &mine)
 {
     J::Value cat = J::Value::object();
     cat["version"] = 1;
@@ -1048,9 +1101,10 @@ void write_catalogue(const std::vector<Seat> &seats, uint32_t myteam_stat)
         mt["career"] = g_career;
         mt["team"] = t != g_team_of_stat.end() ? team_key_of(t->second) : std::string();
         J::Value list = J::Value::array();
-        for (auto &s : seats) {
+        for (size_t i = 0; i < seats.size(); i++) {
+            auto &s = seats[i];
             auto d = g_driver_of_stat.find(s.driver_stat);
-            if (!s.has_team || s.team_stat != myteam_stat || d == g_driver_of_stat.end())
+            if (!mine[i] || d == g_driver_of_stat.end())
                 continue;
             J::Value row = J::Value::object();
             row["id"] = d->second;
@@ -1082,15 +1136,7 @@ void write_catalogue(const std::vector<Seat> &seats, uint32_t myteam_stat)
     for (const char *year : {"2026", "2025"}) {
         J::Value teams = J::Value::object();
         for (auto &[driver, looks] : g_looks) {
-            std::string tail = "_" + driver.substr(driver.find('/') + 1), best;
-            for (auto &ref : looks) {
-                std::string l = ref.substr(ref.find('/') + 1);
-                if (l.size() > 5 && l.compare(0, 4, year) == 0 && l[4] == '-' && ends_with(l, tail)) {
-                    std::string code = l.substr(5, l.size() - 5 - tail.size());
-                    if (!code.empty() && code.find('-') == std::string::npos && (best.empty() || code.size() < best.size()))
-                        best = code;
-                }
-            }
+            std::string best = season_team_of(looks, driver, year);
             if (best.empty())
                 continue;
             std::string key = (best == "cadillac" ? std::string("gm_cadillac") : best) + (std::string(year) == "2026" ? "_26" : "");
@@ -1118,6 +1164,66 @@ void write_catalogue(const std::vector<Seat> &seats, uint32_t myteam_stat)
     static std::string last;
     if (text != last && storage::write("catalogue.json", text) == storage::Result::ok)
         last = text;
+}
+
+// MyTeam's seats among those with its team stat. In a 2025-season MyTeam the player's team shares a 2025 team
+// row's stat (Red Bull's, Ferrari's...), so that team's drivers and reserves match it too: two seats hold each
+// team position. They are told apart by car (the player's seat's vehicle) when that splits them, else by
+// taking, for each team position, the seat nearest the player's in the entrant list (the game lists MyTeam's
+// entrants after the real team's). how says which, empty when the team stat is MyTeam's alone.
+std::vector<bool> myteam_seats(const std::vector<Seat> &seats, uint32_t myteam, std::string &how)
+{
+    how.clear();
+    std::vector<bool> in(seats.size(), false);
+    if (!myteam)
+        return in;
+    auto seated = [&](size_t i) { return seats[i].has_car && seats[i].position >= 0; };
+    std::vector<size_t> group;
+    std::set<int> positions;
+    bool shared = false;
+    size_t human = seats.size();
+    for (size_t i = 0; i < seats.size(); i++) {
+        if (!seats[i].has_team || seats[i].team_stat != myteam)
+            continue;
+        group.push_back(i);
+        if (seats[i].human && human == seats.size())
+            human = i;
+        if (seated(i) && !positions.insert(seats[i].position).second)
+            shared = true;
+    }
+    if (!shared || human == seats.size()) {
+        for (size_t i : group)
+            in[i] = true;
+        if (shared)
+            how = "shared with another team, and no player seat to tell them apart";
+        return in;
+    }
+    size_t n_seated = 0;
+    std::vector<size_t> same_car;
+    for (size_t i : group)
+        if (seated(i)) {
+            n_seated++;
+            if (seats[i].vehicle == seats[human].vehicle)
+                same_car.push_back(i);
+        }
+    if (same_car.size() >= 2 && same_car.size() < n_seated) {
+        for (size_t i : same_car)
+            in[i] = true;
+        how = "shared with another team, told apart by car";
+        return in;
+    }
+    std::map<int, size_t> best;
+    auto dist = [&](size_t i) { return i > human ? i - human : human - i; };
+    for (size_t i : group)
+        if (seated(i)) {
+            auto b = best.find(seats[i].position);
+            if (b == best.end() || dist(i) < dist(b->second))
+                best[seats[i].position] = i;
+        }
+    for (auto &[pos, i] : best)
+        in[i] = true;
+    how = "shared with another team, told apart by entrant order";
+    return in;
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1157,6 +1263,8 @@ void refresh(const char *why)
     // MyTeam: the player's team (the core's player_team, as a stat id or a (stat << 16) | 1 key; else the human
     // seat's team). Both its seats are handled, the one the player drives included.
     uint32_t myteam = 0;
+    std::vector<bool> mine(seats.size(), false);  // the seats that are MyTeam's
+    std::string how;
     {
         career::State st{};
         if (career::state(&st) == career::Result::ok && career::mode(st) == career::Mode::my_team) {
@@ -1169,22 +1277,30 @@ void refresh(const char *why)
                 for (auto &s : seats)
                     if (!myteam && s.human && s.has_team)
                         myteam = s.team_stat;
+            mine = myteam_seats(seats, myteam, how);
             static std::string logged;
             if (logged != g_career) {
                 logged = g_career;
                 auto t = g_team_of_stat.find(myteam);
-                std::string who;
-                for (auto &s : seats)
-                    if (myteam && s.has_team && s.team_stat == myteam) {
-                        auto d = g_driver_of_stat.find(s.driver_stat);
-                        who += (who.empty() ? "" : ", ") +
-                               (d != g_driver_of_stat.end() ? d->second : "stat " + std::to_string(s.driver_stat)) +
-                               (s.human ? " (player)" : "") +
-                               (s.has_car && s.position >= 0 ? " [seat " + std::to_string(s.position) + "]" : " [no race seat]");
-                    }
-                swofty::log("[ai-helmets] MyTeam career: player_team %u, team stat %u (%s); drivers: %s", st.player_team,
-                            myteam, t != g_team_of_stat.end() ? t->second.c_str() : "no team row",
-                            who.empty() ? "none found" : who.c_str());
+                std::string who, others;
+                for (size_t i = 0; i < seats.size(); i++) {
+                    auto &s = seats[i];
+                    if (!myteam || !s.has_team || s.team_stat != myteam)
+                        continue;
+                    auto d = g_driver_of_stat.find(s.driver_stat);
+                    char car[64];
+                    std::snprintf(car, sizeof car, " #%zu car 0x%08x", i, s.vehicle);
+                    std::string &list = mine[i] ? who : others;
+                    list += (list.empty() ? "" : ", ") +
+                            (d != g_driver_of_stat.end() ? d->second : "stat " + std::to_string(s.driver_stat)) +
+                            (s.human ? " (player)" : "") +
+                            (s.has_car && s.position >= 0 ? " [seat " + std::to_string(s.position) + "]" : " [no race seat]") +
+                            car;
+                }
+                swofty::log("[ai-helmets] MyTeam career: player_team %u, team stat %u (%s%s%s); drivers: %s%s%s", st.player_team,
+                            myteam, t != g_team_of_stat.end() ? t->second.c_str() : "no team row", how.empty() ? "" : ", ",
+                            how.c_str(), who.empty() ? "none found" : who.c_str(),
+                            others.empty() ? "" : "; the other team's: ", others.c_str());
             }
         }
     }
@@ -1197,8 +1313,9 @@ void refresh(const char *why)
     // after the career's first check joined from the free agents: he wears the team's newcomer helmet. At the
     // first check every seated driver counts as at home, so an addon's own grid drivers keep their helmets.
     bool career_started = !g_original.empty();
-    for (auto &s : seats) {
-        if (myteam && s.has_team && s.team_stat == myteam) {
+    for (size_t i = 0; i < seats.size(); i++) {
+        auto &s = seats[i];
+        if (mine[i]) {
             // a MyTeam driver, the one the player drives included: his MyTeam pick, else his own helmet
             auto d = g_driver_of_stat.find(s.driver_stat);
             if (d == g_driver_of_stat.end() || !s.has_car || s.position < 0)
@@ -1297,7 +1414,7 @@ void refresh(const char *why)
     }
     if (dirty)
         save_state();
-    write_catalogue(seats, myteam);
+    write_catalogue(seats, myteam, mine);
     if (verbose || changed)
         swofty::log("[ai-helmets] %s: %zu seat(s) read, %zu driver(s) away from their original team, %zu change(s)",
                     why, seats.size(), movers, changed);

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.ai-helmets",
   "name": "AI Helmets",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Sedz",
   "description": "Set AI drivers' helmets. Import helmets of your own or use helmets from the in game database.",
   "license": "MIT",
@@ -14,7 +14,6 @@
     "game": "f1_25",
     "game_builds": [">=25251167"],
     "launcher": ">=1.8.36",
-    "platforms": ["steam"],
     "seasons": ["f1_2025", "f1_2026"]
   },
   "requires": [{ "id": "swofty.core", "version": ">=0.1.0" }],
