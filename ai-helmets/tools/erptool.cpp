@@ -63,6 +63,16 @@ int main(int argc, char **argv)
                 (std::memcmp(h, r.hash, 16) == 0 ? ok : bad)++;
             }
             std::printf("%zu resource hash(es) match MD5 of their data, %zu don't\n", ok, bad);
+        } else if (cmd == "mips" && argc >= 6) {
+            // erptool mips <file.erp> <pack-dir> <tag> <out.erp>: point its textures at the pack's .mipmaps files
+            std::vector<convert::MipFile> mips;
+            for (auto &e : std::filesystem::recursive_directory_iterator(argv[3]))
+                if (e.path().extension() == ".mipmaps")
+                    mips.push_back({convert::lower(e.path().lexically_relative(argv[3]).generic_string()), e.path()});
+            auto moves = convert::retarget_archive(argv[2], argv[5], mips, argv[4]);
+            std::printf("%zu mip file(s) in the pack, %zu texture(s) retargeted\n", mips.size(), moves.size());
+            for (auto &m : moves)
+                std::printf("  %s\n    -> %s\n", m.from.c_str(), m.to.c_str());
         } else if (cmd == "convert" && argc >= 6) {
             erp::Archive shell = erp::load(argv[3]);
             auto r = convert::convert(a, shell, argc >= 7 ? argv[6] : convert::kShellToken, argv[4], argv[5]);

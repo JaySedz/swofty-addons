@@ -506,14 +506,21 @@ Lineup lineup(const J::Value &cat, bool running)
     l.career = std::string(cat["career"].as_string());
     l.live = running && cat["live"].as_bool(false);
     std::map<std::string, std::vector<std::string>> by;
-    // a MyTeam career's own team is on the MyTeam tab, not among the teams
+    // a MyTeam career's own drivers are on the MyTeam tab, not among the teams. They are the plugin's list, not
+    // everyone with the MyTeam's team key: in a 2025-season MyTeam that key is a real team's too ("redbull"),
+    // whose own drivers stay in the table.
     std::string myteam(cat["myteam"]["team"].as_string());
+    std::set<std::string> mine;
+    if (auto *a = cat["myteam"]["drivers"].if_array())
+        for (auto &d : *a)
+            if (d["id"].is_string())
+                mine.insert(std::string(d["id"].as_string()));
     if (auto *a = cat["drivers"].if_array())
         for (auto &d : *a) {
             if (!d["seated"].as_bool(false) || !d["id"].is_string())
                 continue;
             std::string id(d["id"].as_string()), team(d["team"].as_string()), orig(d["original"].as_string());
-            if (!myteam.empty() && team == myteam) {
+            if (!myteam.empty() && team == myteam && mine.count(id)) {
                 l.myteam.insert(id);
                 continue;
             }
@@ -1080,6 +1087,43 @@ std::string shell_from(const std::string &key, const J::Value &cat)
     return best.empty() ? std::string(kDefaultShell) : best;
 }
 
+// The driver helmet row a helmet archive was made from, read from its own resources: a driver's helmet archive
+// names its folder in every path ("eaid://character_package/drivers/male/2026-redbull_max_verstappen/textures/
+// max_verstappen_helmet_d.tif" -> game/2026-redbull_max_verstappen). Empty when it names none the game has. The
+// file name rule above only knows "<first>_<last>_helmet.erp", and overtake.gg files are often called
+// "f1_25_max_verstappen_helmet.erp".
+std::string row_of_archive(const fs::path &file, const J::Value &cat)
+{
+    std::set<std::string> rows;
+    if (auto *a = cat["helmets"].if_array())
+        for (auto &h : *a)
+            if (h.is_string())
+                rows.insert(std::string(h.as_string()));
+    for (auto &gh : kGridHelmets)
+        rows.insert(gh.helmet);
+    try {
+        erp::Archive a = erp::load(file);
+        for (auto &r : a.resources) {
+            const std::string &n = r.name;
+            if (n.find("_helmet_d.tif") == std::string::npos)
+                continue;
+            for (const char *dir : {"eaid://character_package/drivers/male/", "eaid://character_package/drivers/female/"}) {
+                size_t len = std::strlen(dir);
+                if (n.compare(0, len, dir) != 0)
+                    continue;
+                size_t slash = n.find('/', len);
+                if (slash == std::string::npos)
+                    continue;
+                std::string row = "game/" + n.substr(len, slash - len);
+                if (rows.count(row))
+                    return row;
+            }
+        }
+    } catch (...) {
+    }
+    return {};
+}
+
 // What an imported file is: "ok" (a helmet archive), "zip" (a mod package), "career" (a repaint of the game's
 // helmet template, such as a markdown_system.erp mod) or "other" (not an ERP).
 std::string helmet_file_kind(const fs::path &path)
@@ -1106,7 +1150,7 @@ std::string helmet_file_kind(const fs::path &path)
     auto u32 = [&](size_t at) { uint32_t v = 0; std::memcpy(&v, idx.data() + at, 4); return v; };
     uint32_t count = u32(pos);
     pos += 8;
-    bool career = false, helmet = false;
+    bool career = false, helmet = false, helmet_tex = false, helmet_model = false;
     for (uint32_t i = 0; i < count && pos + 6 < idx.size(); i++) {
         pos += 4;
         uint16_t len = 0;
@@ -1118,12 +1162,19 @@ std::string helmet_file_kind(const fs::path &path)
         career |= name.find("charname_helmet") != std::string::npos || name.find("markdown/") != std::string::npos ||
                   (name.find("livery_package") != std::string::npos && name.find("_helmet_d.tif") != std::string::npos);
         helmet |= name.find("_helmet") != std::string::npos;
+        helmet_tex |= name.find("_helmet_d.tif") != std::string::npos;
+        helmet_model |= name.find("_helmet_attachments.idf") != std::string::npos ||
+                        name.find("kitpart_assets/generic/helmets/") != std::string::npos;
         pos += len + 16 + (version >= 4 ? 6 : 4);
         if (pos >= idx.size())
             break;
         uint8_t n = uint8_t(idx[pos]);
         pos += 1 + size_t(n) * (4 + 8 + 8 + 4 + 1 + 8) + 16;
     }
+    // a driver's body archive (suit, gloves and boots, with his helmet's textures but no helmet model) can't be
+    // worn as a helmet: its textures are converted onto his stock helmet, as a career-helmet mod's are
+    if (!career && helmet_tex && !helmet_model)
+        career = true;
     return career ? "career" : helmet ? "ok" : "other";
 }
 
@@ -1209,11 +1260,54 @@ bool extract(const fs::path &src, const fs::path &dir)
     return code == 0;
 }
 
+// A free tag for the mip folder of a helmet archive used as it is ("b001": its own mips go under
+// b001-redbull_max_verstappen; converted helmets use their token's "a001").
+std::string next_mip_tag()
+{
+    std::set<std::string> used;
+    for (auto &h : g.custom())
+        used.insert(std::string(h["mip_tag"].as_string()));
+    for (int i = 1; i < 1000; i++) {
+        char b[8];
+        std::snprintf(b, sizeof b, "b%03d", i);
+        if (!used.count(b))
+            return b;
+    }
+    return {};
+}
+
+// Keeps the pack's mip files a helmet's textures now name, in helmets/<key>.mips/, for the build to put at their
+// new paths. Returns the config entry's "mips" list.
+J::Value store_mips(const std::string &key, const std::vector<convert::MipMove> &moves)
+{
+    J::Value list = J::Value::array();
+    std::error_code ec;
+    fs::path dir = g.helmets_dir() / from_utf8(key + ".mips");
+    fs::remove_all(dir, ec);
+    for (auto &m : moves) {
+        std::string name = m.to.substr(m.to.rfind('/') + 1);
+        fs::create_directories(dir, ec);
+        fs::copy_file(m.file, dir / from_utf8(name), fs::copy_options::overwrite_existing, ec);
+        if (!ec)
+            list.push_back(J::Value::object({{"file", key + ".mips/" + name}, {"target", m.to}}));
+    }
+    return list;
+}
+
+std::string mips_note(size_t n)
+{
+    return n ? " and its " + std::to_string(n) + " high-resolution mip file(s)" : std::string();
+}
+
 // Adds one archive as a helmet: a helmet archive is copied, a career-helmet mod is converted. Returns its ref.
+// mips: the .mipmaps files of the pack it came in (their textures' streamed high-resolution levels).
 std::string add_archive(const fs::path &file, const std::string &base, const std::string &label, const J::Value &cat,
-                        std::vector<std::string> &done, const std::string &reuse_key = {})
+                        std::vector<std::string> &done, const std::string &reuse_key = {},
+                        const std::vector<convert::MipFile> &mips = {}, bool convert_it = false)
 {
     std::string kind = helmet_file_kind(file);
+    if (convert_it && kind == "ok")
+        kind = "career";  // a driver's helmet archive from a pack: converted onto its own stock helmet
     std::error_code ec;
     fs::create_directories(g.helmets_dir(), ec);
     if (kind == "ok") {
@@ -1223,9 +1317,28 @@ std::string add_archive(const fs::path &file, const std::string &base, const std
             done.push_back(label + ": " + ec.message());
             return {};
         }
-        std::string shell = shell_from(base, cat);
-        g.config["custom"].push_back(J::Value::object({{"key", key}, {"file", out}, {"from", shell}, {"name", title_case(base)}}));
-        done.push_back("Imported " + label + " as " + title_case(base) + ", built on " + g.helmet_label(shell));
+        std::string own = row_of_archive(file, cat), shell = own.empty() ? shell_from(base, cat) : own;
+        J::Value entry = J::Value::object({{"key", key}, {"file", out}, {"from", shell}, {"name", title_case(base)}});
+        size_t nmips = 0;
+        if (!mips.empty()) {
+            // its textures stream their top levels from the stock driver's mip files: point them at the pack's
+            std::string tag = next_mip_tag();
+            try {
+                std::vector<convert::MipMove> moves;
+                if (!tag.empty())
+                    moves = convert::retarget_archive(file, g.helmets_dir() / out, mips, tag);
+                if (!moves.empty()) {
+                    entry["mips"] = store_mips(key, moves);
+                    entry["mip_tag"] = tag;
+                    nmips = moves.size();
+                }
+            } catch (const std::exception &e) {
+                done.push_back(label + ": its mip files weren't used (" + e.what() + ")");
+            }
+        }
+        g.config["custom"].push_back(std::move(entry));
+        done.push_back("Imported " + label + mips_note(nmips) + " as " + title_case(base) + ", built on " +
+                       g.helmet_label(shell) + (own.empty() ? "" : " (the helmet it was made from)"));
         return std::string(kAddon) + "/" + key;
     }
     if (kind == "career") {
@@ -1257,8 +1370,10 @@ std::string add_archive(const fs::path &file, const std::string &base, const std
                 return {};
             }
             std::string stem = convert::stem_for(shell.stem, shell.token, token);
-            auto r = convert::convert(mod, erp::load(shell_file), shell.token, token, g.helmets_dir() / out);
+            auto r = convert::convert(mod, erp::load(shell_file), shell.token, token, g.helmets_dir() / out, &mips);
+            J::Value mip_list = store_mips(key, r.mips);
             g.config["custom"].push_back(J::Value::object({{"key", key},
+                                                           {"mips", std::move(mip_list)},
                                                            {"file", out},
                                                            {"name", title_case(base)},
                                                            {"token", token},
@@ -1269,7 +1384,7 @@ std::string add_archive(const fs::path &file, const std::string &base, const std
                                                            {"dir", shell.dir}}));
             std::string how = det.shell && note.empty() ? " (detected from its " + det.from + ")" : note;
             done.push_back("Converted " + label + " into " + title_case(base) + ": " + std::to_string(r.textures) +
-                           " texture(s) on " + shell_label(shell) + "'s helmet" + how);
+                           " texture(s)" + mips_note(r.mips.size()) + " on " + shell_label(shell) + "'s helmet" + how);
             return std::string(kAddon) + "/" + key;
         } catch (const std::exception &e) {
             done.push_back(label + ": couldn't convert it (" + e.what() + ")");
@@ -1298,11 +1413,19 @@ std::vector<std::string> import_file(const fs::path &src, const J::Value &cat, s
         return refs;
     }
     std::vector<fs::path> found;
+    std::vector<convert::MipFile> mips;  // the pack's streamed mip levels (F1 25/character_package/.../*.mipmaps)
     std::error_code ec;
     for (auto it = fs::recursive_directory_iterator(dir, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
         std::string ext = to_utf8(it->path().extension());
         for (char &c : ext)
             c = char(std::tolower(static_cast<unsigned char>(c)));
+        if (it->is_regular_file(ec) && ext == ".mipmaps") {
+            std::string rel = to_utf8(it->path().lexically_relative(dir));
+            for (char &c : rel)
+                if (c == '\\')
+                    c = '/';
+            mips.push_back({convert::lower(rel), it->path()});
+        }
         if (it->is_regular_file(ec) && ext == ".erp") {
             std::string k = helmet_file_kind(it->path());
             if (k == "ok" || k == "career")
@@ -1311,12 +1434,61 @@ std::vector<std::string> import_file(const fs::path &src, const J::Value &cat, s
     }
     if (found.empty())
         done.push_back(label + " holds no helmet archive or helmet mod");
+    // A real driver's helmet comes as several archives (his helmet archive, his body archive with the same helmet
+    // textures, ...), all on one stock helmet: they become one helmet, made from the helmet archive when the pack
+    // has one (it carries the visor textures too), converted onto that stock helmet under a folder of its own.
+    // Archives that name no stock helmet (career-helmet mods) stay one helmet each.
+    struct Group {
+        std::vector<fs::path> files;
+        fs::path pick;
+        bool model = false;
+    };
+    std::map<std::string, Group> groups;
+    std::vector<std::string> order;
     for (size_t i = 0; i < found.size(); i++) {
-        std::string b = found.size() == 1 ? base : base + "_" + key_from(found[i]);
-        std::string r = add_archive(found[i], b, label + (found.size() == 1 ? "" : " (" + to_utf8(found[i].filename()) + ")"),
-                                    cat, done, found.size() == 1 ? reuse_key : std::string());
-        if (!r.empty())
-            refs.push_back(r);
+        std::string id;
+        bool model = false;
+        try {
+            erp::Archive a = erp::load(found[i]);
+            auto det = convert::detect(a);
+            if (det.shell)
+                id = det.shell->rel();
+            model = det.from == "visor attachments model";
+        } catch (...) {
+        }
+        if (id.empty())
+            id = "#" + std::to_string(i);  // one helmet of its own
+        // two whole helmets on one stock helmet (two SERPs designs, both on replica_hamilton20a) stay two
+        if (model && groups.count(id) && groups[id].model)
+            id += "#" + std::to_string(i);
+        auto [it, fresh] = groups.try_emplace(id);
+        if (fresh)
+            order.push_back(id);
+        Group &grp = it->second;
+        grp.files.push_back(found[i]);
+        if (grp.pick.empty() || (model && !grp.model)) {
+            grp.pick = found[i];
+            grp.model = model;
+        }
+    }
+    for (auto &id : order) {
+        Group &grp = groups[id];
+        bool one = order.size() == 1;
+        std::string b = one ? base : base + "_" + key_from(grp.pick);
+        std::string l = label + (found.size() == 1 ? "" : " (" + to_utf8(grp.pick.filename()) + ")");
+        std::string r = add_archive(grp.pick, b, l, cat, done, one ? reuse_key : std::string(), mips,
+                                    grp.files.size() > 1);
+        if (r.empty())
+            continue;
+        refs.push_back(r);
+        if (grp.files.size() > 1) {
+            std::string others;
+            for (auto &f : grp.files)
+                if (f != grp.pick)
+                    others += (others.empty() ? "" : ", ") + to_utf8(f.filename());
+            done.push_back("  " + others + (grp.files.size() > 2 ? " hold" : " holds") +
+                           " the same helmet, so it isn't a helmet of its own");
+        }
     }
     fs::remove_all(dir, ec);
     return refs;
@@ -1329,9 +1501,22 @@ void convert_pending(std::vector<std::string> &done)
     const J::Value cat = g.catalogue();
     J::Value kept = J::Value::array();
     std::vector<J::Value> todo;
+    bool fixed = false;
     for (auto &h : g.custom()) {
-        std::string k = helmet_file_kind(g.helmets_dir() / std::string(h["file"].as_string()));
-        if (k == "ok" || h["token"].is_string())
+        fs::path f = g.helmets_dir() / std::string(h["file"].as_string());
+        std::string k = helmet_file_kind(f);
+        if (k == "ok" && !h["token"].is_string() && h["from"].as_string() == kDefaultShell) {
+            // imported before "Made for" was read from the archive: put it on the helmet it was made from
+            std::string own = row_of_archive(f, cat);
+            J::Value x = h;
+            if (!own.empty() && own != kDefaultShell) {
+                x["from"] = own;
+                done.push_back(std::string(h["name"].as_string()) + " is now built on " + g.helmet_label(own) +
+                               ", the helmet it was made from");
+                fixed = true;
+            }
+            kept.push_back(std::move(x));
+        } else if (k == "ok" || h["token"].is_string())
             kept.push_back(h);
         else
             todo.push_back(h);
@@ -1360,7 +1545,7 @@ void convert_pending(std::vector<std::string> &done)
                     x["name"] = h["name"];
         fs::remove(work, ec);
     }
-    if (!todo.empty())
+    if (!todo.empty() || fixed)
         g.save(false);  // run by the build only: data_dir's copy
 }
 
@@ -1440,6 +1625,7 @@ J::Value remove_helmet(const std::string &key)
     if (!file.empty()) {
         std::error_code ec;
         fs::remove(g.helmets_dir() / file, ec);
+        fs::remove_all(g.helmets_dir() / from_utf8(key + ".mips"), ec);
     }
     g.save();
     return J::Value::object({{"notice", "Removed " + key}});
@@ -1562,6 +1748,18 @@ J::Value build(const J::Value &params)
                  {"template", "asset_groups/" + at + shell + "/" + shell_stem + ".assetgroup"}}));
         } else
             put("helmets/" + file);
+        // the pack's mip files, at the helmet's own paths its textures now name
+        if (auto *m = h["mips"].if_array())
+            for (auto &x : *m) {
+                std::string src(x["file"].as_string()), target(x["target"].as_string());
+                if (src.empty() || target.empty() || !fs::is_regular_file(g.helmets_dir() / from_utf8(src), ec)) {
+                    warnings.push_back("helmet " + std::string(h["key"].as_string()) + ": helmets/" + src + " is missing");
+                    continue;
+                }
+                ops.push_back(J::Value::object({{"op", "file.put"},
+                                                {"source", J::Value::object({{"root", "data"}, {"path", "helmets/" + src}})},
+                                                {"target", target}}));
+            }
         n++;
     }
     size_t picks = 0;

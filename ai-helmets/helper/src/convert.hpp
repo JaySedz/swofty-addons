@@ -196,9 +196,104 @@ inline std::string stem_for(const std::string &shell_stem, const std::string &sh
     return s;
 }
 
+// A texture's streamed mip levels live in a loose file beside the archives
+// (character_package/drivers/male/2026-redbull_max_verstappen/textures/max_verstappen_helmet_d.tif.2025.mipmaps),
+// named in its surface's third fragment as a length-prefixed string. A helmet mod ships its own files at the stock
+// paths; a copy of them under a folder of the helmet's own (same length, so the header keeps its size) leaves the
+// stock driver's untouched.
+struct MipFile {
+    std::string path;  // where it sat in the pack, lower case with '/'
+    std::filesystem::path file;
+};
+struct MipMove {
+    std::string from, to;  // the stream path the mod named, and the helmet's own
+    std::filesystem::path file;
+};
+
+inline std::string lower(std::string s)
+{
+    for (char &c : s)
+        c = char(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+
+// The stream path in a surface's third fragment, and where it starts.
+inline bool stream_path(const std::vector<uint8_t> &d, size_t &at, std::string &path)
+{
+    std::string s(d.begin(), d.end());
+    size_t e = s.find(".mipmaps");
+    if (e == std::string::npos)
+        return false;
+    e += 8;
+    size_t b = e;
+    while (b > 0 && s[b - 1] >= 0x20 && s[b - 1] < 0x7f)
+        b--;
+    for (size_t k = std::max<size_t>(b, 1); k + 8 <= e; k++)
+        if (static_cast<uint8_t>(s[k - 1]) == e - k) {
+            at = k;
+            path = s.substr(k, e - k);
+            return true;
+        }
+    return false;
+}
+
+// Points a surface whose mod ships its mip file at a copy of it under "<tag><folder minus its first 4>"
+// (2026-redbull_max_verstappen -> a001-redbull_max_verstappen). Returns false when the pack has no such file.
+inline bool retarget_mips(erp::Resource &img, const std::vector<MipFile> &mips, const std::string &tag, MipMove &move)
+{
+    if (img.fragments.size() < 3 || tag.size() != 4)
+        return false;
+    auto d = img.fragments[2].data();
+    size_t at = 0;
+    std::string path;
+    if (!stream_path(d, at, path))
+        return false;
+    std::string want = lower(path);
+    const MipFile *hit = nullptr;
+    for (auto &m : mips)
+        if (m.path == want || ends_with(m.path, "/" + want))
+            hit = &m;
+    size_t tex = path.rfind("/textures/");
+    if (!hit || tex == std::string::npos)
+        return false;
+    size_t f = path.rfind('/', tex - 1);
+    f = f == std::string::npos ? 0 : f + 1;
+    if (tex - f < 5)
+        return false;
+    std::string to = path;
+    to.replace(f, 4, tag);
+    std::memcpy(d.data() + at, to.data(), to.size());
+    img.fragments[2].set(std::move(d));
+    move = {path, to, hit->file};
+    return true;
+}
+
+// The same for a helmet archive used as it is: a copy written to out with its surfaces on the pack's mip files.
+inline std::vector<MipMove> retarget_archive(const std::filesystem::path &in, const std::filesystem::path &out,
+                                             const std::vector<MipFile> &mips, const std::string &tag)
+{
+    std::vector<MipMove> moves;
+    erp::Archive a = erp::load(in);
+    for (auto &r : a.resources) {
+        MipMove m;
+        if (r.kind_name() == "GfxSurfaceRes" && retarget_mips(r, mips, tag, m)) {
+            md5(r, r.hash);
+            moves.push_back(std::move(m));
+        }
+    }
+    if (moves.empty())
+        return moves;
+    auto bytes = erp::serialize(a);
+    std::ofstream f(out, std::ios::binary | std::ios::trunc);
+    if (!f.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size())))
+        throw std::runtime_error("can't write " + out.string());
+    return moves;
+}
+
 struct Result {
     size_t textures = 0, renamed = 0;
     std::vector<std::string> replaced;
+    std::vector<MipMove> mips;  // the mod's mip files the converted textures now name
 };
 
 // The mod's texture for a shell texture suffix ("helmet_d"): the template's charname_<x> first, then (for normal
@@ -227,7 +322,8 @@ inline const erp::Resource *mod_texture(const erp::Archive &mod, const std::stri
 }
 
 inline Result convert(const erp::Archive &mod, erp::Archive shell, const std::string &shell_token,
-                      const std::string &token, const std::filesystem::path &out)
+                      const std::string &token, const std::filesystem::path &out,
+                      const std::vector<MipFile> *mips = nullptr)
 {
     if (token.size() != shell_token.size())
         throw std::runtime_error("the new helmet name must be as long as the shell's");
@@ -257,6 +353,9 @@ inline Result convert(const erp::Archive &mod, erp::Archive shell, const std::st
         if (view.size() < 0x18 || mimg->fragments.size() < 2)
             continue;
         img->fragments = mimg->fragments;  // header, every mip, and (when it has one) an empty stream table
+        MipMove mm;
+        if (mips && retarget_mips(*img, *mips, token.substr(0, 4), mm))
+            res.mips.push_back(std::move(mm));
         std::vector<uint8_t> v(view.begin(), view.begin() + 0x18);
         std::string image_name = img->name;
         v.insert(v.end(), image_name.begin(), image_name.end());

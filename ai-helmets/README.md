@@ -39,7 +39,12 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
 - **Imported helmets** tab: the default newcomer helmet for every team, and your imported helmets (the
   helmet shell each is built on, and Remove).
 - **What you can import** (no other addon needed):
-  - a helmet archive: an `.erp` whose resources are a driver's helmet, such as `<first>_<last>_helmet.erp`;
+  - a helmet archive: an `.erp` whose resources are a driver's helmet, such as `<first>_<last>_helmet.erp`. It
+    is built on the helmet row its own resources name (`drivers/male/2026-redbull_max_verstappen/...` → Max
+    Verstappen's 2026 helmet), whatever the file is called; helmets imported before that, on Lewis Hamilton's 2026
+    row, are moved onto theirs at the next Play;
+  - a driver's body archive (`<first>_<last>.erp`: suit, gloves and boots, with the helmet's textures but no helmet
+    model), which some helmet mods include. Its helmet textures are converted onto that driver's stock helmet;
   - a **"career helmet" mod**: a repaint of the game's helmet template (`teamname_charname/.../charname_helmet_d`),
     usually a replacement `game_package/markdown/markdown_system.erp`. AI Helmets **converts** it into a helmet of
     its own: it copies Lewis Hamilton's 2026 helmet archive from your game files, renames its folder to a
@@ -48,7 +53,16 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
   - a **design archive**: a whole helmet design from the livery package, such as the SERPs template's
     `player_helmet.erp` (`unassigned_livery18_helmet_*` textures), which most overtake.gg helmets are painted on.
     It is converted the same way;
-  - a **pack** (`.zip`, `.7z`, `.rar`) holding any of these; every helmet in it is imported.
+  - a **pack** (`.zip`, `.7z`, `.rar`) holding any of these; every helmet in it is imported. A real driver's
+    helmet comes as several archives (his helmet archive, and his body archive with the same helmet textures):
+    they become **one** helmet, converted from the helmet archive onto that driver's stock helmet. Whole helmets
+    of their own (two SERPs designs in one pack) stay separate. A pack's
+    `.mipmaps` files (`F1 25/character_package/drivers/male/<driver>/textures/*.mipmaps`, its textures'
+    high-resolution levels) go with them: each helmet's textures are pointed at a same-length folder of its own
+    (`a001-redbull_max_verstappen`, `b001-…` for helmet archives used as they are), where the files are put at
+    Play, so the stock driver's own files stay untouched. Without them the game reports "Error loading streamable
+    mipmap" and the helmet stays at its lower resolution. Helmets imported before 1.0.3 have none: import the
+    pack again.
 - **Converted helmets are built on the helmet they were painted for.** Every helmet shares one shell
   (`helmet_bell_hp7`), but each has its own visor attachments mesh with its own UVs, so a visor texture only lines
   up on the archive it was made for. AI Helmets reads the mod's visor attachments model (else the folder of its
