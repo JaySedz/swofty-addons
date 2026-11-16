@@ -32,7 +32,10 @@ namespace convert {
 
 constexpr const char *kShellToken = "2026-ferrari_lewis_hamilton";
 constexpr const char *kShellStem = "lewis_hamilton";
-constexpr const char *kShellRel = "2025_asset_groups/character_package/drivers/male/2026-ferrari_lewis_hamilton/lewis_hamilton_helmet.erp";
+// The SERPs template names its textures after unassigned_livery18 but is painted on replica_hamilton20a's visor.
+constexpr const char *kSerpsTex = "unassigned_livery18";
+constexpr const char *kSerpsShell = "replica_hamilton20a";
+constexpr const char *kShellRel ="2025_asset_groups/character_package/drivers/male/2026-ferrari_lewis_hamilton/lewis_hamilton_helmet.erp";
 
 // A stock helmet archive a mod is converted onto: 2025_asset_groups/<pkg>/<dir>/<token>/<stem>.erp, with the asset
 // group asset_groups/<pkg>/<dir>/<token>/<stem>.assetgroup. Default: Lewis Hamilton's 2026 helmet.
@@ -152,7 +155,15 @@ inline Detected detect(const erp::Archive &mod)
             continue;
         std::string tex = file.substr(0, file.size() - std::strlen("_helmet_d.tif.image"));
         d.mod_tex = tex;
-        if (!d.shell) {
+        if (!d.shell && tex == kSerpsTex) {
+            // a SERPs design without its attachments model: painted on replica_hamilton20a's visor UVs, not on the
+            // stock unassigned_livery18's (a different mesh)
+            Shell s;
+            s.pkg = "livery_package", s.dir = "replica", s.token = kSerpsShell;
+            s.stem = std::string(kSerpsShell) + "_helmet";
+            d.shell = s;
+            d.from = "SERPs template textures";
+        } else if (!d.shell) {
             Shell s;
             s.pkg = pkg, s.dir = dir, s.token = token, s.stem = tex + "_helmet";
             d.shell = s;

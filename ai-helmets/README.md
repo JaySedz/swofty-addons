@@ -67,7 +67,9 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
   (`helmet_bell_hp7`), but each has its own visor attachments mesh with its own UVs, so a visor texture only lines
   up on the archive it was made for. AI Helmets reads the mod's visor attachments model (else the folder of its
   helmet texture) and copies that stock archive from your game files. The SERPs template, for example, carries
-  Lewis Hamilton's 2020 replica attachments (`replica_hamilton20a`), so SERPs helmets are built on that. When it
+  Lewis Hamilton's 2020 replica attachments (`replica_hamilton20a`), so SERPs helmets are built on that, including
+  SERPs designs that ship only their textures (`unassigned_livery18_*`, no attachments model): the stock
+  `unassigned_livery18` design has a different visor mesh. When it
   can't tell (career-helmet mods name no helmet of their own) or the game doesn't have that helmet, it falls back
   to Lewis Hamilton's 2026 helmet. The import message says which one it used.
 - Everything is made ready to use as it is imported. Helmets an earlier version imported as they were (packs,
@@ -132,6 +134,16 @@ Look for `[ai-helmets]` lines in `swofty/loader.log`.
   so it must be in that driver's look only: one who wears a stock design another driver also wears, another
   driver's helmet, or a helmet AI Helmets hands out keeps it, and the log says why. Give each created driver a
   design no one else uses.
+- **More Driver Models' drivers** (Vettel, Schumacher, Button and the others it adds) all get a copy of the game's
+  free-agent look (`mdm_<driver>`), all with one helmet (`unassigned_livery18`, "The Story Is Yours"), so their
+  helmets couldn't be changed one by one. AI Helmets now changes the helmet in that driver's own look record only,
+  so team helmets, picks and MyTeam work for them like for any driver, and two of them in one team can wear
+  different helmets. Nothing to set up: it works from the first game start. How a record names its look row (a
+  pointer to the row's label, the label, or a hash of it) is found from the rows, and taken only when the records it
+  names carry their rows' helmets; when it isn't found, nothing is changed and the log says
+  `look records: no place names their rows`, with a few records for working it out.
+- **Looks other addons link to their driver by his label** (a season pack's `bdx_..._look`) count as his own when no
+  other look wears their helmet.
 - **The runtime helmet change works on build 25251167** (tested: 14 moved drivers changed at Team HQ, seen in the grid reveal). It relies on the game's in-memory look records, which
   Swofty doesn't document; a game update can move them. The plugin then logs why ("no EntrantsSystem", "his
   helmet is in none of the look records") and changes nothing.

@@ -1447,19 +1447,20 @@ std::vector<std::string> import_file(const fs::path &src, const J::Value &cat, s
     std::vector<std::string> order;
     for (size_t i = 0; i < found.size(); i++) {
         std::string id;
-        bool model = false;
+        bool model = false, design = false;
         try {
             erp::Archive a = erp::load(found[i]);
             auto det = convert::detect(a);
             if (det.shell)
                 id = det.shell->rel();
             model = det.from == "visor attachments model";
+            design = det.shell && det.shell->pkg.rfind("livery_package", 0) == 0;
         } catch (...) {
         }
         if (id.empty())
             id = "#" + std::to_string(i);  // one helmet of its own
         // two whole helmets on one stock helmet (two SERPs designs, both on replica_hamilton20a) stay two
-        if (model && groups.count(id) && groups[id].model)
+        if ((model || design) && groups.count(id) && (groups[id].model || design))
             id += "#" + std::to_string(i);
         auto [it, fresh] = groups.try_emplace(id);
         if (fresh)

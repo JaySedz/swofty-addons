@@ -383,6 +383,24 @@ std::map<std::string, uint32_t> g_helmet_id;               // "game/<label>" -> 
 // Drivers another addon made (Driver Manager, Silly Season): "game/<row label>" -> the helmet of the look his
 // identity names. Their helmets aren't named like their looks, so the name rule finds none.
 std::map<std::string, std::string> g_addon_helmet;
+// Drivers whose look shares its helmet with other drivers (More Driver Models gives each driver it adds a copy of
+// the free-agent look, mdm_<driver>, all wearing unassigned_livery18): "game/<driver>" -> where that look's row is.
+// Their helmet is changed in that one look record, not in every record holding the helmet.
+struct LookPos {
+    int folder = -1;
+    size_t index = 0;
+    std::string look;
+    uint32_t key = 0;  // the helmet the row names, (id << 16) | 1
+    int64_t stat = -1;  // the row's stat_id
+};
+std::map<std::string, LookPos> g_shared_look;
+// Every look row: its label, row path and the helmet it names ((id << 16) | 1, 0 when unknown), to find how the
+// in-memory look records name their rows.
+struct LookRowInfo {
+    std::string label, path;
+    uint32_t key = 0;
+};
+std::vector<LookRowInfo> g_look_rows;
 bool g_maps = false;
 
 bool db_int(const std::string &key, int64_t &out) { return db::int_at(key, &out) == db::Result::ok; }
@@ -479,14 +497,28 @@ void build_maps()
     });
     // looks: linked to a driver by linked_driver_stat_id, or named <year>-<team>_<driver>
     struct LookRow {
-        std::string label;
+        std::string path, label, helmet, link;  // link: linked_driver_stat_id as text (a driver's label), if it is one
         int64_t linked;
+        int folder;
+        size_t index;
+        int64_t stat;
     };
     std::vector<LookRow> rows;
     for (int folder = 0; folder < 4; ++folder)
         each_row("entrants.driver_customisations.folder_" + std::to_string(folder),
                  "preloaded_driver_customisation_properties", [&](const std::string &row, const std::string &label) {
-                     rows.push_back({label, stat_of_row(row, "linked_driver_stat_id")});
+                     LookRow r{row, label, {}, {}, stat_of_row(row, "linked_driver_stat_id"), folder,
+                               size_t(std::strtoull(row.c_str() + row.rfind('_') + 1, nullptr, 10)),
+                               stat_of_row(row, "stat_id")};
+                     db_text(row + ".helmet", r.helmet);
+                     // the field is an Id, text: read as an integer it gives a number that is no stat id (every
+                     // row read 1163996856), so its text is read first
+                     std::string link;
+                     if (db_text(row + ".linked_driver_stat_id", link) && driver_stat.count("game/" + link)) {
+                         r.link = link;
+                         r.linked = -1;
+                     }
+                     rows.push_back(std::move(r));
                  });
     std::map<std::string, std::vector<std::string>> looks;
     for (auto &[driver, stat] : driver_stat) {
@@ -501,6 +533,34 @@ void build_maps()
         if (out.empty())
             looks.erase(driver);
     }
+    // Looks another addon adds, linked to their driver by his label (More Driver Models' mdm_<driver>, a season
+    // pack's bdx_..._look): their helmet is the driver's own when no other look wears it. More Driver Models gives
+    // its drivers copies of the free-agent look, all with one helmet: those are changed in their own record only.
+    std::map<std::string, std::set<std::string>> wearers;  // helmet label -> the drivers (or unlinked looks) wearing it
+    for (auto &r : rows)
+        if (!r.helmet.empty())
+            wearers[r.helmet].insert(!r.link.empty() ? "game/" + r.link : "look:" + r.label);
+    std::map<std::string, LookPos> shared_look;
+    std::map<std::string, std::string> shared_helmet;  // driver -> the helmet label of his shared look
+    size_t linked_looks = 0;
+    for (auto &r : rows) {
+        if (r.link.empty() || r.helmet.empty())
+            continue;
+        std::string driver = "game/" + r.link;
+        bool alone = wearers[r.helmet].size() == 1;
+        if (alone) {
+            auto &out = looks[driver];
+            std::string ref = "game/" + r.helmet;
+            if (std::find(out.begin(), out.end(), ref) == out.end()) {
+                out.push_back(ref);
+                linked_looks++;
+            }
+        }
+        else if (!shared_look.count(driver)) {
+            shared_look[driver] = {r.folder, r.index, r.label, 0, r.stat};
+            shared_helmet[driver] = r.helmet;
+        }
+    }
     std::vector<std::string> helmets;
     std::map<std::string, uint32_t> helmet_ids;
     each_row("customisation.custom_avatar.helmets", "Helmet", [&](const std::string &row, const std::string &label) {
@@ -509,6 +569,20 @@ void build_maps()
         if (id > 0 && id < 0xffff)
             helmet_ids["game/" + label] = uint32_t(id);
     });
+    for (auto &[d, pos] : shared_look)
+        if (auto h = helmet_ids.find("game/" + shared_helmet[d]); h != helmet_ids.end())
+            pos.key = (h->second << 16) | 1u;
+    std::vector<LookRowInfo> look_rows;
+    for (auto &r : rows) {
+        uint32_t key = 0;
+        if (auto h = helmet_ids.find("game/" + r.helmet); h != helmet_ids.end())
+            key = (h->second << 16) | 1u;
+        look_rows.push_back({r.label, r.path, key});
+    }
+    if (!shared_look.empty() || linked_looks)
+        swofty::log("[ai-helmets] %zu addon look(s) with a helmet of their driver's own; %zu driver(s) whose look shares "
+                    "its helmet (changed in their own look record)",
+                    linked_looks, shared_look.size());
     g_helmet_id = std::move(helmet_ids);
 
     if (drivers_.empty() || teams_.empty()) {
@@ -518,6 +592,8 @@ void build_maps()
     }
     g_driver_of_stat = std::move(drivers_);
     g_team_of_stat = std::move(teams_);
+    g_shared_look = std::move(shared_look);
+    g_look_rows = std::move(look_rows);
     g_looks = std::move(looks);
     g_helmet_rows = std::move(helmets);
     g_maps = true;
@@ -1005,6 +1081,206 @@ std::set<uint32_t> own_helmet_ids(const std::string &driver, std::string *why_no
     return ids;
 }
 
+// The look record of one look row. The EntrantsSystem's look lists (16-byte entries, +0x8 the record) don't follow
+// the database's folders, and the records hold no stat id, so how a record names its row is found from the rows:
+// a pointer to the row's label, the label inline, or a hash of the label or of the row path (FNV-1a 32/64, djb2),
+// at one place in the record's first 0x200 bytes. A place is taken when it names many rows and the records it names
+// carry those rows' helmets, nearly all of them. Rows that wear one helmet (More Driver Models' 67 copies of the
+// free-agent look) can't be told apart by helmet, so nothing is changed without it. Returns 0, with why, when no
+// place is found or his record holds another helmet than its row names.
+uint32_t fnv32(const std::string &s)
+{
+    uint32_t h = 2166136261u;
+    for (unsigned char c : s)
+        h = (h ^ c) * 16777619u;
+    return h;
+}
+uint64_t fnv64(const std::string &s)
+{
+    uint64_t h = 0xcbf29ce484222325ull;
+    for (unsigned char c : s)
+        h = (h ^ c) * 0x100000001b3ull;
+    return h;
+}
+uint32_t djb2(const std::string &s)
+{
+    uint32_t h = 5381;
+    for (unsigned char c : s)
+        h = h * 33 + c;
+    return h;
+}
+
+// kinds of names: 0-5 are dwords (fnv32/fnv64 low/fnv64 high/djb2 of the label; fnv32/fnv64 low of the path),
+// 6-7 qwords (fnv64 of the label, of the path), 8 a pointer to the label, 9 the label inline
+constexpr int kNameKinds = 10;
+const char *kNameKind[kNameKinds] = {"fnv32(label)", "fnv64(label) low", "fnv64(label) high", "djb2(label)",
+                                     "fnv32(path)", "fnv64(path) low", "fnv64(label)", "fnv64(path)",
+                                     "pointer to the label", "the label inline"};
+struct NamePlace {
+    int kind = -1;
+    size_t off = 0;
+};
+NamePlace g_name_place;  // found once, then checked every time
+
+// The row (index into g_look_rows) a record names at place w, or -1.
+int64_t row_named(uintptr_t rec, const NamePlace &w, const std::vector<std::unordered_map<uint64_t, size_t>> &by_hash,
+                  const std::unordered_map<std::string, size_t> &by_label)
+{
+    if (w.kind < 8) {
+        uint64_t v = w.kind >= 6 ? *reinterpret_cast<const uint64_t *>(rec + w.off)
+                                 : *reinterpret_cast<const uint32_t *>(rec + w.off);
+        auto it = by_hash[size_t(w.kind)].find(v);
+        return it == by_hash[size_t(w.kind)].end() ? -1 : int64_t(it->second);
+    }
+    const char *str = nullptr;
+    if (w.kind == 8) {
+        uintptr_t q = *reinterpret_cast<const uintptr_t *>(rec + w.off);
+        if (!plausible(q) || !mem::readable(q, 64))
+            return -1;
+        str = reinterpret_cast<const char *>(q);
+    } else {
+        str = reinterpret_cast<const char *>(rec + w.off);
+    }
+    size_t n = strnlen(str, 64);
+    if (n < 3 || n >= 64)
+        return -1;
+    auto it = by_label.find(std::string(str, n));
+    return it == by_label.end() ? -1 : int64_t(it->second);
+}
+
+uintptr_t shared_look_record(uintptr_t es, const LookPos &pos, std::string &why)
+{
+    if (!pos.key) {
+        why = "its row's helmet has no item id";
+        return 0;
+    }
+    std::vector<std::unordered_map<uint64_t, size_t>> by_hash(8);
+    std::unordered_map<std::string, size_t> by_label;
+    int64_t want = -1;
+    for (size_t i = 0; i < g_look_rows.size(); i++) {
+        auto &r = g_look_rows[i];
+        uint64_t l64 = fnv64(r.label), p64 = fnv64(r.path);
+        uint64_t v[8] = {fnv32(r.label), l64 & 0xffffffffu, l64 >> 32, djb2(r.label), fnv32(r.path), p64 & 0xffffffffu,
+                         l64, p64};
+        for (size_t k = 0; k < 8; k++)
+            by_hash[k].emplace(v[k], i);
+        by_label.emplace(r.label, i);
+        if (r.label == pos.look)
+            want = int64_t(i);
+    }
+    if (want < 0) {
+        why = "its row isn't in the database's looks";
+        return 0;
+    }
+    // every look record
+    std::vector<uintptr_t> recs;
+    for (size_t t = 0; t < kLookTypes; t++) {
+        uintptr_t list = 0, begin = 0, end = 0;
+        if (!mem::read(es + kLookLists + t * kListStride, list) || !plausible(list) || !mem::readable(list, 0x18) ||
+            !mem::read(list + kListBegin, begin) || !mem::read(list + kListEnd, end))
+            continue;
+        if (!plausible(begin) || end <= begin || (end - begin) % kEntrySize || (end - begin) / kEntrySize > kMaxEntries ||
+            !mem::readable(begin, end - begin))
+            continue;
+        for (uintptr_t e = begin; e < end; e += kEntrySize) {
+            uintptr_t rec = *reinterpret_cast<const uintptr_t *>(e + kEntryRecord);
+            if (plausible(rec) && mem::readable(rec, kRecordScan))
+                recs.push_back(rec);
+        }
+    }
+    // helmets this addon has changed count as what they were
+    std::map<uintptr_t, uint32_t> was;
+    for (auto &[d, ps] : g_patches)
+        for (auto &p : ps)
+            was[p.at] = p.from;
+    auto helmet_of = [&](uintptr_t rec) {
+        if (auto w = was.find(rec + kHelmetField); w != was.end())
+            return w->second;
+        return *reinterpret_cast<const uint32_t *>(rec + kHelmetField);
+    };
+    // how good a place is: rows it names (once each), and of those, records carrying their row's helmet
+    auto score = [&](const NamePlace &w, size_t &named, size_t &agree) {
+        std::set<int64_t> rows;
+        named = agree = 0;
+        for (uintptr_t rec : recs) {
+            int64_t r = row_named(rec, w, by_hash, by_label);
+            if (r < 0 || !rows.insert(r).second)
+                continue;
+            named++;
+            uint32_t k = g_look_rows[size_t(r)].key;
+            agree += k && helmet_of(rec) == k;
+        }
+    };
+    auto good = [](size_t named, size_t agree) { return named >= 20 && agree + std::max<size_t>(2, named / 50) >= named; };
+    size_t named = 0, agree = 0;
+    if (g_name_place.kind < 0 || (score(g_name_place, named, agree), !good(named, agree))) {
+        g_name_place = {};
+        NamePlace best;
+        size_t best_named = 0, best_agree = 0;
+        for (int k = 0; k < kNameKinds; k++)
+            for (size_t off = 0; off + 8 <= 0x200; off += (k >= 6 ? 8 : 4)) {
+                NamePlace w{k, off};
+                size_t n = 0, a = 0;
+                score(w, n, a);
+                if (good(n, a) && n > best_named)
+                    best = w, best_named = n, best_agree = a;
+            }
+        if (best.kind >= 0) {
+            g_name_place = best;
+            named = best_named, agree = best_agree;
+            swofty::log("[ai-helmets] look records name their rows by %s at +0x%zx (%zu of %zu records, %zu carry "
+                        "their row's helmet)",
+                        kNameKind[best.kind], best.off, best_named, recs.size(), best_agree);
+        }
+    }
+    if (g_name_place.kind < 0) {
+        why = "the look records' names weren't found";
+        static bool dumped = false;
+        if (!dumped) {
+            dumped = true;
+            // a few records, for working out the layout: two that wear his row's helmet, and the first two
+            std::vector<uintptr_t> show;
+            for (uintptr_t rec : recs)
+                if (helmet_of(rec) == pos.key && show.size() < 2)
+                    show.push_back(rec);
+            for (size_t i = 0; i < recs.size() && i < 2; i++)
+                show.push_back(recs[i]);
+            swofty::log("[ai-helmets] look records: no place names their rows (%zu records, %zu look rows); records:",
+                        recs.size(), g_look_rows.size());
+            for (uintptr_t rec : show) {
+                std::string hex;
+                for (size_t i = 0; i < 0x100; i += 8) {
+                    char b[20];
+                    std::snprintf(b, sizeof b, "%016llx ", (unsigned long long)*reinterpret_cast<const uint64_t *>(rec + i));
+                    hex += b;
+                }
+                swofty::log("[ai-helmets]   %llx (helmet %08x): %s", (unsigned long long)rec, helmet_of(rec), hex.c_str());
+            }
+        }
+        return 0;
+    }
+    uintptr_t found = 0;
+    size_t n = 0;
+    for (uintptr_t rec : recs)
+        if (row_named(rec, g_name_place, by_hash, by_label) == want) {
+            found = rec;
+            n++;
+        }
+    if (n != 1) {
+        why = n ? "two look records name its row" : "no look record names its row";
+        return 0;
+    }
+    if (helmet_of(found) != pos.key) {
+        why = "his look record holds another helmet than its row names";
+        return 0;
+    }
+    if (!writable(found + kHelmetField, 4)) {
+        why = "his look record can't be written";
+        return 0;
+    }
+    return found;
+}
+
 // Puts helmet ref on the driver in every look record that holds one of his own helmets. Returns the number of
 // fields changed; 0 with why set when it couldn't.
 size_t patch(const std::string &driver, const std::string &helmet, std::string &why)
@@ -1024,7 +1300,8 @@ size_t patch(const std::string &driver, const std::string &helmet, std::string &
     unpatch(driver);
     std::string own_why;
     std::set<uint32_t> own = own_helmet_ids(driver, &own_why);
-    if (own.empty()) {
+    auto shared = g_shared_look.find(driver);
+    if (own.empty() && shared == g_shared_look.end()) {
         why = own_why.empty() ? "no helmet of his own in the database" : own_why;
         return 0;
     }
@@ -1046,6 +1323,20 @@ size_t patch(const std::string &driver, const std::string &helmet, std::string &
             }
         }
     });
+    // a look whose helmet other drivers wear too (More Driver Models' mdm_<driver>): his own record only
+    if (shared != g_shared_look.end()) {
+        std::string rwhy;
+        uintptr_t rec = shared_look_record(es, shared->second, rwhy);
+        if (rec) {
+            uint32_t v = *reinterpret_cast<const uint32_t *>(rec + kHelmetField);
+            *reinterpret_cast<volatile uint32_t *>(rec + kHelmetField) = to;
+            done.push_back({rec + kHelmetField, v, to});
+            offsets.insert(kHelmetField);
+        } else if (done.empty()) {
+            why = "his look " + shared->second.look + " shares its helmet with other drivers, and " + rwhy;
+            return 0;
+        }
+    }
     if (done.empty()) {
         why = "his helmet is in none of the " + std::to_string(records) + " look record(s)";
         return 0;
