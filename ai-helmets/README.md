@@ -56,7 +56,9 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
   - a **pack** (`.zip`, `.7z`, `.rar`) holding any of these; every helmet in it is imported. A real driver's
     helmet comes as several archives (his helmet archive, and his body archive with the same helmet textures):
     they become **one** helmet, converted from the helmet archive onto that driver's stock helmet. Whole helmets
-    of their own (two SERPs designs in one pack) stay separate. A pack's
+    of their own (two SERPs designs in one pack) stay separate, but copies of one design are one helmet: archives
+    whose helmet texture is the same byte for byte (a SERPs mod's `character_helmet.nefx2.sm51.erp`, its
+    `_amd` twin and any loose copy) are imported once, since only their helmet textures are used. A pack's
     `.mipmaps` files (`F1 25/character_package/drivers/male/<driver>/textures/*.mipmaps`, its textures'
     high-resolution levels) go with them: each helmet's textures are pointed at a same-length folder of its own
     (`a001-redbull_max_verstappen`, `b001-…` for helmet archives used as they are), where the files are put at
@@ -68,8 +70,9 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
   up on the archive it was made for. AI Helmets reads the mod's visor attachments model (else the folder of its
   helmet texture) and copies that stock archive from your game files. The SERPs template, for example, carries
   Lewis Hamilton's 2020 replica attachments (`replica_hamilton20a`), so SERPs helmets are built on that, including
-  SERPs designs that ship only their textures (`unassigned_livery18_*`, no attachments model): the stock
-  `unassigned_livery18` design has a different visor mesh. When it
+  SERPs designs that ship only their textures (`unassigned_livery18_*`, no attachments model) and those whose
+  attachments model is named `unassigned_livery18`: the stock `unassigned_livery18` design ("The story is yours")
+  has a different visor mesh, and its colour masks (`helmet_m`) would show its pattern through the mod's. When it
   can't tell (career-helmet mods name no helmet of their own) or the game doesn't have that helmet, it falls back
   to Lewis Hamilton's 2026 helmet. The import message says which one it used.
 - Everything is made ready to use as it is imported. Helmets an earlier version imported as they were (packs,

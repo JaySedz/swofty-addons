@@ -1445,29 +1445,47 @@ std::vector<std::string> import_file(const fs::path &src, const J::Value &cat, s
     };
     std::map<std::string, Group> groups;
     std::vector<std::string> order;
+    // Archives whose helmet texture is the same, byte for byte, are one helmet: a SERPs mod ships its design in
+    // the shader package's archive and again in its _amd twin (and some packs a third copy), and only the helmet
+    // textures are taken from them, so every copy converts to the same helmet.
+    std::map<std::string, std::string> by_texture;  // MD5 of the helmet texture -> group id
     for (size_t i = 0; i < found.size(); i++) {
-        std::string id;
+        std::string id, tex;
         bool model = false, design = false;
         try {
             erp::Archive a = erp::load(found[i]);
             auto det = convert::detect(a);
             if (det.shell)
                 id = det.shell->rel();
-            model = det.from == "visor attachments model";
+            model = det.from.ends_with(" model");  // "visor attachments model", "SERPs template model"
             design = det.shell && det.shell->pkg.rfind("livery_package", 0) == 0;
+            for (auto &r : a.resources)
+                if (convert::ends_with(r.name, "_helmet_d.tif.image")) {
+                    uint8_t h[16];
+                    convert::md5(r, h);
+                    tex.assign(reinterpret_cast<const char *>(h), 16);
+                    break;
+                }
         } catch (...) {
         }
         if (id.empty())
             id = "#" + std::to_string(i);  // one helmet of its own
-        // two whole helmets on one stock helmet (two SERPs designs, both on replica_hamilton20a) stay two
-        if ((model || design) && groups.count(id) && (groups[id].model || design))
+        if (auto same = by_texture.find(tex); !tex.empty() && same != by_texture.end()) {
+            id = same->second;  // a copy of a helmet already found
+        } else if ((model || design) && groups.count(id) && (groups[id].model || design)) {
+            // two whole helmets on one stock helmet (two SERPs designs, both on replica_hamilton20a) stay two
             id += "#" + std::to_string(i);
+        }
+        if (!tex.empty())
+            by_texture.emplace(tex, id);
         auto [it, fresh] = groups.try_emplace(id);
         if (fresh)
             order.push_back(id);
         Group &grp = it->second;
         grp.files.push_back(found[i]);
-        if (grp.pick.empty() || (model && !grp.model)) {
+        // the pick names the helmet (its file name): not an _amd twin when there's another
+        auto amd = [](const fs::path &p) { return convert::lower(to_utf8(p.stem())).ends_with("_amd"); };
+        if (grp.pick.empty() || (model && !grp.model) || (model == grp.model && amd(grp.pick) && !amd(found[i]))) {
             grp.pick = found[i];
             grp.model = model;
         }

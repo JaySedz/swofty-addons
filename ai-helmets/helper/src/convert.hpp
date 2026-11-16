@@ -171,6 +171,15 @@ inline Detected detect(const erp::Archive &mod)
         }
         break;
     }
+    // A SERPs design names itself unassigned_livery18, by its attachments model or its textures. That stock helmet
+    // is the "The story is yours" design: its helmet_m masks hold that design's colour regions, which a mod's
+    // textures don't replace (SERPs' own helmet shaders ignore them), so it would show through. SERPs designs are
+    // painted on replica_hamilton20a, whose masks are blank.
+    if (d.shell && d.shell->token == kSerpsTex && d.from == "visor attachments model") {
+        d.shell->pkg = "livery_package", d.shell->dir = "replica", d.shell->token = kSerpsShell;
+        d.shell->stem = std::string(kSerpsShell) + "_helmet";
+        d.from = "SERPs template model";
+    }
     return d;
 }
 
