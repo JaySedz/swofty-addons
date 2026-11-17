@@ -16,6 +16,12 @@
 #define ENV_WRITER_OPTIONS	"TAR_WRITER_OPTIONS"
 #define IGNORE_WRONG_MODULE_NAME "__ignore_wrong_module_name__,"
 
+#if defined(_MSC_VER ) && (_MSC_VER < 1927 )	/* Check if compiler pre-dated Visual Studio 2019 Release 16.8 */
+#define ARCHIVE_RESTRICT
+#else
+#define ARCHIVE_RESTRICT restrict
+#endif
+
 struct creation_set;
 /*
  * The internal state for the "bsdtar" program.
@@ -41,11 +47,15 @@ struct bsdtar {
 	const char	 *gname; /* --gname */
 	int		  uid;  /* --uid */
 	const char	 *uname; /* --uname */
+	void 		 *file_mode; /* --mode */
 	const char	 *passphrase; /* --passphrase */
-	char		  mode; /* Program mode: 'c', 't', 'r', 'u', 'x' */
+	int		  mode; /* Program mode: 'c', 't', 'r', 'u', 'x' */
 	char		  symlink_mode; /* H or L, per BSD conventions */
 	const char	 *option_options; /* --options */
 	char		  day_first; /* show day before month in -tv output */
+	char		has_mtime; /* --mtime exists (0 or 1) */
+	char		clamp_mtime; /* --clamp-mtime (0 or 1)*/
+	time_t		mtime; /* --mtime */
 	struct creation_set *cset;
 
 	/* Option parser state */
@@ -58,7 +68,7 @@ struct bsdtar {
 	/* Miscellaneous state information */
 	int		  argc;
 	char		**argv;
-	const char	 *argument;
+	char		 *argument;
 	size_t		  gs_width; /* For 'list_item' in read.c */
 	size_t		  u_width; /* for 'list_item' in read.c */
 	uid_t		  user_uid; /* UID running this program */
@@ -72,15 +82,9 @@ struct bsdtar {
 	 */
 	struct archive		*diskreader;	/* for write.c */
 	struct archive_entry_linkresolver *resolver; /* for write.c */
-	struct archive_dir	*archive_dir;	/* for write.c */
-	struct name_cache	*gname_cache;	/* for write.c */
 	char			*buff;		/* for write.c */
 	size_t			 buff_size;	/* for write.c */
-	int			 first_fs;	/* for write.c */
 	struct archive		*matching;	/* for matching.c */
-	struct security		*security;	/* for read.c */
-	struct name_cache	*uname_cache;	/* for write.c */
-	struct siginfo_data	*siginfo;	/* for siginfo.c */
 	struct substitution	*substitution;	/* for subst.c */
 	char			*ppbuff;	/* for util.c */
 };
@@ -114,7 +118,7 @@ struct bsdtar {
 
 /* Fake short equivalents for long options that otherwise lack them. */
 enum {
-	OPTION_ACLS = 1,
+	OPTION_ACLS = 256,
 	OPTION_B64ENCODE,
 	OPTION_CHECK_LINKS,
 	OPTION_CHROOT,
@@ -175,16 +179,19 @@ enum {
 	OPTION_VERSION,
 	OPTION_XATTRS,
 	OPTION_ZSTD,
+	OPTION_MTIME,
+	OPTION_CLAMP_MTIME,
+	OPTION_MODE,
 };
 
 int	bsdtar_getopt(struct bsdtar *);
 void	do_chdir(struct bsdtar *);
 int	edit_pathname(struct bsdtar *, struct archive_entry *);
+void	edit_mtime(struct bsdtar *, struct archive_entry *);
 int	need_report(void);
 int	pathcmp(const char *a, const char *b);
-void	safe_fprintf(FILE *, const char *fmt, ...) __LA_PRINTF(2, 3);
+void	safe_fputs(const char * ARCHIVE_RESTRICT s, FILE * ARCHIVE_RESTRICT);
 void	set_chdir(struct bsdtar *, const char *newdir);
-const char *tar_i64toa(int64_t);
 void	tar_mode_c(struct bsdtar *bsdtar);
 void	tar_mode_r(struct bsdtar *bsdtar);
 void	tar_mode_t(struct bsdtar *bsdtar);

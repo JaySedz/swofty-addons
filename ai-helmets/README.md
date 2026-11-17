@@ -53,7 +53,8 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
   - a **design archive**: a whole helmet design from the livery package, such as the SERPs template's
     `player_helmet.erp` (`unassigned_livery18_helmet_*` textures), which most overtake.gg helmets are painted on.
     It is converted the same way;
-  - a **pack** (`.zip`, `.7z`, `.rar`) holding any of these; every helmet in it is imported. A real driver's
+  - a **pack** (`.zip`, `.7z`, `.rar`) holding any of these; every helmet in it is imported (a pack that unpacks
+    to more than 2 GB or holds more than 5000 entries is refused, so a damaged one can't fill the disk). A real driver's
     helmet comes as several archives (his helmet archive, and his body archive with the same helmet textures):
     they become **one** helmet, converted from the helmet archive onto that driver's stock helmet. Whole helmets
     of their own (two SERPs designs in one pack) stay separate, but copies of one design are one helmet: archives
@@ -175,7 +176,7 @@ tools\build-erptool.bat   builds tools\erptool.exe (list, strings, dump, hashche
 
 `native/include` is the Swofty SDK (MIT). `mixin.hpp` has one change so MSVC builds it (`&bound::addr`), and
 MSVC needs `/Zc:preprocessor`. `third_party/zstd` is the zstd 1.5.6 decoder (BSD). The helper unpacks helmet
-packs with `third_party/libarchive` 3.7.7 (zip, 7z and rar readers only), built with `third_party/zlib` 1.3.1,
+packs with `third_party/libarchive` 3.8.11 (zip, 7z and rar readers only), built with `third_party/zlib` 1.3.1,
 `third_party/xz` 5.6.3 (liblzma) and `third_party/bzip2` 1.0.8; it starts no other programs. Licences are in
 THIRD_PARTY_NOTICES.md. build_deps.bat needs the CMake and Ninja that come with Visual Studio's C++ workload.
 

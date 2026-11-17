@@ -1283,9 +1283,15 @@ fs::path entry_target(const fs::path &dir, std::wstring name)
     return any ? out : fs::path();
 }
 
+// The most a pack may unpack to, so a damaged or hostile one (a "zip bomb") can't fill the disk the cache is on.
+// Real helmet packs are far below both: tens of MB, a few hundred with their mip files, and a few dozen entries.
+constexpr uint64_t kMaxUnpackedBytes = 2ull << 30;  // 2 GiB in all
+constexpr size_t kMaxEntries = 5000;                // headers of any kind (files, folders, links)
+
 // Unpacks a zip, 7z or rar pack into dir with libarchive, built into this helper (the library Windows' own
 // tar.exe uses). Writes regular files only; links, devices and entries that point outside dir are skipped.
-bool extract(const fs::path &src, const fs::path &dir)
+// Stops, and removes what it wrote, past kMaxUnpackedBytes or kMaxEntries; `why` then says which.
+bool extract(const fs::path &src, const fs::path &dir, std::string *why = nullptr)
 {
     std::error_code ec;
     fs::remove_all(dir, ec);
@@ -1300,7 +1306,9 @@ bool extract(const fs::path &src, const fs::path &dir)
     archive_read_support_format_rar(a);
     archive_read_support_format_rar5(a);
     bool ok = archive_read_open_filename_w(a, src.c_str(), 1 << 16) == ARCHIVE_OK;
-    size_t files = 0;
+    size_t files = 0, entries = 0;
+    uint64_t total = 0;
+    bool capped = false;
     std::vector<char> buf(1 << 16);
     archive_entry *e = nullptr;
     while (ok) {
@@ -1309,6 +1317,20 @@ bool extract(const fs::path &src, const fs::path &dir)
             break;
         if (r < ARCHIVE_WARN) {
             ok = false;
+            break;
+        }
+        if (++entries > kMaxEntries) {
+            ok = false, capped = true;
+            if (why)
+                *why = "it holds more than " + std::to_string(kMaxEntries) + " entries";
+            break;
+        }
+        // a size the entry declares past what's left: stop before writing any of it
+        if (archive_entry_size_is_set(e) && archive_entry_size(e) > 0 &&
+            uint64_t(archive_entry_size(e)) > kMaxUnpackedBytes - total) {
+            ok = false, capped = true;
+            if (why)
+                *why = "it unpacks to more than 2 GB";
             break;
         }
         if (archive_entry_filetype(e) != AE_IFREG)
@@ -1328,8 +1350,20 @@ bool extract(const fs::path &src, const fs::path &dir)
             break;
         }
         la_ssize_t n;
-        while ((n = archive_read_data(a, buf.data(), buf.size())) > 0)
+        while ((n = archive_read_data(a, buf.data(), buf.size())) > 0) {
+            total += uint64_t(n);
+            if (total > kMaxUnpackedBytes) {  // sizes can be missing or wrong: count what actually comes out
+                capped = true;
+                break;
+            }
             f.write(buf.data(), n);
+        }
+        if (capped) {
+            ok = false;
+            if (why)
+                *why = "it unpacks to more than 2 GB";
+            break;
+        }
         if (n < 0 || !f) {
             ok = false;  // a damaged, encrypted or unsupported entry
             break;
@@ -1337,6 +1371,8 @@ bool extract(const fs::path &src, const fs::path &dir)
         files++;
     }
     archive_read_free(a);
+    if (capped)
+        fs::remove_all(dir, ec);  // nothing of a pack that went past the limits stays in the cache
     return ok && files > 0;
 }
 
@@ -1488,8 +1524,10 @@ std::vector<std::string> import_file(const fs::path &src, const J::Value &cat, s
         return refs;
     }
     fs::path dir = long_path(g.cache_dir / "extract" / base);  // the pack's own folders can go past 260 characters
-    if (!extract(src, dir)) {
-        done.push_back(label + " is not a helmet archive, and not a pack this PC can unpack (zip, 7z, rar)");
+    std::string why;
+    if (!extract(src, dir, &why)) {
+        done.push_back(why.empty() ? label + " is not a helmet archive, and not a pack this PC can unpack (zip, 7z, rar)"
+                                   : label + " wasn't unpacked: " + why + ", far more than a helmet pack");
         return refs;
     }
     std::vector<fs::path> found;

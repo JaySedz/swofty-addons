@@ -1,13 +1,12 @@
 /*-
- * Copyright (c) 2003-2007 Tim Kientzle
+ * Copyright (c) 2026 Tobias Stoeckmann
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer
- *    in this position and unchanged.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
@@ -25,74 +24,29 @@
  */
 
 #include "lafe_platform.h"
-#ifdef HAVE_STDARG_H
-#include <stdarg.h>
-#endif
-#include <stdio.h>
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
+#ifndef HAVE_EXPLICIT_BZERO
+
 #ifdef HAVE_STRING_H
 #include <string.h>
 #endif
-
-#include "err.h"
-
-static void lafe_vwarnc(int, const char *, va_list) __LA_PRINTFLIKE(2, 0);
-
-static const char *lafe_progname;
-
-const char *
-lafe_getprogname(void)
-{
-
-	return lafe_progname;
-}
-
-void
-lafe_setprogname(const char *name, const char *defaultname)
-{
-
-	if (name == NULL)
-		name = defaultname;
-#if defined(_WIN32) && !defined(__CYGWIN__)
-	lafe_progname = strrchr(name, '\\');
-	if (strrchr(name, '/') > lafe_progname)
+#ifdef HAVE_WINDOWS_H
+#include <windows.h>
 #endif
-	lafe_progname = strrchr(name, '/');
-	if (lafe_progname != NULL)
-		lafe_progname++;
-	else
-		lafe_progname = name;
-}
 
-static void
-lafe_vwarnc(int code, const char *fmt, va_list ap)
-{
-	fprintf(stderr, "%s: ", lafe_progname);
-	vfprintf(stderr, fmt, ap);
-	if (code != 0)
-		fprintf(stderr, ": %s", strerror(code));
-	fprintf(stderr, "\n");
-}
+#include "lafe_explicit_bzero.h"
 
 void
-lafe_warnc(int code, const char *fmt, ...)
+explicit_bzero(void *b, size_t len)
 {
-	va_list ap;
+#ifdef HAVE_MEMSET_EXPLICIT
+	memset_explicit(b, 0, len);
+#elif defined(_WIN32) || defined(__CYGWIN__)
+	SecureZeroMemory(b, len);
+#else
+	volatile char *p = (volatile char *)b;
 
-	va_start(ap, fmt);
-	lafe_vwarnc(code, fmt, ap);
-	va_end(ap);
+	while (len--)
+		*p++ = 0;
+#endif
 }
-
-void
-lafe_errc(int eval, int code, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	lafe_vwarnc(code, fmt, ap);
-	va_end(ap);
-	exit(eval);
-}
+#endif

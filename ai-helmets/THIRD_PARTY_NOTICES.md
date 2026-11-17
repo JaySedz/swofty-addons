@@ -37,7 +37,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-## libarchive, v3.7.7
+## libarchive, v3.8.11
 
 bin/ai-helmets-helper.exe includes libarchive from https://github.com/libarchive/libarchive (third_party/libarchive in the source; its test suites are left out), used to unpack .zip, .7z and .rar helmet packs. Licensed as below.
 
@@ -64,7 +64,7 @@ the actual statements in the files are controlling.
    libarchive/mtree.5
 
 * The following source files are in the public domain:
-   libarchive/archive_getdate.c
+   libarchive/archive_parse_date.c
 
 * The following source files are triple-licensed with the ability to choose
   from CC0 1.0 Universal, OpenSSL or Apache 2.0 licenses:
