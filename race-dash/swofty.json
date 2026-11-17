@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "sedz.race-dash",
+  "name": "Race Dash",
+  "version": "0.2.1",
+  "author": "Sedz",
+  "description": "A steering wheel LCD laid out like a real F1 dash: last lap, RPM, live delta, speed, lap, SOC with a 20-segment bar, tyre temperatures and wear, gear, position, fuel, gaps, fuel mix, ERS mode and brake bias, with pop-ups for setting changes, safety cars and red flags. Reads the game's own UDP telemetry packets in the game (passed through unchanged, no sockets opened).",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/race-dash",
+  "category": "hud",
+  "kind": [
+    "erp",
+    "native"
+  ],
+  "experimental_features": [
+    "telemetry"
+  ],
+  "compat": {
+    "game": "f1_25",
+    "launcher": ">=1.8.36"
+  },
+  "requires": [
+    {
+      "id": "swofty.core",
+      "version": ">=0.1.0"
+    }
+  ],
+  "options": [
+    {
+      "id": "verbose",
+      "type": "toggle",
+      "label": "Debug log",
+      "description": "Write the dash's lap timing and values to swofty/loader.log every 10 seconds.",
+      "default": false,
+      "binds": "native"
+    }
+  ],
+  "operations": {
+    "erp": [
+      "erp/race_dash.json"
+    ],
+    "native": [
+      {
+        "dll": "native/race_dash.dll"
+      }
+    ]
+  }
+}
