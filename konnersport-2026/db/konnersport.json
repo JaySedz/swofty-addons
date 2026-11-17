@@ -1,0 +1,220 @@
+{
+ "schema_version": 1,
+ "fields": {
+  "career.my_team_sponsors.MyTeamSponsorsDataGroup[_metadata_=f1_career_2026].team_primary_sponsors.team_primary_sponsor": [
+   "_metadata_",
+   "primary_sponsor",
+   "team"
+  ],
+  "career.my_team_renown_and_form.MyTeamRenownAndFormDataGroup[_metadata_=f1_career_2026].initial_renown_and_form.InitialTeamRenownAndForm": [
+   "_metadata_",
+   "renown_points",
+   "form_points",
+   "team"
+  ],
+  "driver_market.driver_market.DataGroup[_metadata_=2026].team_driver_rating_range_requirements.TeamDriverRatingRangeRequirement": [
+   "_metadata_",
+   "rating_range",
+   "team"
+  ],
+  "accolades.AccoladeDataGroup[_metadata_=f1_career_2026].team_data.AccoladeTeam": [
+   "_metadata_",
+   "team"
+  ],
+  "entrants.entrant_specialisation.specialisation_sets.specialisation_set[_metadata_=f1_2026].specialisation_team_reference": [
+   "_metadata_",
+   "team",
+   "_driver_reference_instancecount_",
+   "driver_reference_0._metadata_",
+   "driver_reference_0.driver",
+   "driver_reference_0.driver_customisation",
+   "driver_reference_0._garage_specialisation_instancecount_",
+   "driver_reference_0.garage_specialisation_0._metadata_",
+   "driver_reference_0.garage_specialisation_0.material",
+   "driver_reference_1._metadata_",
+   "driver_reference_1.driver",
+   "driver_reference_1.driver_customisation",
+   "driver_reference_1._garage_specialisation_instancecount_",
+   "driver_reference_1.garage_specialisation_0._metadata_",
+   "driver_reference_1.garage_specialisation_0.material"
+  ],
+  "entrants.vehicles.vehicle_customisations.vehicle_customisation": [
+   "_metadata_",
+   "stat_id",
+   "default_livery",
+   "customisation_vehicle",
+   "decal_placement_file",
+   "livery_colour_1",
+   "livery_colour_2",
+   "livery_colour_3",
+   "livery_finish_1",
+   "livery_finish_2",
+   "livery_finish_3",
+   "driver_number_front",
+   "driver_number_back",
+   "driver_number_front_colour_1",
+   "driver_number_front_colour_2",
+   "driver_number_front_colour_3",
+   "driver_number_back_colour_1",
+   "driver_number_back_colour_2",
+   "driver_number_back_colour_3"
+  ]
+ },
+ "ops": [
+  {
+   "op": "add-row",
+   "table": "entrants.vehicles",
+   "from": "entrants.vehicles.vehicle[_metadata_=fom_car_2026]",
+   "set": {
+    "_metadata_": "konnersport_2026",
+    "display_name": "lng_team_kon_title_short",
+    "chassis_name": "lng_konnersport_chassis",
+    "performance_tier": "2"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "entrants.vehicles.vehicle_customisations",
+   "from": "entrants.vehicles.vehicle_customisations.vehicle_customisation[_metadata_=konnersport_vehicle_customisation]",
+   "set": {
+    "_metadata_": "konnersport_vehicle_customisation_2026",
+    "customisation_vehicle": "2026",
+    "default_livery": "livery_titlesponsor_livery{{livery}}_2026"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "entrants.entrant_lists.entrant_list[_metadata_=f1_2026]",
+   "from": "entrants.entrant_lists.entrant_list[_metadata_=f1_2026].entrant[_metadata_=williams_driver_01]",
+   "set": {
+    "_metadata_": "konnersport_driver_01",
+    "team": "konnersport",
+    "vehicle": "konnersport_2026",
+    "driver": "aiden_jackson",
+    "driver_customisation": "2025-konnersport_aiden_jackson",
+    "entrant_reference": "",
+    "car_number": "89",
+    "team_position": "0",
+    "vehicle_customisation": "konnersport_vehicle_customisation_2026"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "entrants.entrant_lists.entrant_list[_metadata_=f1_2026]",
+   "from": "entrants.entrant_lists.entrant_list[_metadata_=f1_2026].entrant[_metadata_=williams_driver_02]",
+   "set": {
+    "_metadata_": "konnersport_driver_02",
+    "team": "konnersport",
+    "vehicle": "konnersport_2026",
+    "driver": "callie_mayer",
+    "driver_customisation": "2025-konnersport_callie_mayer",
+    "entrant_reference": "",
+    "car_number": "66",
+    "team_position": "1",
+    "vehicle_customisation": "konnersport_vehicle_customisation_2026"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "entrants.entrant_lists.entrant_list[_metadata_=f1_career_2026_reserve_drivers]",
+   "from": "entrants.entrant_lists.entrant_list[_metadata_=f1_career_2026_reserve_drivers].entrant[_metadata_=gm_cadillac - benjamin_coppens]",
+   "set": {
+    "_metadata_": "konnersport - reserve 1",
+    "team": "konnersport",
+    "driver": "arron_barnes_konnersport",
+    "driver_customisation": "ce_driver_customisation",
+    "car_number": "250",
+    "team_position": "2"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "entrants.entrant_lists.entrant_list[_metadata_=f1_career_2026_reserve_drivers]",
+   "from": "entrants.entrant_lists.entrant_list[_metadata_=f1_career_2026_reserve_drivers].entrant[_metadata_=gm_cadillac - benjamin_coppens]",
+   "set": {
+    "_metadata_": "konnersport - reserve 2",
+    "team": "konnersport",
+    "driver": "noah_visser_konnersport",
+    "driver_customisation": "ce_driver_customisation",
+    "car_number": "251",
+    "team_position": "3"
+   }
+  },
+  {
+   "op": "set",
+   "select": "entrants.entrant_setup_modes.entrant_setup_mode[_metadata_=f1_26]",
+   "field": "max_entrants",
+   "value": "24"
+  },
+  {
+   "op": "set",
+   "select": "{446668bc25ba571c}[_metadata_=f1_26]",
+   "field": "worldEri",
+   "value_from": "{446668bc25ba571c}[_metadata_=myteam_26].worldEri"
+  },
+  {
+   "op": "set",
+   "select": "{446668bc25ba571c}[_metadata_=f1_26]",
+   "field": "worldAssetGroup",
+   "value_from": "{446668bc25ba571c}[_metadata_=myteam_26].worldAssetGroup"
+  },
+  {
+   "op": "add-row",
+   "table": "entrants.entrant_specialisation.specialisation_sets.specialisation_set[_metadata_=f1_2026]",
+   "from": "entrants.entrant_specialisation.specialisation_sets.specialisation_set[_metadata_=f1_2026].specialisation_team_reference[_metadata_=gm_cadillac]",
+   "set": {
+    "_metadata_": "konnersport",
+    "team": "konnersport",
+    "driver_reference_0._metadata_": "aiden_jackson",
+    "driver_reference_0.driver": "aiden_jackson",
+    "driver_reference_0.garage_specialisation_0.material": "eaid://environment_package/core_assets/objects/idf/garage_liveries/garage_livery_current.emb?context=2025-konnersport",
+    "driver_reference_1._metadata_": "callie_mayer",
+    "driver_reference_1.driver": "callie_mayer",
+    "driver_reference_1.garage_specialisation_0.material": "eaid://environment_package/core_assets/objects/idf/garage_liveries/garage_livery_current.emb?context=2025-konnersport"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "accolades.AccoladeDataGroup[_metadata_=f1_career_2026].team_data",
+   "from": "accolades.AccoladeDataGroup[_metadata_=f1_career_2026].team_data.AccoladeTeam[_metadata_=gm_cadillac]",
+   "set": {
+    "_metadata_": "konnersport",
+    "team": "konnersport"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "career.my_team_renown_and_form.MyTeamRenownAndFormDataGroup[_metadata_=f1_career_2026].initial_renown_and_form",
+   "from": "career.my_team_renown_and_form.MyTeamRenownAndFormDataGroup[_metadata_=f1_career_2026].initial_renown_and_form.InitialTeamRenownAndForm[_metadata_=GM Cadillac]",
+   "set": {
+    "_metadata_": "Konnersport",
+    "team": "konnersport"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "career.my_team_sponsors.MyTeamSponsorsDataGroup[_metadata_=f1_career_2026].team_primary_sponsors",
+   "from": "career.my_team_sponsors.MyTeamSponsorsDataGroup[_metadata_=f1_career_2026].team_primary_sponsors.team_primary_sponsor[_metadata_=gm_cadillac]",
+   "set": {
+    "_metadata_": "konnersport",
+    "team": "konnersport",
+    "primary_sponsor": "butler_global"
+   }
+  },
+  {
+   "op": "add-row",
+   "table": "driver_market.driver_market.DataGroup[_metadata_=2026].team_driver_rating_range_requirements",
+   "from": "driver_market.driver_market.DataGroup[_metadata_=2026].team_driver_rating_range_requirements.TeamDriverRatingRangeRequirement[_metadata_=gm_cadillac]",
+   "set": {
+    "_metadata_": "konnersport",
+    "team": "konnersport"
+   }
+  },
+  {
+   "op": "list-append",
+   "select": "resource_points.data_group[_metadata_=f1_career_2026].teams.team[_metadata_=user_defined]",
+   "field": "teams_linked_to",
+   "value": "konnersport"
+  }
+ ]
+}

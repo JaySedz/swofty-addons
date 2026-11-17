@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.ai-helmets",
   "name": "AI Helmets",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "author": "Sedz",
   "description": "Set AI drivers' helmets. Import helmets of your own or use helmets from the in game database.",
   "license": "MIT",

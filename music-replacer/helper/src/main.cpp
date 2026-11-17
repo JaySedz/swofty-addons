@@ -125,14 +125,6 @@ std::string megabytes(double bytes)
     return b;
 }
 
-// opusenc (opus-tools), shipped beside this program as bin/opus/opusenc.exe
-fs::path opusenc()
-{
-    wchar_t self[MAX_PATH];
-    GetModuleFileNameW(nullptr, self, MAX_PATH);
-    return fs::path(self).parent_path() / "opus" / "opusenc.exe";
-}
-
 // every song is saved as 160 kbps Opus (about 1.2 MB a minute), the game's own format
 constexpr int kKbps = 160;
 
@@ -242,7 +234,7 @@ void work()
             set_stage("Converting", 0);
             audio::Bytes pcm = audio::decode(job.src, [&](double d) { set_stage("Converting", d); });
             set_stage("Compressing", 0);
-            audio::Bytes wem = audio::make_opus_wem(pcm, kKbps, opusenc(), [&](double d) { set_stage("Compressing", d); });
+            audio::Bytes wem = audio::make_opus_wem(pcm, kKbps, [&](double d) { set_stage("Compressing", d); });
             pcm.clear();
             set_stage("Saving", 0);
             char file[32];

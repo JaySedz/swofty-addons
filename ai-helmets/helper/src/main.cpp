@@ -11,6 +11,11 @@
 
 #include "convert.hpp"
 
+// libarchive (third_party/libarchive, built static by build_deps.bat): unpacks zip, 7z and rar packs.
+#define LIBARCHIVE_STATIC
+#include <archive.h>
+#include <archive_entry.h>
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -1239,25 +1244,100 @@ std::string shell_label(const convert::Shell &s)
     return l.empty() ? s.token : l;
 }
 
-// Unpacks a zip, 7z or rar pack with Windows' own tar (bsdtar, which reads all three).
+// p with Windows' "\\?\" long-path prefix, so files under it can pass 260 characters: packs nest deep folders
+// ("<pack name>/F1 25/2025_asset_groups/livery_package/tier04/<livery>/<livery>_helmet.erp") under cache_dir.
+fs::path long_path(const fs::path &p)
+{
+    std::error_code ec;
+    fs::path a = fs::absolute(p, ec);
+    if (ec)
+        return p;
+    std::wstring s = a.lexically_normal().make_preferred().wstring();
+    if (s.rfind(LR"(\\?\)", 0) == 0)
+        return s;
+    if (s.rfind(LR"(\\)", 0) == 0)
+        return LR"(\\?\UNC\)" + s.substr(2);  // \\server\share\... -> \\?\UNC\server\share\...
+    return LR"(\\?\)" + s;
+}
+
+// An entry's path inside dir, or empty for one that would land outside it (an absolute path, a drive, "..").
+fs::path entry_target(const fs::path &dir, std::wstring name)
+{
+    std::replace(name.begin(), name.end(), L'\\', L'/');
+    fs::path out = dir;
+    bool any = false;
+    size_t at = 0;
+    while (at <= name.size()) {
+        size_t end = name.find(L'/', at);
+        if (end == std::wstring::npos)
+            end = name.size();
+        std::wstring part = name.substr(at, end - at);
+        at = end + 1;
+        if (part.empty() || part == L".")
+            continue;
+        if (part == L".." || part.find(L':') != std::wstring::npos)
+            return {};
+        out /= part;
+        any = true;
+    }
+    return any ? out : fs::path();
+}
+
+// Unpacks a zip, 7z or rar pack into dir with libarchive, built into this helper (the library Windows' own
+// tar.exe uses). Writes regular files only; links, devices and entries that point outside dir are skipped.
 bool extract(const fs::path &src, const fs::path &dir)
 {
     std::error_code ec;
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
-    wchar_t sys[MAX_PATH];
-    GetSystemDirectoryW(sys, MAX_PATH);
-    std::wstring cmd = L"\"" + std::wstring(sys) + L"\\tar.exe\" -xf \"" + src.wstring() + L"\" -C \"" + dir.wstring() + L"\"";
-    STARTUPINFOW si{sizeof si};
-    PROCESS_INFORMATION pi{};
-    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+    archive *a = archive_read_new();
+    if (!a)
         return false;
-    WaitForSingleObject(pi.hProcess, 5 * 60 * 1000);
-    DWORD code = 1;
-    GetExitCodeProcess(pi.hProcess, &code);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-    return code == 0;
+    // Only these readers: their compression is built in (zlib, liblzma, bzip2, PPMd). No archive_read_support_
+    // filter_*, whose fallbacks run external programs (lzop, zstd, ...): this helper never starts a process.
+    archive_read_support_format_zip(a);
+    archive_read_support_format_7zip(a);
+    archive_read_support_format_rar(a);
+    archive_read_support_format_rar5(a);
+    bool ok = archive_read_open_filename_w(a, src.c_str(), 1 << 16) == ARCHIVE_OK;
+    size_t files = 0;
+    std::vector<char> buf(1 << 16);
+    archive_entry *e = nullptr;
+    while (ok) {
+        int r = archive_read_next_header(a, &e);
+        if (r == ARCHIVE_EOF)
+            break;
+        if (r < ARCHIVE_WARN) {
+            ok = false;
+            break;
+        }
+        if (archive_entry_filetype(e) != AE_IFREG)
+            continue;
+        std::wstring name;
+        if (const wchar_t *w = archive_entry_pathname_w(e))
+            name = w;
+        else if (const char *u = archive_entry_pathname_utf8(e))
+            name = from_utf8(u).wstring();
+        fs::path out = entry_target(dir, name);
+        if (out.empty())
+            continue;
+        fs::create_directories(out.parent_path(), ec);
+        std::ofstream f(out, std::ios::binary | std::ios::trunc);
+        if (!f) {
+            ok = false;
+            break;
+        }
+        la_ssize_t n;
+        while ((n = archive_read_data(a, buf.data(), buf.size())) > 0)
+            f.write(buf.data(), n);
+        if (n < 0 || !f) {
+            ok = false;  // a damaged, encrypted or unsupported entry
+            break;
+        }
+        files++;
+    }
+    archive_read_free(a);
+    return ok && files > 0;
 }
 
 // A free tag for the mip folder of a helmet archive used as it is ("b001": its own mips go under
@@ -1407,7 +1487,7 @@ std::vector<std::string> import_file(const fs::path &src, const J::Value &cat, s
             refs.push_back(r);
         return refs;
     }
-    fs::path dir = g.cache_dir / "extract" / base;
+    fs::path dir = long_path(g.cache_dir / "extract" / base);  // the pack's own folders can go past 260 characters
     if (!extract(src, dir)) {
         done.push_back(label + " is not a helmet archive, and not a pack this PC can unpack (zip, 7z, rar)");
         return refs;

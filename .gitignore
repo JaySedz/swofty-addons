@@ -11,8 +11,8 @@ backup-*/
 *.pdb
 __pycache__/
 
-# the encoder Music Replacer ships, kept so package.bat works from a fresh clone
-!music-replacer/third_party/opus/opusenc.exe
+# libarchive's own build/ folder holds its CMake modules (source, not output): build_deps.bat needs it
+!ai-helmets/third_party/libarchive/build/
 
 # icon-generated.png is a scratch output of ai-helmets/tools/make_icon.py
 icon-generated.png

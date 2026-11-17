@@ -7,6 +7,8 @@
 #include <mfidl.h>
 #include <mfreadwrite.h>
 
+#include <opus/opus.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -179,7 +181,7 @@ template <class Progress> Bytes decode(const std::filesystem::path &song, Progre
 //   hash  16 bytes: an MD5 of the packets (the game doesn't check it)
 //   seek  each packet's size as a u16
 //   data  the raw Opus packets, back to back
-// opusenc (opus-tools, bundled) encodes the PCM to Ogg Opus at 20 ms frames; its packets are repacked so.
+// libopus (third_party/libopus, built into this program) encodes the PCM to those packets at 20 ms frames.
 
 inline constexpr uint16_t kCodecOpus = 0x3041;
 inline constexpr int kPrefetchPackets = 11;  // the game keeps its songs' header and first 11 packets in memory
@@ -240,113 +242,51 @@ inline void md5(const uint8_t *msg, size_t len, uint8_t out[16])
             out[i * 4 + j] = static_cast<uint8_t>(h[i] >> (8 * j));
 }
 
-// Runs `exe args`, writing `in` to its stdin and returning its stdout. `fed` gets the share of `in` written
-// so far (0..1), from the writing thread.
-inline Bytes run_piped(const std::filesystem::path &exe, const std::wstring &args, const Bytes &in,
-                       std::function<void(double)> fed = {})
+// Encodes 48 kHz 16-bit stereo PCM to a Wwise Opus .wem at `kbps`, with libopus built into this program (the
+// settings opusenc used: VBR at that bitrate, 20 ms frames, full complexity, 16-bit input). `progress` gets 0..1.
+inline Bytes make_opus_wem(const Bytes &pcm, int kbps, std::function<void(double)> progress = {})
 {
-    SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, TRUE};
-    HANDLE in_r, in_w, out_r, out_w;
-    if (!CreatePipe(&in_r, &in_w, &sa, 1 << 20) || !CreatePipe(&out_r, &out_w, &sa, 1 << 20))
+    int err = 0;
+    OpusEncoder *enc = opus_encoder_create(static_cast<opus_int32>(kRate), static_cast<int>(kChannels),
+                                           OPUS_APPLICATION_AUDIO, &err);
+    if (err != OPUS_OK || !enc)
         throw std::runtime_error("cannot start the Opus encoder");
-    SetHandleInformation(in_w, HANDLE_FLAG_INHERIT, 0);
-    SetHandleInformation(out_r, HANDLE_FLAG_INHERIT, 0);
-    HANDLE nul = CreateFileW(L"NUL", GENERIC_WRITE, FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, nullptr);
-    STARTUPINFOW si{sizeof si};
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdInput = in_r;
-    si.hStdOutput = out_w;
-    si.hStdError = nul;
-    PROCESS_INFORMATION pi{};
-    std::wstring cmd = L"\"" + exe.wstring() + L"\" " + args;
-    BOOL ok = CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
-    CloseHandle(in_r);
-    CloseHandle(out_w);
-    CloseHandle(nul);
-    if (!ok) {
-        CloseHandle(in_w);
-        CloseHandle(out_r);
-        throw std::runtime_error("cannot start the Opus encoder (bin/opus/opusenc.exe)");
-    }
-    struct Feed {
-        HANDLE h;
-        const Bytes *b;
-        std::function<void(double)> *fed;
-    } feed{in_w, &in, &fed};
-    HANDLE writer = CreateThread(nullptr, 0, [](LPVOID p) -> DWORD {
-        auto *f = static_cast<Feed *>(p);
-        size_t at = 0;
-        while (at < f->b->size()) {
-            DWORD n = 0, want = static_cast<DWORD>(std::min<size_t>(f->b->size() - at, 1 << 20));
-            if (!WriteFile(f->h, f->b->data() + at, want, &n, nullptr))
-                break;
-            at += n;
-            if (*f->fed)
-                (*f->fed)(static_cast<double>(at) / f->b->size());
-        }
-        CloseHandle(f->h);
-        return 0;
-    }, &feed, 0, nullptr);
-    Bytes out;
-    uint8_t buf[1 << 16];
-    for (DWORD n; ReadFile(out_r, buf, sizeof buf, &n, nullptr) && n;)
-        out.insert(out.end(), buf, buf + n);
-    CloseHandle(out_r);
-    WaitForSingleObject(writer, INFINITE);
-    CloseHandle(writer);
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    DWORD code = 1;
-    GetExitCodeProcess(pi.hProcess, &code);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    if (code != 0)
-        throw std::runtime_error("the Opus encoder failed");
-    return out;
-}
-
-// Encodes 48 kHz 16-bit stereo PCM to a Wwise Opus .wem at `kbps`. `progress` gets 0..1 as it goes.
-inline Bytes make_opus_wem(const Bytes &pcm, int kbps, const std::filesystem::path &opusenc,
-                           std::function<void(double)> progress = {})
-{
-    Bytes ogg = run_piped(opusenc,
-                          L"--quiet --raw --raw-rate 48000 --raw-chan 2 --raw-bits 16 --raw-endianness 0 --bitrate " +
-                              std::to_wstring(kbps) + L" --framesize 20 - -",
-                          pcm, std::move(progress));
-    // the Ogg stream's packets: OpusHead, OpusTags, then audio
-    std::vector<std::pair<size_t, size_t>> packets;  // offset into `joined`, size
-    Bytes joined;
-    size_t cur = joined.size();
-    for (size_t p = 0; p + 27 <= ogg.size();) {
-        if (std::memcmp(&ogg[p], "OggS", 4))
-            throw std::runtime_error("the Opus encoder's output is damaged");
-        int nseg = ogg[p + 26];
-        size_t q = p + 27 + nseg;
-        for (int s = 0; s < nseg; ++s) {
-            int len = ogg[p + 27 + s];
-            joined.insert(joined.end(), ogg.begin() + q, ogg.begin() + q + len);
-            q += len;
-            if (len < 255) {
-                packets.push_back({cur, joined.size() - cur});
-                cur = joined.size();
-            }
-        }
-        p = q;
-    }
-    if (packets.size() < 3 || std::memcmp(&joined[packets[0].first], "OpusHead", 8))
-        throw std::runtime_error("the Opus encoder's output is not Opus");
-    uint16_t preskip;
-    std::memcpy(&preskip, &joined[packets[0].first + 10], 2);
+    struct Free {
+        OpusEncoder *e;
+        ~Free() { opus_encoder_destroy(e); }
+    } free_enc{enc};
+    opus_encoder_ctl(enc, OPUS_SET_BITRATE(kbps * 1000));
+    opus_encoder_ctl(enc, OPUS_SET_VBR(1));
+    opus_encoder_ctl(enc, OPUS_SET_VBR_CONSTRAINT(0));
+    opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(10));
+    opus_encoder_ctl(enc, OPUS_SET_LSB_DEPTH(16));
+    opus_encoder_ctl(enc, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_20_MS));
+    opus_int32 lookahead = 0;
+    opus_encoder_ctl(enc, OPUS_GET_LOOKAHEAD(&lookahead));
+    // the decoder drops the first `preskip` samples (the encoder's delay), so the song is fed on until its last
+    // sample has come out: ceil((samples + preskip) / 960) frames, the tail filled with silence
+    constexpr int kFrame = 960;
+    const uint16_t preskip = static_cast<uint16_t>(lookahead);
+    const size_t in_samples = pcm.size() / kBlock;
+    const size_t frames = (in_samples + preskip + kFrame - 1) / kFrame;
+    const auto *src = reinterpret_cast<const opus_int16 *>(pcm.data());
+    std::vector<opus_int16> frame(kFrame * kChannels);
+    std::vector<unsigned char> packet(4000);  // the most one 20 ms stereo frame can take is 1275 * 3 bytes
     Bytes data, seek;
     uint32_t count = 0;
-    for (size_t i = 2; i < packets.size(); ++i) {
-        auto [off, len] = packets[i];
-        if (!len)
-            continue;
-        if (len > 0xFFFF)
-            throw std::runtime_error("an Opus packet is too large");
-        data.insert(data.end(), joined.begin() + off, joined.begin() + off + len);
+    for (size_t f = 0; f < frames; ++f) {
+        size_t at = f * kFrame, n = at < in_samples ? std::min<size_t>(kFrame, in_samples - at) : 0;
+        std::fill(frame.begin(), frame.end(), opus_int16(0));
+        if (n)
+            std::memcpy(frame.data(), src + at * kChannels, n * kBlock);
+        opus_int32 len = opus_encode(enc, frame.data(), kFrame, packet.data(), static_cast<opus_int32>(packet.size()));
+        if (len < 0)
+            throw std::runtime_error(std::string("the Opus encoder failed: ") + opus_strerror(len));
+        data.insert(data.end(), packet.begin(), packet.begin() + len);
         append<uint16_t>(seek, static_cast<uint16_t>(len));
         ++count;
+        if (progress && (f % 256 == 0 || f + 1 == frames))
+            progress(static_cast<double>(f + 1) / static_cast<double>(frames));
     }
     uint32_t samples = static_cast<uint32_t>(pcm.size() / kBlock);
     Bytes w;

@@ -24,8 +24,11 @@ if not exist build\zstd mkdir build\zstd
 set ZDIR=third_party\zstd\lib
 cl /nologo /O2 /MT /c /DZSTD_DISABLE_ASM /Fobuild\zstd\ %ZDIR%\common\debug.c %ZDIR%\common\entropy_common.c %ZDIR%\common\error_private.c %ZDIR%\common\fse_decompress.c %ZDIR%\common\xxhash.c %ZDIR%\common\zstd_common.c %ZDIR%\decompress\huf_decompress.c %ZDIR%\decompress\zstd_ddict.c %ZDIR%\decompress\zstd_decompress.c %ZDIR%\decompress\zstd_decompress_block.c >nul || exit /b 1
 
+echo == libarchive with zlib, liblzma and bzip2 (third_party, see THIRD_PARTY_NOTICES.md; built once, needs CMake from VS)
+if not exist build\deps\lib\archive.lib call "%~dp0build_deps.bat" || exit /b 1
+
 echo == bin\ai-helmets-helper.exe
-cl %FLAGS% /Inative\include helper\src\main.cpp build\zstd\*.obj bcrypt.lib /Fobuild\ /Fe:bin\ai-helmets-helper.exe /link /NOLOGO /SUBSYSTEM:CONSOLE || exit /b 1
+cl %FLAGS% /Inative\include /Ibuild\deps\include helper\src\main.cpp build\zstd\*.obj build\deps\lib\archive.lib build\deps\lib\lzma.lib build\deps\lib\bz2.lib build\deps\lib\zlib.lib advapi32.lib bcrypt.lib /Fobuild\ /Fe:bin\ai-helmets-helper.exe /link /NOLOGO /SUBSYSTEM:CONSOLE || exit /b 1
 
 del /q native\ai_helmets.exp 2>nul
 echo built native\ai_helmets.dll and bin\ai-helmets-helper.exe

@@ -5,9 +5,7 @@ setlocal
 cd /d "%~dp0"
 if not exist bin\music-replacer-helper.exe (echo bin\music-replacer-helper.exe is missing: run build.bat & exit /b 1)
 if exist build\pkg rmdir /s /q build\pkg
-mkdir build\pkg\bin\opus
-copy /y third_party\opus\opusenc.exe build\pkg\bin\opus\ >nul || exit /b 1
-copy /y third_party\opus\LICENSE build\pkg\bin\opus\ >nul
+mkdir build\pkg\bin
 copy /y THIRD_PARTY_NOTICES.md build\pkg\ >nul
 copy /y swofty.json build\pkg\ >nul
 copy /y README.md build\pkg\ >nul

@@ -19,7 +19,8 @@ Every song is saved as 160 kbps Opus, the game's own format, about 1.2 MB a minu
 
 ## How it works
 
-- Songs are decoded with Windows' own decoders and encoded with `opusenc` (opus-tools, bundled in `bin/opus`),
+- Songs are decoded with Windows' own decoders and encoded with libopus, built into the helper (it starts no
+  other program),
   then packed as Wwise Opus `.wem` files (codec 0x3041: format, hash, seek table, packets), the layout the
   game's songs use. They are kept in the addon's data folder.
 - A streamed song's opening (its header and first 11 packets, as the game's own) goes in `music.bnk`; a theme
@@ -41,4 +42,5 @@ Every song is saved as 160 kbps Opus, the game's own format, about 1.2 MB a minu
 ## Building
 
 Run `build.bat` (Visual Studio 2022 with "Desktop development with C++"), then `package.bat`. The package is
-`dist\sedz.music-replacer.swoftyaddon`.
+`dist\sedz.music-replacer.swoftyaddon`. The first build compiles `third_party/libopus` (1.5.2, BSD; see
+THIRD_PARTY_NOTICES.md) with `build_deps.bat`, which needs the CMake and Ninja that come with Visual Studio.

@@ -167,11 +167,16 @@ Look for `[ai-helmets]` lines in `swofty/loader.log`.
 ## Building
 
 ```
-build.bat      builds nativei_helmets.dll, the zstd decoder and bini-helmets-helper.exe
-package.bat    packs dist\sedz.ai-helmets.swoftyaddon
-toolsuild-erptool.bat   builds tools\erptool.exe (list, strings, dump, hashcheck, convert): a development aid
+build.bat       builds native\ai_helmets.dll, the zstd decoder and bin\ai-helmets-helper.exe
+build_deps.bat  builds libarchive, zlib, liblzma and bzip2 into build\deps (build.bat runs it once)
+package.bat     packs dist\sedz.ai-helmets.swoftyaddon
+tools\build-erptool.bat   builds tools\erptool.exe (list, strings, dump, hashcheck, convert): a development aid
 ```
 
 `native/include` is the Swofty SDK (MIT). `mixin.hpp` has one change so MSVC builds it (`&bound::addr`), and
-MSVC needs `/Zc:preprocessor`. `third_party/zstd` is the zstd 1.5.6 decoder (BSD; THIRD_PARTY_NOTICES.md).
+MSVC needs `/Zc:preprocessor`. `third_party/zstd` is the zstd 1.5.6 decoder (BSD). The helper unpacks helmet
+packs with `third_party/libarchive` 3.7.7 (zip, 7z and rar readers only), built with `third_party/zlib` 1.3.1,
+`third_party/xz` 5.6.3 (liblzma) and `third_party/bzip2` 1.0.8; it starts no other programs. Licences are in
+THIRD_PARTY_NOTICES.md. build_deps.bat needs the CMake and Ninja that come with Visual Studio's C++ workload.
+
 The archive format follows Swofty's `packages/formats/src/erp.rs`.

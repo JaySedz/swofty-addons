@@ -361,12 +361,30 @@ inline Result convert(const erp::Archive &mod, erp::Archive shell, const std::st
         return nullptr;
     };
     std::set<std::string> keep_stream;  // surfaces we don't replace: their stream paths stay on the game's files
+    // A repaint of the shell's own design (a tier04_livery106 archive converted onto tier04_livery106) also brings
+    // its colour masks (_m): the stock design's masks would tint the new paint. Other mods keep the shell's masks
+    // (a SERPs design's are the stock unassigned_livery18 ones, which must not reach replica_hamilton20a).
+    const bool same_design = !mod_tex.empty() && mod_tex == tex;
+    auto mod_own = [&](const std::string &x, const char *ext) -> const erp::Resource * {
+        std::string want = "/" + mod_tex + "_" + x + ext;
+        for (auto &r : mod.resources)
+            if (ends_with(r.name, want))
+                return &r;
+        return nullptr;
+    };
+    std::vector<std::pair<std::string, bool>> wanted;  // suffix, a mask (taken only from a same-design repaint)
     for (const char *x : {"helmet_d", "helmet_n", "helmet_s", "helmet_wing_d", "helmet_wing_n", "helmet_wing_s",
-                          "visor_attachments_d", "visor_d", "visor_s"}) {
+                          "visor_attachments_d", "visor_d", "visor_s"})
+        wanted.push_back({x, false});
+    if (same_design)
+        for (const char *x : {"helmet_m", "helmet_wing_m", "visor_attachments_m", "visor_attachments_s"})
+            wanted.push_back({x, true});
+    for (auto &[xs, own_only] : wanted) {
+        const std::string &x = xs;
         erp::Resource *img = shell_find(x, ".tif.image");
         erp::Resource *srv = shell_find(x, ".tif");
-        const erp::Resource *mimg = mod_texture(mod, x, ".tif.image", mod_tex);
-        const erp::Resource *msrv = mod_texture(mod, x, ".tif", mod_tex);
+        const erp::Resource *mimg = own_only ? mod_own(x, ".tif.image") : mod_texture(mod, x, ".tif.image", mod_tex);
+        const erp::Resource *msrv = own_only ? mod_own(x, ".tif") : mod_texture(mod, x, ".tif", mod_tex);
         if (!img || !srv || !mimg || !msrv)
             continue;
         auto view = msrv->fragments.empty() ? std::vector<uint8_t>() : msrv->fragments[0].data();
