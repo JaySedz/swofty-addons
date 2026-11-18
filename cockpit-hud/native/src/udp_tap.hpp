@@ -125,6 +125,19 @@ inline void decode(const uint8_t *d, size_t n)
             g.chqf_seq++;
             return;
         }
+        if (n >= kHeader + 4 && std::memcmp(d + kHeader, "BUTN", 4) != 0) { // any other event: its code, for the log
+            g.event_code = rd<uint32_t>(d + kHeader);
+            g.event_seq++;
+        }
+        if (n >= kHeader + 4 && std::memcmp(d + kHeader, "DRSE", 4) == 0) {
+            g.drse_seq++;
+            return;
+        }
+        if (n >= kHeader + 4 && std::memcmp(d + kHeader, "DRSD", 4) == 0) {
+            g.drsd_reason = n > kHeader + 4 ? int(d[kHeader + 4]) : -1;
+            g.drsd_seq++;
+            return;
+        }
         if (n < kHeader + 8 || std::memcmp(d + kHeader, "BUTN", 4) != 0)
             return;
         static uint32_t held = 0;
@@ -193,6 +206,7 @@ inline void decode(const uint8_t *d, size_t n)
         g.drs_allowed = c[22];              // drsAllowed: 0 not allowed, 1 allowed
         g.drs_distance = rd<uint16_t>(c + 23); // drsActivationDistance: metres to the next zone, 0 none
         g.fia_flag = int8_t(c[28]);         // vehicleFiaFlags
+        g.tyre_actual = c[25];              // actualTyreCompound (C1..C6, inter, wet)
         g.tyre_visual = c[26];              // visualTyreCompound
         g.tyre_age = c[27];                 // tyresAgeLaps
         g.status_tick = now;

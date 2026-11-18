@@ -64,7 +64,7 @@ inline uintptr_t wanted(const char *id, uintptr_t *slot)
 }
 
 template <name N> struct bound {
-    static inline uintptr_t addr = wanted(N.s, &bound::addr); // ai-helmets: qualified for MSVC (C2065 otherwise)
+    static inline uintptr_t addr = wanted(N.s, &bound::addr); // qualified for MSVC (C2065 otherwise; the SDK copy has &addr)
 };
 
 struct mixin {

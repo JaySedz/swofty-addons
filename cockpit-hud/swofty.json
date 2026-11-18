@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.cockpit-hud",
   "name": "Cockpit HUD",
-  "version": "0.4.20",
+  "version": "1.0.0",
   "author": "Sedz",
   "description": "A full HUD on the steering wheel display, built to replace the game's on-screen one. Three pages (race, car damage, pit), switched by a button: lap time and live delta, gear, RPM, speed, position, lap, gaps, tyre temperatures and wear, fuel, ERS SOC with the straight mode / DRS badge, a drawn car coloured by damage, the pit window, rejoin position and pit stop time. Flags, safety cars, the pit limiter, penalties and the chequered flag take the whole screen; setting changes and warnings pop up. Reads the game's own UDP telemetry packets in the game (passed through unchanged, no sockets opened).",
   "license": "MIT",
@@ -74,28 +74,6 @@
       "binds": "native"
     },
     {
-      "id": "tyre_cold_below",
-      "type": "slider",
-      "label": "Tyres cold below (°C)",
-      "description": "Tyre temperatures below this show blue.",
-      "min": 40,
-      "max": 110,
-      "step": 1,
-      "default": 80,
-      "binds": "native"
-    },
-    {
-      "id": "tyre_hot_above",
-      "type": "slider",
-      "label": "Tyres hot above (°C)",
-      "description": "Tyre temperatures above this show red; between the two limits they show green.",
-      "min": 80,
-      "max": 140,
-      "step": 1,
-      "default": 105,
-      "binds": "native"
-    },
-    {
       "id": "wear_amber",
       "type": "slider",
       "label": "Tyre wear amber from (%)",
@@ -115,6 +93,22 @@
       "max": 100,
       "step": 5,
       "default": 70,
+      "binds": "native"
+    },
+    {
+      "id": "ferrari_fix",
+      "type": "toggle",
+      "label": "Ferrari wheel correction",
+      "description": "Fixes the 2026 Ferrari steering wheel's bent display (a game bug: the game's own display bends there too). Leave it on; turn it off only if a game update or a car mod changes that wheel. Other cars are not affected.",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "calibration",
+      "type": "toggle",
+      "label": "Calibration grid",
+      "description": "Draws a straight grid over the whole steering wheel display, for measuring how a wheel bends its screen. Not for racing: it covers everything.",
+      "default": false,
       "binds": "native"
     },
     {

@@ -5,7 +5,7 @@
 #
 # Usage: python tools/build_ui.py ["<F1 25 install folder>"]
 # Reads the untouched originals from <install>/Original_GameData, falling back to the live packages.
-import copy, json, os, random, sys, uuid
+import copy, json, math, os, random, sys, uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import erp
@@ -178,6 +178,10 @@ class Layout:
 
 
 # ------------------------------------------------------------------ template (.ui)
+def near_white(c):
+    return min(c[:3]) >= 220
+
+
 class Template:
     def __init__(self, data):
         self.root = pkgfmt.read(data)
@@ -220,7 +224,9 @@ class Template:
         props.set('name', V('str', name))
         props.set('nameId', V('ui32', djb2(name)))
         props.set('text', D([('value', V('str', value)), ('dbentry', V('str', dbentry))]))
-        if colour is not None:
+        # white text needs no override (the game colours only the first ~128 widgets: see order_widgets)
+        props[:] = [(k, v) for k, v in props if k != 'colourOverride']
+        if colour is not None and not near_white(colour):
             props.set('colourOverride', self.rgba(colour))
         if visible is not None:
             props.set('visible', D([('value', V('bool', 0)), ('dbentry', V('str', visible))]))
@@ -262,7 +268,7 @@ class Template:
             props.insert(0, ('textureOverride', D([('value', V('str', texture))])))
         if texture_db is not None:  # the texture from a leaf, as the stock LCD's 2026 mod icons get theirs
             props.insert(0, ('textureOverride', D([('value', V('str', '')), ('dbentry', V('str', texture_db))])))
-        if colour is not None:
+        if colour is not None and not near_white(colour):  # the divider mesh is white already
             props.append(('colourOverride', self.rgba(colour)))
         if dbentry is None:
             vis = [('value', V('bool', 1))]
@@ -293,6 +299,59 @@ def stock_frags(resource, rtype):
             if name == resource and t == rtype:
                 return [erp.fragment(f, fr) for fr in frags]
     raise SystemExit(f'{resource} not found under {GAME}')
+
+
+def order_widgets(tpl):
+    """The game applies colourOverride to the first ~128 widgets of the template only (0.4.33: the BEHIND gap at
+    widget 122 coloured, the tyre temperatures from 126 on and everything after white). The game's own widgets
+    stay first; then ours with a colour (the race page's before the rest as built, every car's before the Ferrari
+    copies), then the rest."""
+    ws = list(tpl.lcd[1])
+    ours = [w for w in ws if w[0].get('name') is not None and w[0].get('name').v.startswith('rd_')]
+    stock = [w for w in ws if not any(w is o for o in ours)]
+
+    def coloured(w):
+        return w[0].get('colourOverride') is not None
+
+    def ferrari_copy(w):
+        return w[0].get('name').v.endswith('_f_w')
+    col = [w for w in ours if coloured(w) and not ferrari_copy(w)]
+    col_f = [w for w in ours if coloured(w) and ferrari_copy(w)]
+    rest = [w for w in ours if not coloured(w)]
+    tpl.lcd[1][:] = stock + col + col_f + rest
+    last = len(stock) + len(col) - 1
+    last_f = last + len(col_f)
+    print(f'colour widgets: every car\'s up to widget {last}, the Ferrari copies up to {last_f} (colour reaches ~128)')
+    if last >= 120:
+        raise SystemExit('the coloured widgets reach past the ~128 the game colours: cut some')
+
+
+def order_nodes(lcd, tpl):
+    """Colour overrides reach the first nodes of the layout only, about the stock layout's 133 (0.4.36: the BEHIND
+    gap at node 131 coloured, the tyre temperatures from node 135 white, whatever the widget order). The nodes the
+    coloured widgets drive come first, in the widgets' order (every car's, then the Ferrari copies)."""
+    kids = list(lcd.scene.get('children'))
+    by_name = {k.get('name').v: k for k in kids}
+    first, seen = [], set()
+    last_every = -1
+    for w in tpl.lcd[1]:
+        if w[0].get('colourOverride') is None or w[0].get('name') is None:
+            continue
+        for path in w[4]:
+            for d in path:
+                nm = d.get('debugName').v
+                if nm in by_name and nm not in seen:
+                    seen.add(nm)
+                    first.append(by_name[nm])
+                    if not w[0].get('name').v.endswith('_f_w'):
+                        last_every = len(first)
+    stock = [k for k in kids if not k.get('name').v.startswith('rd_')]
+    rest = [k for k in kids if k.get('name').v.startswith('rd_') and k.get('name').v not in seen]
+    lcd.scene.set('children', L(stock + first + rest))
+    print(f'colour nodes: every car\'s up to node {len(stock) + last_every - 1}, the Ferrari copies up to '
+          f'{len(stock) + len(first) - 1} (colour reaches ~133)')
+    if len(stock) + last_every - 1 >= 128:
+        raise SystemExit('the coloured nodes reach past the ~133 the game colours: cut some')
 
 
 # ------------------------------------------------------------------ the 2026 team logo set
@@ -401,16 +460,64 @@ def main():
     def centred(x, width, scale):
         return x - width * (scale - 1.0) / 2.0
 
+    # ---- the 2026 Ferrari's wheel: its screen bends the display (two panels each way, hinged at the centre
+    # lines). There the text and lines are drawn from copies placed against the bend (tools/ferrari_2026_warp.json,
+    # measured from a calibration grid screenshot): every text has a copy at its corrected spot, every switch over
+    # them comes in two, <name>_n (any other car) and <name>_f (the Ferrari), which the plugin writes from <name>.
+    warp = json.load(open(os.path.join(ROOT, 'tools', 'ferrari_2026_warp.json')))
+    wxs, wys, wdx, wdy = warp['xs'], warp['ys'], warp['dx'], warp['dy']
+    import bisect
+
+    def ferrari(px, py):
+        """Where to draw a canvas point on the Ferrari's screen (bilinear in the table)."""
+        px, py = min(max(px, 0.0), 1670.0), min(max(py, 0.0), 942.0)
+        i = min(max(bisect.bisect_right(wxs, px) - 1, 0), len(wxs) - 2)
+        k = min(max(bisect.bisect_right(wys, py) - 1, 0), len(wys) - 2)
+        tx = (px - wxs[i]) / (wxs[i + 1] - wxs[i])
+        ty = (py - wys[k]) / (wys[k + 1] - wys[k])
+
+        def at(t):
+            return ((1 - ty) * ((1 - tx) * t[k][i] + tx * t[k][i + 1]) +
+                    ty * ((1 - tx) * t[k + 1][i] + tx * t[k + 1][i + 1]))
+        return px + at(wdx), py + at(wdy)
+
+    split = set()  # the switches the plugin writes as <name>_n / <name>_f
+
+    def split_leaf(visible):
+        leaf = (visible or H + 'all')[len(H):]
+        assert (visible or H).startswith(H), visible
+        split.add(leaf)
+        return H + leaf + '_n', H + leaf + '_f'
+
     def text(name, px, py, dbentry, colour=WHITE, scale=1.0, style='OSD_24_bold', wpx=330, value='',
              visible=None, page=None, layer=None):
         if page is not None and visible is None:
             visible = H + f'p{page}'  # that page only (a value with its own switch has the page in it)
+        if colour == GREY:  # the "unknown" grey: plain white text (no colour override to spend)
+            colour = None
         w = W(wpx)
-        lcd.add_text(name, 'speedo_value', centred(X(px), w, scale), Y(py), width=w,
-                     layer=L_TEXT if layer is None else layer, style=style)
-        if scale != 1.0:
-            lcd.move(name, sx=scale, sy=scale)
-        tpl.add_label(f'{name}_w', name, dbentry, value=value, colour=colour, visible=visible)
+        vis_n, vis_f = split_leaf(visible)
+        for nm, (x, y), vis in ((name, (px, py), vis_n), (name + '_f', ferrari(px, py), vis_f)):
+            n = lcd.add_text(nm, 'speedo_value', centred(X(x), w, scale), Y(y), width=w,
+                             layer=L_TEXT if layer is None else layer, style=style)
+            if scale != 1.0:
+                lcd.move(nm, sx=scale, sy=scale)
+            if nm.endswith('_f'):
+                # the Ferrari copy turned against the screen's tilt where it sits (each of the wheel's four screen
+                # panels is tilted a little): the tilt of a level line through the text's middle, across its width
+                # (a text over the centre crease gets the average). Its scale grows it from its box's left edge,
+                # taken as the turn's pivot too: the node moves so the text's middle stays put.
+                half = min(wpx * scale, 500) / 2
+                (ax, ay), (bx, by) = ferrari(px - half, py), ferrari(px + half, py)
+                theta = -math.atan2(by - ay, bx - ax)  # canvas y runs down, the node's up
+                if abs(theta) > 0.002:
+                    n.set('rotation', V('quat', (0.0, 0.0, math.sin(theta / 2), math.cos(theta / 2), )))
+                    r = w * scale / 2
+                    p = list(n.get('position').v)
+                    p[0] += r * (1 - math.cos(theta))
+                    p[1] -= r * math.sin(theta)
+                    n.set('position', V('vec3', tuple(p)))
+            tpl.add_label(f'{nm}_w', nm, dbentry, value=value, colour=colour, visible=vis)
 
     def label(name, px, py, value, page=None, visible=None, scale=1.0, colour=LABEL):
         text(name, px, py, H + 'none', colour=colour, style='OSD_14_regular', value=value, wpx=326, scale=scale,
@@ -420,12 +527,16 @@ def main():
         lcd.add_rect(name, X(x0), Y(y1), W(x1 - x0), Y(y0) - Y(y1), layer=L_PART if layer is None else layer)
         tpl.add_group(f'{name}_group', [name], visible, colour=colour)
 
+    # the lines: drawn into textures per group (shared, each page, the badge outline), one straight and one
+    # against the Ferrari's bend, instead of a rectangle each (49 rectangles: the LCD holds 512 nodes at most)
+    lines = {'sha': [], 'pg0': [], 'pg1': [], 'pg2': [], 'bdg': []}
+
     def line(name, x0, y0, x1, y1, page=None, t=10):
-        vis = H + f'p{page}' if page is not None else None
+        group = 'sha' if page is None else f'pg{page}'
         if x1 - x0 >= y1 - y0:
-            box(name, x0, y0 - t / 2, x1, y0 + t / 2, LINE, vis, L_SHAPE)
+            lines[group].append((x0, y0, x1, y0, t))
         else:
-            box(name, x0 - t / 2, y0, x0 + t / 2, y1, LINE, vis, L_SHAPE)
+            lines[group].append((x0, y0, x0, y1, t))
 
     def outline(name, x0, y0, x1, y1, page=None):
         line(f'{name}_t', x0, y0, x1, y0, page, 6)
@@ -444,9 +555,8 @@ def main():
     # the mode badge: OVERTAKE (blue, 2026), STRAIGHT MODE (yellow, 2026), DRS (green ready / yellow open, 2025)
     box('rd_badge_g', 625, 815, 1097, 878, GREEN, H + 'badge_g')
     box('rd_badge_p', 625, 815, 1097, 878, (165, 60, 235), H + 'badge_p')
-    for nm, x0, y0, x1, y1 in (('t', 625, 812, 1097, 818), ('b', 625, 875, 1097, 881), ('l', 622, 812, 628, 881),
-                               ('r', 1094, 812, 1100, 881)):
-        box(f'rd_badge_n_{nm}', x0, y0, x1, y1, (150, 150, 158), H + 'badge_n')
+    lines['bdg'] += [(622, 815, 1100, 815, 6), (622, 878, 1100, 878, 6), (625, 812, 625, 881, 6),
+                     (1097, 812, 1097, 881, 6)]  # the badge's grey outline (badge_n)
     text('rd_badge_text_d', 861, 848, H + 'badge_text', (10, 10, 10), scale=1.05, style='OSD_19_bold', wpx=470,
          visible=H + 'badge_dark', layer=L_TEXT + 1)
     text('rd_badge_text_l', 861, 848, H + 'badge_text', WHITE, scale=1.05, style='OSD_19_bold', wpx=470,
@@ -467,18 +577,11 @@ def main():
     L_FULL, L_FULLTEXT = 70, 72
     for tag, colour in (('red', (215, 0, 0)), ('amber', (255, 205, 0)), ('yellow', (250, 225, 0)),
                         ('blue', (20, 100, 255)), ('green', (0, 165, 60)), ('white', (235, 235, 240)),
-                        ('chq', (10, 10, 10))):
+                        ('chq', (10, 10, 10)), ('black', (2, 2, 2))):
         box(f'rd_full_{tag}', 0, 0, 1670, 942, colour, H + f'full_{tag}', L_FULL)
-    # the chequered flag: 16 x 9 squares, the white ones over the black screen, a black band for the text across
-    # the middle. Each square has its own group, as every other shape: 0.4.6/0.4.7 put all 72 in one group and the
-    # game drew them grey and all the time (the group's switch and colour reached none of them)
-    cw, ch = 1670 / 16, 942 / 9
-    for row in range(9):
-        for col in range(16):
-            if (row + col) % 2 == 0:
-                box(f'rd_chq_{row}_{col}', col * cw, row * ch, (col + 1) * cw, (row + 1) * ch, (240, 240, 240),
-                    H + 'full_chq', L_FULL + 1)
-    box('rd_chq_band', 0, 300, 1670, 680, (10, 10, 10), H + 'full_chq', L_FULL + 1)
+    # the chequered flag: the squares are one texture (drawn with the car's textures, below), a black band for the
+    # text across the middle over them
+    box('rd_chq_band', 0, 300, 1670, 680, (10, 10, 10), H + 'full_chq', L_FULL + 2)
     boot_extra = []  # the boot screen's views, materials and bindings (resource, type, [source files])
     L_FULLTEXT = L_FULL + 3  # over the chequered band
     # the boot screen when the player gets the car (3 s): the team's logo on black
@@ -491,20 +594,26 @@ def main():
     # (0.4.15-0.4.19 switched textures with textureOverride, which the LCD ignores in every form.)
     logo_keys = team_logo_keys()
     stock_mat = stock_frags('eaid://ui_package/art/materials/lcd_default.material', 'GfxMaterialRes')[0]
+    # Two quads a slice: the copy (rd_logo_s, the game's own set as shipped) underneath, and over it a view of the
+    # set by its own name (rd_logo_g), which the game resolves to the loaded one: a logo mod's set when one is in
+    # (the launcher's importer writes them into vfx_package/common.erp, which the copy never sees: 0.4.29 showed
+    # the stock Cadillac under a Corvette mod), else the game's. A logo card is opaque, so the by-name one covers
+    # the copy wherever it resolves.
     for k, key in enumerate(logo_keys):
-        tag = f'rd_logo_s{k:02d}'
-        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
-        mat_res = f'eaid://ui_package/art/osd/materials/steering_lcd_display/{tag}.material'
-        emb_res = f'eaid://ui_package/art/osd/components/steering_lcd_display/{tag}.emb?context=default'
-        files[f'ui/tex/{tag}.view'] = texture.view(LOGO_IMAGE, k)
-        files[f'ui/tex/{tag}.material'] = texture.material(stock_mat, view_res, (255, 255, 255))
-        files[f'ui/tex/{tag}.emb'] = texture.binding([('mod_icon_bg', mat_res)])
-        boot_extra.append((view_res, 'GfxSRVResource', [f'ui/tex/{tag}.view']))
-        boot_extra.append((mat_res, 'GfxMaterialRes', [f'ui/tex/{tag}.material']))
-        boot_extra.append((emb_res, 'GfxMatBindRes', [f'ui/tex/{tag}.emb']))
-        n = lcd.add_rect(tag, X(385), Y(729), W(900), Y(213) - Y(729), layer=L_FULL + 6, like='mod_1_icon_bg')
-        n.get('geoms')[0].set('materialid', V('str', emb_res))
-        tpl.add_group(f'{tag}_group', [tag], H + f'boot_s{k}')
+        for kind, image, layer in (('s', LOGO_IMAGE, L_FULL + 6), ('g', LOGO_SOURCE, L_FULL + 7)):
+            tag = f'rd_logo_{kind}{k:02d}'
+            view_res = f'eaid://ui_package/art/textures/{tag}.tif'
+            mat_res = f'eaid://ui_package/art/osd/materials/steering_lcd_display/{tag}.material'
+            emb_res = f'eaid://ui_package/art/osd/components/steering_lcd_display/{tag}.emb?context=default'
+            files[f'ui/tex/{tag}.view'] = texture.view(image, k)
+            files[f'ui/tex/{tag}.material'] = texture.material(stock_mat, view_res, (255, 255, 255))
+            files[f'ui/tex/{tag}.emb'] = texture.binding([('mod_icon_bg', mat_res)])
+            boot_extra.append((view_res, 'GfxSRVResource', [f'ui/tex/{tag}.view']))
+            boot_extra.append((mat_res, 'GfxMaterialRes', [f'ui/tex/{tag}.material']))
+            boot_extra.append((emb_res, 'GfxMatBindRes', [f'ui/tex/{tag}.emb']))
+            n = lcd.add_rect(tag, X(385), Y(729), W(900), Y(213) - Y(729), layer=layer, like='mod_1_icon_bg')
+            n.get('geoms')[0].set('materialid', V('str', emb_res))
+            tpl.add_group(f'{tag}_group', [tag], H + f'boot_s{k}')
     hdr = ['// Written by tools/build_ui.py from the game\'s overrides.uidb: the 2026 team logo set\'s keys in slice',
            '// order (overrides.team_logos.f1_2026). The boot screen shows the slice of the player\'s team.',
            '#pragma once', '', 'inline constexpr const char *kTeamLogoKeys[] = {']
@@ -548,32 +657,26 @@ def main():
     text('rd_rpm', 838, 372, H + 'rpm', WHITE, scale=0.8, style='OSD_19_bold', wpx=330, value='0 RPM', page=0)
     text('rd_speed', 838, 505, H + 'speed', WHITE, scale=1.5, wpx=330, value='0', page=0)
     # gaps
-    text('rd_l_ahead', 1180, 368, H + 'code_a', LABEL, style='OSD_19_bold', wpx=240, value='AHEAD', page=0)
+    text('rd_l_ahead', 1205, 368, H + 'code_a', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='AHEAD',
+         page=0)
     text('rd_gap_a', 1480, 368, H + 'gap_a', YELLOW, scale=0.95, wpx=330, value='-', page=0)
-    text('rd_l_behind', 1180, 492, H + 'code_b', LABEL, style='OSD_19_bold', wpx=240, value='BEHIND', page=0)
+    text('rd_l_behind', 1205, 492, H + 'code_b', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='BEHIND',
+         page=0)
     text('rd_gap_b', 1480, 492, H + 'gap_b', GREEN, scale=0.95, wpx=330, value='-', page=0)
     # tyres: a box each, the corner and its temperature: blue cold / green / red hot from the game's packets,
     # else the game's own formatted temperature (white)
-    T_COLD, T_OK, T_HOT = (70, 150, 255), (60, 225, 110), (245, 60, 50)
-    for corner, x0, y0, x1, y1, db in (('fl', 47, 650, 303, 745, 'front_left_tyre_temp_formatted'),
-                                       ('fr', 323, 650, 570, 745, 'front_right_tyre_temp_formatted'),
-                                       ('rl', 47, 765, 303, 860, 'rear_left_tyre_temp_formatted'),
-                                       ('rr', 323, 765, 570, 860, 'rear_right_tyre_temp_formatted')):
+    # bigger since 0.4.34 (the degree sign was hard to read): the boxes fill the bottom left cell. White since 1.0:
+    # the compound windows are a guide's guess until the launcher exposes the game's own (1.10), see tyre_window
+    for corner, x0, y0, x1, y1 in (('fl', 40, 618, 310, 755), ('fr', 326, 618, 588, 755),
+                                   ('rl', 40, 768, 310, 900), ('rr', 326, 768, 588, 900)):
         outline(f'rd_tbox_{corner}', x0, y0, x1, y1, 0)
-        cy = (y0 + y1) / 2
-        label(f'rd_l_t{corner}', x0 + 48, cy, corner.upper(), page=0, scale=1.3)
-        text(f'rd_t_{corner}', x0 + 165, cy, H + f't_{corner}', GREY, scale=1.2, style='OSD_19_bold', wpx=200,
-             value='--',
-             visible=H + f'tg_{corner}')
-        for tag, colour in (('c', T_COLD), ('n', T_OK), ('h', T_HOT)):
-            text(f'rd_t{tag}_{corner}', x0 + 165, cy, H + f't_{corner}', colour, scale=1.2, style='OSD_19_bold',
-                 wpx=200, value='--',
-                 visible=H + f't{tag}_{corner}')
-    # fuel margin: green to spare, red when fuel needs saving (the game's packets), else the game's own value
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2  # the number centred, no corner label (the box's place says it)
+        text(f'rd_t_{corner}', cx, cy, H + f't_{corner}', WHITE, scale=1.55, style='OSD_19_bold', wpx=200,
+             value='--', page=0)
+    # fuel margin (the game's packets), else the game's own value; white (1.0)
     label('rd_l_fuel', 1267, 630, 'FUEL', page=0)
     text('rd_fuel', 1390, 765, 'laps_of_fuel_format', WHITE, scale=1.7, wpx=330, value='-', visible=H + 'fuel_game')
-    text('rd_fuel_g', 1390, 765, H + 'fuel', GREEN, scale=1.7, wpx=330, value='-', visible=H + 'fuel_ok')
-    text('rd_fuel_r', 1390, 765, H + 'fuel', RED, scale=1.7, wpx=330, value='-', visible=H + 'fuel_low')
+    text('rd_fuel_g', 1390, 765, H + 'fuel', WHITE, scale=1.7, wpx=330, value='-', visible=H + 'fuel_ok')
 
     # ---- car page (page 1): the user's top-down car (art/car: white parts on a 1671 x 941 canvas, the mock-up's
     # pixels), each part coloured by its damage (green, amber, red; grey until known), the tyres by their wear, the
@@ -636,6 +739,32 @@ def main():
         tag, view_res, box = car_texture(stem)
         car_quad(f'{tag}_f', view_res, box, colour, H + 'p1', layer)
 
+    def overlay_texture(tag, alpha):
+        """A full-canvas texture from an alpha picture (836 x 472, half the canvas: 4 px blocks), named tag (11
+        characters, so its view path has the stock texture's 46)."""
+        assert len(tag) == 11 and alpha.size == (836, 472)
+        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
+        image_res = view_res + '.image'
+        rel = 'ui/tex/' + tag
+        files[rel + '.head'] = texture.surface_head(836, 472)
+        files[rel + '.pixels'] = texture.bc7_white(alpha.tobytes(), 836, 472)
+        files[rel + '.view'] = texture.view(image_res)
+        textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
+        textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
+        return view_res
+
+    from PIL import ImageDraw
+    # the chequered flag's squares: 16 x 9, white ones over the black screen (one quad: 0.4.6-0.4.22 drew 72)
+    chq = Image.new('L', (836, 472), 0)
+    d = ImageDraw.Draw(chq)
+    for row in range(9):
+        for col in range(16):
+            if (row + col) % 2 == 0:
+                d.rectangle([round(col * 836 / 16), round(row * 472 / 9), round((col + 1) * 836 / 16) - 1,
+                             round((row + 1) * 472 / 9) - 1], fill=255)
+    car_quad('rd_ovl_chq0', overlay_texture('rd_ovl_chq0', chq), (0, 0, 1670, 942), (240, 240, 240), H + 'full_chq',
+             L_FULL + 1)
+
     # bottom to top
     car_fixed('suspension', SUSP, 52)
     for side in ('left', 'right'):
@@ -660,9 +789,14 @@ def main():
     text('rd_mix', 170, 785, H + 'mix', WHITE, scale=1.35, wpx=280, value='-', page=1)
     label('rd_l_diff', 465, 678, 'DIFF', page=1)
     text('rd_diff', 470, 785, H + 'diff', WHITE, scale=1.35, wpx=260, value='-', page=1)
-    label('rd_l_bbal', 1312, 640, 'BRAKE BIAS', page=1)
-    text('rd_bbal', 1290, 765, H + 'bbal', WHITE, scale=1.8, wpx=300, value='-', page=1)
-    label('rd_l_bbal_front', 1290, 862, 'FRONT', page=1)
+    label('rd_l_bbal', 1383, 640, 'BRAKE BIAS', page=1)
+    text('rd_bbal', 1383, 765, H + 'bbal', WHITE, scale=1.8, wpx=300, value='-', page=1)
+    label('rd_l_bbal_front', 1383, 862, 'FRONT', page=1)
+    # brake temperatures in the space beside the car: the rears left of it, the fronts right (the nose points right;
+    # the car's left side is up)
+    for corner, cx, ly in (('rl', 150, 150), ('rr', 150, 380), ('fl', 1520, 150), ('fr', 1520, 380)):
+        label(f'rd_l_bt_{corner}', cx, ly, f'{corner.upper()} BRAKE', page=1)
+        text(f'rd_bt_{corner}', cx, ly + 75, H + f'bt_{corner}', WHITE, scale=1.1, wpx=230, value='-', page=1)
 
     # ---- pit page (page 2), the user's mock-up: pit window | current tyres; rejoin position | front wing damage;
     # bottom left the tyre wear, bottom right the last pit stop's time. (The mock-up's next tyres, downforce level
@@ -685,22 +819,73 @@ def main():
     for tag, colour in (('g', GREEN), ('a', AMBER), ('r', RED), ('n', GREY)):
         text(f'rd_wing_{tag}', 1240, 500, H + 'wing', colour, scale=1.3, wpx=760, value='-', visible=H + f'wing_{tag}')
     # tyre wear: a box per corner, the % coloured by the wear limits in the settings
-    for corner, x0, y0, x1, y1 in (('fl', 47, 650, 303, 745), ('fr', 323, 650, 570, 745),
-                                   ('rl', 47, 765, 303, 860), ('rr', 323, 765, 570, 860)):
+    for corner, x0, y0, x1, y1 in (('fl', 40, 618, 310, 755), ('fr', 326, 618, 588, 755),
+                                   ('rl', 40, 768, 310, 900), ('rr', 326, 768, 588, 900)):
         outline(f'rd_wbox_{corner}', x0, y0, x1, y1, 2)
-        cy = (y0 + y1) / 2
-        label(f'rd_l_w{corner}', x0 + 48, cy, corner.upper(), page=2, scale=1.3)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2  # as the race page's tyre temperatures: centred, no label
         for tag, colour in (('g', GREEN), ('a', YELLOW), ('r', RED), ('n', GREY)):
-            text(f'rd_w{tag}_{corner}', x0 + 170, cy, H + f'w_{corner}', colour, scale=0.78, wpx=180, value='--',
-                 visible=H + f'w{tag}_{corner}')
+            text(f'rd_w{tag}_{corner}', cx, cy, H + f'w_{corner}', colour, scale=1.55, style='OSD_19_bold',
+                 wpx=200, value='--', visible=H + f'w{tag}_{corner}')
     # the last pit stop's time stationary
     label('rd_l_pst', 1383, 640, 'PIT STOP TIME', page=2)
     text('rd_pst', 1360, 765, H + 'pst', WHITE, scale=1.7, wpx=330, value='-', page=2)
     label('rd_l_pst_s', 1590, 800, 's', page=2, scale=1.4, visible=H + 'pst_on')
 
+    # ---- the calibration grid (the "Calibration grid" setting): black over everything, then straight lines across
+    # the whole display, every 83.5 px across (21) and 78.5 px down (13), the centre ones red; a screenshot of it on a
+    # wheel shows how that wheel's screen bends the display (the 2026 Ferrari's). 0.4.21's coarser grid over the
+    # pages mixed with the pages' own lines and text.
+    def draw_lines(segs, bend):
+        """An 836 x 472 alpha picture of line segments (x0, y0, x1, y1, width; canvas px), each point moved by bend:
+        drawn at the canvas's size and halved (smooth edges)."""
+        big = Image.new('L', (1672, 944), 0)
+        d2 = ImageDraw.Draw(big)
+        for x0, y0, x1, y1, t in segs:
+            n = max(2, int(max(abs(x1 - x0), abs(y1 - y0)) / 8) + 1)
+            pts = [bend(x0 + (x1 - x0) * u / (n - 1), y0 + (y1 - y0) * u / (n - 1)) for u in range(n)]
+            d2.line(pts, fill=255, width=max(2, round(t)), joint='curve')
+        return big.resize((836, 472), Image.LANCZOS)
+
+    def straight(x, y):
+        return x, y
+
+    for group, segs in lines.items():
+        if not segs:
+            continue
+        vis = {'sha': None, 'pg0': H + 'p0', 'pg1': H + 'p1', 'pg2': H + 'p2', 'bdg': H + 'badge_n'}[group]
+        colour = (150, 150, 158) if group == 'bdg' else LINE
+        vis_n, vis_f = split_leaf(vis)
+        for v, bend, vv in (('n', straight, vis_n), ('f', ferrari, vis_f)):
+            tag = f'rd_ln_{group}_{v}'
+            car_quad(tag, overlay_texture(tag, draw_lines(segs, bend)), (0, 0, 1670, 942), colour, vv, L_SHAPE)
+
+    # (two textures since 0.4.23: 0.4.22's 35 rectangles took the display past 512 nodes and it drew nothing; a
+    # Ferrari copy of each since 0.4.24, bent the other way: on that wheel it should show straight)
+    L_CALIB = L_FULL + 9
+    box('rd_cal_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'calib', L_CALIB - 1)
+    grid_segs = [(i * 83.5, 0, i * 83.5, 942, 6) for i in range(21) if i != 10] + \
+                [(0, j * 78.5, 1670, j * 78.5, 6) for j in range(13) if j != 6]
+    cross_segs = [(835, 0, 835, 942, 6), (0, 471, 1670, 471, 6)]
+    cal_n, cal_f = split_leaf(H + 'calib')
+    for v, bend, vv in (('0', straight, cal_n), ('2', ferrari, cal_f)):
+        car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(grid_segs, bend)), (0, 0, 1670, 942),
+                 (255, 255, 255), vv, L_CALIB)
+    for v, bend, vv in (('1', straight, cal_n), ('3', ferrari, cal_f)):
+        car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(cross_segs, bend)),
+                 (0, 0, 1670, 942), (255, 40, 40), vv, L_CALIB + 1)
+
+    # the switches the plugin splits (names after ui_menu_data.hud_rdash_)
+    hdr = ['// Written by tools/build_ui.py: the switches drawn as two copies, <name>_n on any other car and',
+           '// <name>_f on the 2026 Ferrari (its wheel bends the display; the _f copies are placed against the bend).',
+           '#pragma once', '', 'inline constexpr const char *kSplitLeaves[] = {']
+    hdr += [f'    "{leaf}",' for leaf in sorted(split)] + ['};', '']
+    open(os.path.join(ROOT, 'native', 'src', 'split_leaves.hpp'), 'w', encoding='utf-8').write('\n'.join(hdr))
+
     os.makedirs(os.path.join(ROOT, 'ui', 'clips'), exist_ok=True)
     os.makedirs(os.path.join(ROOT, 'ui', 'tex'), exist_ok=True)
     open(os.path.join(ROOT, 'ui', 'lcd_display.idf'), 'wb').write(lcd.encode())
+    order_widgets(tpl)
+    order_nodes(lcd, tpl)
     open(os.path.join(ROOT, 'ui', 'race_assets_f1.ui'), 'wb').write(tpl.encode())
     for rel, data in files.items():
         open(os.path.join(ROOT, rel), 'wb').write(data)
@@ -726,6 +911,11 @@ def main():
     json.dump({'schema_version': 1, 'ops': ops}, open(os.path.join(ROOT, 'erp', 'cockpit_hud.json'), 'w'), indent=2)
     # sanity: both files read back
     pkgfmt.read(lcd.encode())
+    # the LCD holds at most 512 nodes: 0.4.22 had 520 and the display drew nothing at all
+    n_nodes = len(lcd.scene0.get('nodeidlookup'))
+    print(f'lcd nodes: {n_nodes} of 512')
+    if n_nodes > 512:
+        raise SystemExit(f'the LCD layout has {n_nodes} nodes: the game draws nothing past 512')
     pkgfmt.read(tpl.encode())
     print('wrote ui/lcd_display.idf, ui/race_assets_f1.ui, erp/cockpit_hud.json')
 

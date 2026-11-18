@@ -46,8 +46,14 @@ struct Values {
     std::atomic<int> result{-1}, pit_status{-1}, lane_active{0}, lane_ms{0}, stop_ms{0};
     // car status: the tyre on the car (visual compound: 16 soft, 17 medium, 18 hard, 7 inter, 8 wet) and its age
     std::atomic<int> tyre_visual{-1}, tyre_age{-1};
+    std::atomic<int> tyre_actual{-1}; // actualTyreCompound: 16 C5, 17 C4, 18 C3, 19 C2, 20 C1, 21 C0, 22 C6, 7 inter, 8 wet
     // events for the player's car: a penalty (type, infringement, seconds or places), and the chequered flag
     std::atomic<uint32_t> pen_seq{0}, chqf_seq{0};
+    // DRS (overtake in the 2026 season) enabled / disabled for the race ("DRSE" / "DRSD"; disabled with a reason:
+    // 0 wet track, 1 safety car, 2 red flag, 3 the minimum lap not reached), and the event codes seen (for the log)
+    std::atomic<uint32_t> drse_seq{0}, drsd_seq{0};
+    std::atomic<int> drsd_reason{-1};
+    std::atomic<uint32_t> event_code{0}, event_seq{0};
     std::atomic<int> pen_type{-1}, pen_infr{-1}, pen_time{0};
     // DRS (2025 rules): open (car telemetry), allowed here and the distance to the next zone (car status)
     std::atomic<int> drs_open{-1}, drs_allowed{-1}, drs_distance{-1};
