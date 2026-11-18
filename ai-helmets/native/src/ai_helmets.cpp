@@ -965,6 +965,27 @@ std::map<std::string, std::string> g_patch_helmet;    // driver -> the helmet re
 std::set<std::string> g_patch_failed;                 // failures already logged
 bool g_logged_layout = false;
 
+// The fields other drivers' picks hold now: field -> {its stock value, ours}. A field whose value the game has since
+// rewritten isn't ours any more and is left out.
+struct Owned {
+    uint32_t from, to;
+    std::string driver;
+};
+std::map<uintptr_t, Owned> owned_fields(const std::string &except = {})
+{
+    std::map<uintptr_t, Owned> m;
+    for (auto &[d, ps] : g_patches) {
+        if (d == except)
+            continue;
+        for (auto &p : ps) {
+            uint32_t cur = 0;
+            if (mem::read(p.at, cur) && cur == p.to)
+                m[p.at] = {p.from, p.to, d};
+        }
+    }
+    return m;
+}
+
 void unpatch(const std::string &driver)
 {
     auto it = g_patches.find(driver);
@@ -1006,7 +1027,12 @@ size_t records_holding(uint32_t id)
         return 0;
     uint32_t key = helmet_key(id);
     size_t n = 0;
-    each_look_record(es, [&](uintptr_t rec) { n += *reinterpret_cast<const uint32_t *>(rec + kHelmetField) == key; });
+    // a field another driver's pick holds counts as its stock helmet, not as the pick
+    auto owned = owned_fields();
+    each_look_record(es, [&](uintptr_t rec) {
+        auto o = owned.find(rec + kHelmetField);
+        n += (o != owned.end() ? o->second.from : *reinterpret_cast<const uint32_t *>(rec + kHelmetField)) == key;
+    });
     return n;
 }
 
@@ -1188,11 +1214,10 @@ uintptr_t shared_look_record(uintptr_t es, const LookPos &pos, std::string &why)
                 recs.push_back(rec);
         }
     }
-    // helmets this addon has changed count as what they were
+    // helmets this addon has changed (and the game hasn't rewritten since) count as what they were
     std::map<uintptr_t, uint32_t> was;
-    for (auto &[d, ps] : g_patches)
-        for (auto &p : ps)
-            was[p.at] = p.from;
+    for (auto &[at, o] : owned_fields())
+        was[at] = o.from;
     auto helmet_of = [&](uintptr_t rec) {
         if (auto w = was.find(rec + kHelmetField); w != was.end())
             return w->second;
@@ -1274,6 +1299,10 @@ uintptr_t shared_look_record(uintptr_t es, const LookPos &pos, std::string &why)
         why = "his look record holds another helmet than its row names";
         return 0;
     }
+    if (was.count(found + kHelmetField)) {
+        why = "his look record holds another driver's pick";
+        return 0;
+    }
     if (!writable(found + kHelmetField, 4)) {
         why = "his look record can't be written";
         return 0;
@@ -1311,11 +1340,17 @@ size_t patch(const std::string &driver, const std::string &helmet, std::string &
     uint32_t to = helmet_key(to_id);
     std::vector<Patch> done;
     std::set<size_t> offsets;
+    // Fields another driver's pick holds are his, even when they now carry one of this driver's helmets (Colapinto
+    // given Ocon's 2024 helmet): taking them made Ocon's pick land on Colapinto too, and left Colapinto with none
+    // of his own helmets to find at the next refresh.
+    auto owned = owned_fields(driver);
     // 0.4.0 scanned the record's first 0x400 bytes like Helmet Exchange; on the first in-game run every one of 42
     // matches was at +0x18, so only that field is written now (no coincidental match elsewhere in a record).
     size_t records = each_look_record(es, [&](uintptr_t rec) {
         for (size_t off = kHelmetField; off <= kHelmetField; off += 4) {
             uint32_t v = *reinterpret_cast<const uint32_t *>(rec + off);
+            if (owned.count(rec + off))
+                continue;
             if (keys.count(v) && writable(rec + off, 4)) {
                 *reinterpret_cast<volatile uint32_t *>(rec + off) = to;
                 done.push_back({rec + off, v, to});
@@ -1353,6 +1388,15 @@ size_t patch(const std::string &driver, const std::string &helmet, std::string &
         swofty::log("[ai-helmets] look records: %zu read; %s: %zu field(s) at %s", records, driver.c_str(), done.size(),
                     offs.c_str());
     }
+    // a field the game rewrote since another driver's pick took it is this driver's now: drop it from that pick, so
+    // putting that driver's helmet back never writes over this one
+    std::set<uintptr_t> mine;
+    for (auto &p : done)
+        mine.insert(p.at);
+    for (auto &[d, ps] : g_patches)
+        if (d != driver)
+            ps.erase(std::remove_if(ps.begin(), ps.end(), [&](const Patch &p) { return mine.count(p.at) != 0; }),
+                     ps.end());
     g_patches[driver] = std::move(done);
     g_patch_helmet[driver] = helmet;
     return g_patches[driver].size();

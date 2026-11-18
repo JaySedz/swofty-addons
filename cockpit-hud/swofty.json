@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "id": "sedz.cockpit-hud",
+  "name": "Cockpit HUD",
+  "version": "0.4.20",
+  "author": "Sedz",
+  "description": "A full HUD on the steering wheel display, built to replace the game's on-screen one. Three pages (race, car damage, pit), switched by a button: lap time and live delta, gear, RPM, speed, position, lap, gaps, tyre temperatures and wear, fuel, ERS SOC with the straight mode / DRS badge, a drawn car coloured by damage, the pit window, rejoin position and pit stop time. Flags, safety cars, the pit limiter, penalties and the chequered flag take the whole screen; setting changes and warnings pop up. Reads the game's own UDP telemetry packets in the game (passed through unchanged, no sockets opened).",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/cockpit-hud",
+  "category": "hud",
+  "kind": [
+    "erp",
+    "native"
+  ],
+  "experimental_features": [
+    "telemetry"
+  ],
+  "compat": {
+    "game": "f1_25",
+    "launcher": ">=1.8.36"
+  },
+  "requires": [
+    {
+      "id": "swofty.core",
+      "version": ">=0.1.0"
+    }
+  ],
+  "options": [
+    {
+      "id": "delta_ref",
+      "type": "choice",
+      "label": "Delta against",
+      "description": "What the live delta compares your lap with: the previous lap or your best lap of the session.",
+      "values": [
+        {
+          "value": "previous",
+          "label": "Previous lap"
+        },
+        {
+          "value": "best",
+          "label": "Best lap"
+        }
+      ],
+      "default": "previous",
+      "binds": "native"
+    },
+    {
+      "id": "flag_screen",
+      "type": "choice",
+      "label": "Flag screen",
+      "description": "Flags (red flag, safety car, VSC, yellow, blue) fill the whole screen: briefly when they come out (4 s, then a blinking strip along the top and bottom edges), or for as long as they are out.",
+      "values": [
+        {
+          "value": "brief",
+          "label": "Briefly (4 s)"
+        },
+        {
+          "value": "full",
+          "label": "While the flag is out"
+        }
+      ],
+      "default": "brief",
+      "binds": "native"
+    },
+    {
+      "id": "page_action",
+      "type": "slider",
+      "label": "Page button (UDP Action)",
+      "description": "Bind a button (wheel, controller or keyboard) to this \"UDP Action\" in the game's Controls menu: it steps through the race, car and pit pages. 0 turns it off. Needs the game's UDP telemetry on.",
+      "min": 0,
+      "max": 12,
+      "step": 1,
+      "default": 1,
+      "binds": "native"
+    },
+    {
+      "id": "tyre_cold_below",
+      "type": "slider",
+      "label": "Tyres cold below (°C)",
+      "description": "Tyre temperatures below this show blue.",
+      "min": 40,
+      "max": 110,
+      "step": 1,
+      "default": 80,
+      "binds": "native"
+    },
+    {
+      "id": "tyre_hot_above",
+      "type": "slider",
+      "label": "Tyres hot above (°C)",
+      "description": "Tyre temperatures above this show red; between the two limits they show green.",
+      "min": 80,
+      "max": 140,
+      "step": 1,
+      "default": 105,
+      "binds": "native"
+    },
+    {
+      "id": "wear_amber",
+      "type": "slider",
+      "label": "Tyre wear amber from (%)",
+      "description": "Tyre wear from this shows amber.",
+      "min": 10,
+      "max": 90,
+      "step": 5,
+      "default": 40,
+      "binds": "native"
+    },
+    {
+      "id": "wear_red",
+      "type": "slider",
+      "label": "Tyre wear red from (%)",
+      "description": "Tyre wear from this shows red.",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "default": 70,
+      "binds": "native"
+    },
+    {
+      "id": "verbose",
+      "type": "toggle",
+      "label": "Debug log",
+      "description": "Write the HUD's lap timing and values to swofty/loader.log every 10 seconds.",
+      "default": false,
+      "binds": "native"
+    }
+  ],
+  "operations": {
+    "erp": [
+      "erp/cockpit_hud.json"
+    ],
+    "native": [
+      {
+        "dll": "native/cockpit_hud.dll"
+      }
+    ]
+  }
+}
