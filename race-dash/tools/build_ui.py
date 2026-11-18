@@ -34,8 +34,17 @@ MODDED = (b'rd_backdrop', b'rdash_', b'wd_popup', b'wd_rpm')  # a dash addon's e
 def stock(resource, rtype):
     """The game's current file. The live package comes first: the launcher's Original_GameData backup can predate
     game patches (its race template was the release one, without the June patch's overtake tooltip entries). A live
-    package a dash addon has written into is skipped."""
-    for base in (GAME, os.path.join(GAME, 'Original_GameData')):
+    package a dash addon has written into is skipped. A clean live file is kept in build/stock (ignored by git:
+    game files stay out of the repository), and that copy is used while the live package holds a dash addon's
+    elements, before falling back to Original_GameData."""
+    short = resource.rsplit("/", 1)[-1]
+    cache = os.path.join(ROOT, 'build', 'stock', short)
+    for base in (GAME, 'cache', os.path.join(GAME, 'Original_GameData')):
+        if base == 'cache':
+            if os.path.exists(cache):
+                print(f'{short} from {cache} (the clean live copy)')
+                return open(cache, 'rb').read()
+            continue
         path = os.path.join(base, PKGS[0])
         if not os.path.exists(path):
             continue
@@ -46,7 +55,10 @@ def stock(resource, rtype):
                 if any(m in data for m in MODDED):
                     print(f'{path}: {resource.rsplit("/", 1)[-1]} holds a dash addon\'s elements, skipped')
                     break
-                print(f'{resource.rsplit("/", 1)[-1]} from {path}')
+                print(f'{short} from {path}')
+                if base == GAME:
+                    os.makedirs(os.path.dirname(cache), exist_ok=True)
+                    open(cache, 'wb').write(data)
                 return data
     raise SystemExit(f'{resource} not found under {GAME}')
 
@@ -322,143 +334,248 @@ def main():
         clips[res] = (clip_temp, clip_keys(rgba))
         lcd.node(node).set('anims', L([D([('asset', V('str', res))])]))
 
-    # ---- 0.1.0: the dash layout ("race" view)
-    # The screen is about x -2.56..2.56, y -1.5..1.5 (centre 0, 0). Text is centred on its position. Colours are
-    # colourOverride on the widgets; shapes are the white divider mesh. Values starting with '#ui_menu_data.hud_'
-    # are written by the plugin; the others are the game's own LCD data (no UDP needed for those).
-    WHITE, GREY, LABEL = (235, 235, 235), (120, 120, 126), (150, 150, 158)
-    GREEN, RED, YELLOW = (40, 225, 110), (245, 45, 45), (250, 215, 40)
-    LINE = (185, 185, 192)  # 0.1.3's (95, 95, 102) at 0.02 thick was all but invisible on the wheel
+    # ---- 0.4.0: the dash layout, from the user's mock-ups (1670 x 942 px; race page and car page)
+    # The screen is about x -2.56..2.56, y -1.5..1.5. Positions are given in the mock-up's pixels and converted.
+    # Text is centred on its position; a text's scale grows it right from its box's left edge, so centred() places
+    # it that much to the left. Colours are colourOverride on the widgets; shapes are the white divider mesh.
+    # Values starting with '#ui_menu_data.hud_' are written by the plugin.
+    WHITE, GREY, LABEL = (240, 240, 240), (120, 120, 126), (235, 235, 235)
+    GREEN, RED, YELLOW = (40, 225, 60), (245, 45, 45), (250, 230, 40)
+    BLUE, CYAN, AMBER = (40, 140, 255), (40, 230, 255), (240, 160, 20)
+    LINE = (185, 185, 192)
     H = '#ui_menu_data.hud_rdash_'
 
-    # The game's own elements stay where they are, under an opaque backdrop: the dash draws on layers above
-    # it. (0.1.0 / 0.1.1 moved 23 stock groups off the screen, the mods' mask and window elements among them,
-    # and the game crashed loading a session; Wheel Dash only ever moved plain texts and lines.)
-    L_BACK, L_SHAPE, L_SEG, L_TEXT = 50, 55, 56, 60
-    lcd.add_rect('rd_backdrop', -3.0, -1.75, 6.0, 3.5, layer=L_BACK)
-    tpl.add_group('rd_backdrop_group', ['rd_backdrop'], colour=(8, 8, 10))
+    def X(px):
+        return (px - 835) * 0.003066
 
-    # A text's scale grows it rightwards from its box's left edge, so its centre moves right by
-    # box * (scale - 1) / 2: Wheel Dash's placements fit that (SOC value box 1.0 x1.7 placed 0.33 left of where
-    # it shows, gear 1.4 x1.55 0.34, lap time 2.72 x1.3 0.46, delta 2.72 x1.55 0.69). Each text is placed that
-    # much to the left, so x is where it shows. (0.1.x's scaled values sat right of centre; a flat nudge didn't
-    # fit them all.)
+    def Y(py):
+        return (471 - py) * 0.003185
+
+    def W(px):
+        return px * 0.003066
+
+    # The game's own elements stay where they are, under an opaque backdrop: the dash draws on layers above it.
+    # (Moving the game's mask and window elements off the screen is avoided; the stock gear digit stays under the
+    # backdrop too, the dash has its own.)
+    L_BACK, L_SHAPE, L_PART, L_TEXT, L_POP, L_POPTEXT = 50, 55, 56, 60, 64, 66
+    lcd.add_rect('rd_backdrop', -3.0, -1.75, 6.0, 3.5, layer=L_BACK)
+    tpl.add_group('rd_backdrop_group', ['rd_backdrop'], colour=(6, 6, 8))
+    lcd.add_rect('rd_tint_sc', -3.0, -1.75, 6.0, 3.5, layer=L_BACK + 1)
+    tpl.add_group('rd_tint_sc_group', ['rd_tint_sc'], '#ui_menu_data.hud_rdash_tint_sc', colour=(70, 54, 0))
+    lcd.add_rect('rd_tint_red', -3.0, -1.75, 6.0, 3.5, layer=L_BACK + 1)
+    tpl.add_group('rd_tint_red_group', ['rd_tint_red'], '#ui_menu_data.hud_rdash_tint_red', colour=(70, 8, 8))
+
     def centred(x, width, scale):
         return x - width * (scale - 1.0) / 2.0
 
-    NUDGE = 0.0
-
-    def text(name, x, y, dbentry, colour=WHITE, scale=1.0, style='OSD_24_bold', width=1.0, value='',
-             visible=None, nudge=True):
-        lcd.add_text(name, 'speedo_value', centred(x, width, scale), y, width=width, layer=L_TEXT, style=style)
+    def text(name, px, py, dbentry, colour=WHITE, scale=1.0, style='OSD_24_bold', wpx=330, value='',
+             visible=None, page=None, layer=None):
+        if page is not None and visible is None:
+            visible = H + f'p{page}'  # that page only (a value with its own switch has the page in it)
+        w = W(wpx)
+        lcd.add_text(name, 'speedo_value', centred(X(px), w, scale), Y(py), width=w,
+                     layer=L_TEXT if layer is None else layer, style=style)
         if scale != 1.0:
             lcd.move(name, sx=scale, sy=scale)
         tpl.add_label(f'{name}_w', name, dbentry, value=value, colour=colour, visible=visible)
 
-    def label(name, x, y, value, visible=None):
-        text(name, x, y, H + 'none', colour=LABEL, style='OSD_14_regular', value=value, width=1.0, nudge=False,
-             visible=visible)
+    def label(name, px, py, value, page=None, visible=None, scale=1.0, colour=LABEL):
+        text(name, px, py, H + 'none', colour=colour, style='OSD_14_regular', value=value, wpx=326, scale=scale,
+             visible=visible, page=page)
 
-    def line(name, x0, y0, x1, y1, t=0.035):
-        if x1 - x0 >= y1 - y0:  # horizontal
-            lcd.add_rect(name, x0, y0 - t / 2, x1 - x0, t, layer=L_SHAPE)
+    def box(name, x0, y0, x1, y1, colour, visible=None, layer=None):
+        lcd.add_rect(name, X(x0), Y(y1), W(x1 - x0), Y(y0) - Y(y1), layer=L_PART if layer is None else layer)
+        tpl.add_group(f'{name}_group', [name], visible, colour=colour)
+
+    def line(name, x0, y0, x1, y1, page=None, t=10):
+        vis = H + f'p{page}' if page is not None else None
+        if x1 - x0 >= y1 - y0:
+            box(name, x0, y0 - t / 2, x1, y0 + t / 2, LINE, vis, L_SHAPE)
         else:
-            lcd.add_rect(name, x0 - t / 2, y0, t, y1 - y0, layer=L_SHAPE)
-        tpl.add_group(f'{name}_group', [name], colour=LINE)
+            box(name, x0 - t / 2, y0, x0 + t / 2, y1, LINE, vis, L_SHAPE)
 
-    # columns: left info | tyres | gear | tyres | right info; rows: top strip, two middle rows, bottom row,
-    # SOC bar
-    X = [-2.50, -1.40, -0.80, 0.80, 1.40, 2.50]
-    Y_TOP, Y_M1, Y_M2, Y_BOT, Y_BAR = 0.95, 0.25, -0.45, -1.05, -1.42
-    cx = [(X[i] + X[i + 1]) / 2 for i in range(5)]
+    def outline(name, x0, y0, x1, y1, page=None):
+        line(f'{name}_t', x0, y0, x1, y0, page, 6)
+        line(f'{name}_b', x0, y1, x1, y1, page, 6)
+        line(f'{name}_l', x0, y0, x0, y1, page, 6)
+        line(f'{name}_r', x1, y0, x1, y1, page, 6)
 
-    # grid
-    line('rd_h_top', X[0], Y_TOP, X[5], Y_TOP)
-    line('rd_h_m1l', X[0], Y_M1, X[2], Y_M1)
-    line('rd_h_m1r', X[3], Y_M1, X[5], Y_M1)
-    line('rd_h_m2', X[0], Y_M2, X[5], Y_M2)
-    line('rd_h_bot', X[0], Y_BOT, X[5], Y_BOT)
-    line('rd_v_t1', X[2], Y_TOP, X[2], 1.42)
-    line('rd_v_t2', X[3], Y_TOP, X[3], 1.42)
-    # all four verticals run down to the bottom row (the info panel's pop-up box covers the inner two)
-    for i in (1, 2, 3, 4):
-        line(f'rd_v_{i}', X[i], Y_BOT, X[i], Y_TOP)
+    # ---- shared: the bottom row's frame, ERS SOC with the mode badge in the middle cell
+    line('rd_h_mid', 30, 590, 1640, 590)
+    line('rd_v_b1', 596, 595, 596, 905)
+    line('rd_v_b2', 1126, 595, 1126, 905)
+    label('rd_l_soc', 733, 630, 'ERS SOC', visible=H + 'mid_show')
+    text('rd_soc_y', 865, 735, H + 'soc', YELLOW, scale=1.6, wpx=420, visible=H + 'soc_ok')
+    text('rd_soc_r', 865, 735, H + 'soc', RED, scale=1.6, wpx=420, visible=H + 'soc_low')
+    text('rd_soc_b', 865, 735, H + 'soc', BLUE, scale=1.6, wpx=420, visible=H + 'soc_b')
+    # the mode badge: OVERTAKE (blue, 2026), STRAIGHT MODE (yellow, 2026), DRS (green ready / yellow open, 2025)
+    box('rd_badge_g', 625, 815, 1097, 878, GREEN, H + 'badge_g')
+    box('rd_badge_p', 625, 815, 1097, 878, (165, 60, 235), H + 'badge_p')
+    for nm, x0, y0, x1, y1 in (('t', 625, 812, 1097, 818), ('b', 625, 875, 1097, 881), ('l', 622, 812, 628, 881),
+                               ('r', 1094, 812, 1100, 881)):
+        box(f'rd_badge_n_{nm}', x0, y0, x1, y1, (150, 150, 158), H + 'badge_n')
+    text('rd_badge_text_d', 861, 848, H + 'badge_text', (10, 10, 10), scale=1.05, style='OSD_19_bold', wpx=470,
+         visible=H + 'badge_dark', layer=L_TEXT + 1)
+    text('rd_badge_text_l', 861, 848, H + 'badge_text', WHITE, scale=1.05, style='OSD_19_bold', wpx=470,
+         visible=H + 'badge_light', layer=L_TEXT + 1)
 
-    # top strip: last lap | RPM | delta to the best lap
-    text('rd_last', (X[0] + X[2]) / 2, 1.17, H + 'last', GREEN, scale=1.15, width=1.9, value='--:--.---')
-    text('rd_rpm', cx[2], 1.17, H + 'rpm', RED, scale=1.15, width=1.6, value='0')
-    dx = (X[3] + X[5]) / 2
-    text('rd_delta_g', dx, 1.17, H + 'delta', GREEN, scale=1.15, width=1.9, visible=H + 'delta_neg')
-    text('rd_delta_r', dx, 1.17, H + 'delta', RED, scale=1.15, width=1.9, visible=H + 'delta_pos')
-    text('rd_delta_w', dx, 1.17, H + 'delta', GREY, scale=1.15, width=1.9, value='--.--',
-         visible=H + 'delta_none')
+    # the pop-up box, in the bottom middle cell on both pages: blue for a change (ERS mode, fuel mode, brake bias,
+    # differential), amber under a safety car / VSC / formation lap and for a yellow flag, red under a red flag
+    for tag, colour in (('blue', (10, 92, 255)), ('amber', (240, 160, 0)), ('red', (215, 0, 0))):
+        box(f'rd_pop_{tag}', 602, 597, 1120, 902, colour, H + f'pop_{tag}', L_POP)
+    for tone, colour in (('light', WHITE), ('dark', (10, 10, 10))):
+        text(f'rd_pop_title_{tone}', 861, 660, H + 'pop_title', colour, scale=1.25, style='OSD_14_regular', wpx=500,
+             visible=H + f'pop_{tone}', layer=L_POPTEXT)
+        text(f'rd_pop_value_{tone}', 861, 775, H + 'pop_value', colour, scale=1.0, style='OSD_24_bold', wpx=500,
+             visible=H + f'pop_{tone}', layer=L_POPTEXT)
 
-    # left column: SPEED, LAP (the lap you're on), SOC %
-    label('rd_l_speed', cx[0], 0.84, 'SPEED')
-    text('rd_speed', cx[0], 0.52, H + 'speed', WHITE, scale=1.3, width=1.0, value='0')
-    label('rd_l_lap', cx[0], 0.14, 'LAP')
-    text('rd_lap', cx[0], -0.18, H + 'lap', WHITE, scale=1.3, width=1.0, value='0')
-    label('rd_l_soc', cx[0], -0.56, 'SOC')
-    text('rd_soc_g', cx[0], -0.80, H + 'soc', GREEN, scale=1.3, width=1.0, visible=H + 'soc_ok')
-    text('rd_soc_r', cx[0], -0.80, H + 'soc', RED, scale=1.3, width=1.0, visible=H + 'soc_low')
+    # flags over the whole screen (as Wheel Dash had them): red flag, safety car / VSC / formation (amber), yellow,
+    # blue flag; black text on amber and yellow, white on red and blue
+    L_FULL, L_FULLTEXT = 70, 72
+    for tag, colour in (('red', (215, 0, 0)), ('amber', (255, 205, 0)), ('yellow', (250, 225, 0)),
+                        ('blue', (20, 100, 255)), ('green', (0, 165, 60)), ('white', (235, 235, 240)),
+                        ('chq', (10, 10, 10))):
+        box(f'rd_full_{tag}', 0, 0, 1670, 942, colour, H + f'full_{tag}', L_FULL)
+    # the chequered flag: 16 x 9 squares, the white ones over the black screen, a black band for the text across
+    # the middle. Each square has its own group, as every other shape: 0.4.6/0.4.7 put all 72 in one group and the
+    # game drew them grey and all the time (the group's switch and colour reached none of them)
+    cw, ch = 1670 / 16, 942 / 9
+    for row in range(9):
+        for col in range(16):
+            if (row + col) % 2 == 0:
+                box(f'rd_chq_{row}_{col}', col * cw, row * ch, (col + 1) * cw, (row + 1) * ch, (240, 240, 240),
+                    H + 'full_chq', L_FULL + 1)
+    box('rd_chq_band', 0, 300, 1670, 680, (10, 10, 10), H + 'full_chq', L_FULL + 1)
+    L_FULLTEXT = L_FULL + 3  # over the chequered band
+    for tone, colour in (('dark', (10, 10, 10)), ('light', WHITE)):
+        text(f'rd_full_title_{tone}', 835, 400, H + 'full_title', colour, scale=2.3, wpx=1500,
+             visible=H + f'full_{tone}', layer=L_FULLTEXT)
+        text(f'rd_full_sub_{tone}', 835, 600, H + 'full_sub', colour, scale=1.6, style='OSD_14_regular', wpx=1500,
+             visible=H + f'full_{tone}', layer=L_FULLTEXT)
 
-    # tyre boxes (front row 1, rear row 2), each with its label, the game's own formatted temperature (text
-    # bound exactly as the stock tyre labels bind it; needs no UDP) and the wear % under it (from the telemetry,
-    # as Wheel Dash had it: shown while the game's UDP output is on)
-    for corner, x, y_top, db in (('fl', cx[1], Y_TOP, 'front_left_tyre_temp_formatted'),
-                                 ('fr', cx[3], Y_TOP, 'front_right_tyre_temp_formatted'),
-                                 ('rl', cx[1], Y_M1, 'rear_left_tyre_temp_formatted'),
-                                 ('rr', cx[3], Y_M1, 'rear_right_tyre_temp_formatted')):
-        label(f'rd_l_t{corner}', x, y_top - 0.11, 'TYRE')
-        text(f'rd_t_{corner}', x, y_top - 0.36, db, (255, 120, 70), scale=0.85, width=0.6, value='--')
-        text(f'rd_w_{corner}', x, y_top - 0.57, H + f'w_{corner}', LABEL, scale=0.75, width=0.6, value='--')
+    # the flag strip across the top edge, blinking: yellow (a yellow flag, SC, VSC), blue (blue flag), red (red flag)
+    for tag, colour in (('yellow', (250, 210, 0)), ('blue', (20, 110, 255)), ('red', (225, 0, 0))):
+        box(f'rd_strip_{tag}', 30, 8, 1640, 30, colour, H + f'strip_{tag}', L_POP)
+        box(f'rd_strip_b_{tag}', 30, 912, 1640, 934, colour, H + f'strip_{tag}', L_POP)
 
-    # centre: the stock gear digit (its widget and the game's gear value stay), big, over both middle rows
-    lcd.move('gear_number', x=0.0, y=-0.05, sx=1.45, sy=1.45)
-    Layout.param(lcd.node('gear_number'), 'eLayer.layer', V('si32', L_TEXT))
-    label('rd_l_gear', cx[2], 0.84, 'GEAR')
-    # bottom centre: the info panel across the three middle columns. Normally the ERS deploy mode; a box pops up
-    # inside it: blue for a change (ERS mode), amber while a safety car or VSC is out, red under a red flag.
-    # (Wheel Dash popped its box up over the middle of the screen.)
-    px0, px1, pcx = X[1], X[4], (X[1] + X[4]) / 2
-    # normally: fuel mix | ERS deploy mode | brake bias (mix and bias come from the game's UDP packets)
-    label('rd_l_mix', cx[1], -0.56, 'MIX', visible=H + 'ers_show')
-    text('rd_mix', cx[1], -0.80, H + 'mix', WHITE, scale=0.9, width=0.6, value='-', visible=H + 'ers_show')
-    label('rd_l_ers', cx[2], -0.56, 'ERS MODE', visible=H + 'ers_show')
-    text('rd_ers_mode', cx[2], -0.80, H + 'ers_mode', YELLOW, scale=1.05, width=1.6, value='-', visible=H + 'ers_show')
-    label('rd_l_bbal', cx[3], -0.56, 'BBAL', visible=H + 'ers_show')
-    text('rd_bbal', cx[3], -0.80, H + 'bbal', WHITE, scale=0.9, width=0.6, value='-', visible=H + 'ers_show')
-    L_POP, L_POPTEXT = 58, 62
-    for tag, colour in (('blue', (10, 92, 255)), ('amber', (235, 160, 0)), ('red', (215, 0, 0))):
-        nm = f'rd_pop_{tag}'
-        lcd.add_rect(nm, px0 + 0.03, Y_BOT + 0.03, px1 - px0 - 0.06, Y_M2 - Y_BOT - 0.06, layer=L_POP)
-        tpl.add_group(f'{nm}_group', [nm], H + f'pop_{tag}', colour=colour)
-    for nm, y, scale, style, dbe in (('rd_pop_title', -0.58, 1.0, 'OSD_14_regular', 'pop_title'),
-                                     ('rd_pop_value', -0.82, 1.15, 'OSD_24_bold', 'pop_value')):
-        lcd.add_text(nm, 'speedo_value', centred(pcx, 2.6, scale), y, width=2.6, layer=L_POPTEXT, style=style)
-        lcd.move(nm, sx=scale, sy=scale)
-        tpl.add_label(f'{nm}_w', nm, H + dbe, colour=WHITE, visible=H + 'pop_on')
+    # ---- race page (page 0)
+    line('rd_v_t1', 618, 45, 618, 570, 0)
+    line('rd_v_t2', 1053, 45, 1053, 570, 0)
+    line('rd_h_tl', 35, 300, 605, 300, 0)
+    line('rd_v_tl', 297, 325, 297, 565, 0)
+    line('rd_h_g', 650, 395, 1020, 395, 0)
+    line('rd_h_tr1', 1065, 300, 1635, 300, 0)
+    line('rd_h_tr2', 1078, 428, 1635, 428, 0)
+    # lap time (running; the finished lap's for 3 s after the line), delta to the reference lap
+    label('rd_l_lap_time', 181, 95, 'LAP TIME', page=0)
+    text('rd_lap_time', 325, 207, H + 'cur', WHITE, scale=1.39, wpx=560, value='-:--.---', page=0)
+    text('rd_l_delta', 1245, 95, H + 'delta_label', LABEL, style='OSD_14_regular',
+         value='PREV LAP', page=0, scale=1.0, wpx=326)
+    for tag, colour, vis in (('g', GREEN, 'delta_neg'), ('r', RED, 'delta_pos'), ('w', GREY, 'delta_none')):
+        text(f'rd_delta_{tag}', 1330, 207, H + 'delta', colour, scale=1.5, wpx=460, value='--.--',
+             visible=H + vis)
+    # position, lap
+    label('rd_l_pos', 106, 355, 'POS', page=0)
+    text('rd_pos', 162, 460, H + 'pos', WHITE, scale=1.4, wpx=250, value='-', page=0)
+    label('rd_l_lap', 385, 355, 'LAP', page=0)
+    text('rd_lap', 462, 460, H + 'lap', WHITE, scale=1.25, wpx=300, value='-', page=0)
+    # gear, rpm, speed
+    label('rd_l_gear', 838, 62, 'GEAR', page=0)
+    text('rd_gear', 838, 245, H + 'gear', WHITE, scale=0.85, style='OSD_80_bold', wpx=330, value='N', page=0)
+    text('rd_rpm', 838, 372, H + 'rpm', WHITE, scale=0.8, style='OSD_19_bold', wpx=330, value='0 RPM', page=0)
+    text('rd_speed', 838, 505, H + 'speed', WHITE, scale=1.5, wpx=330, value='0', page=0)
+    # gaps
+    label('rd_l_ahead', 1170, 362, 'AHEAD', page=0)
+    text('rd_gap_a', 1480, 368, H + 'gap_a', YELLOW, scale=0.95, wpx=330, value='-', page=0)
+    label('rd_l_behind', 1182, 492, 'BEHIND', page=0)
+    text('rd_gap_b', 1480, 492, H + 'gap_b', GREEN, scale=0.95, wpx=330, value='-', page=0)
+    # tyres: a box each, the corner and its temperature: blue cold / green / red hot from the game's packets,
+    # else the game's own formatted temperature (white)
+    T_COLD, T_OK, T_HOT = (70, 150, 255), (60, 225, 110), (245, 60, 50)
+    for corner, x0, y0, x1, y1, db in (('fl', 47, 650, 303, 745, 'front_left_tyre_temp_formatted'),
+                                       ('fr', 323, 650, 570, 745, 'front_right_tyre_temp_formatted'),
+                                       ('rl', 47, 765, 303, 860, 'rear_left_tyre_temp_formatted'),
+                                       ('rr', 323, 765, 570, 860, 'rear_right_tyre_temp_formatted')):
+        outline(f'rd_tbox_{corner}', x0, y0, x1, y1, 0)
+        cy = (y0 + y1) / 2
+        label(f'rd_l_t{corner}', x0 + 48, cy, corner.upper(), page=0, scale=1.3)
+        text(f'rd_t_{corner}', x0 + 170, cy, db, WHITE, scale=0.65, wpx=180, value='--', visible=H + f'tg_{corner}')
+        for tag, colour in (('c', T_COLD), ('n', T_OK), ('h', T_HOT)):
+            text(f'rd_t{tag}_{corner}', x0 + 170, cy, H + f't_{corner}', colour, scale=0.78, wpx=180, value='--',
+                 visible=H + f't{tag}_{corner}')
+    # fuel margin: green to spare, red when fuel needs saving (the game's packets), else the game's own value
+    label('rd_l_fuel', 1267, 630, 'FUEL', page=0)
+    text('rd_fuel', 1390, 765, 'laps_of_fuel_format', WHITE, scale=1.7, wpx=330, value='-', visible=H + 'fuel_game')
+    text('rd_fuel_g', 1390, 765, H + 'fuel', GREEN, scale=1.7, wpx=330, value='-', visible=H + 'fuel_ok')
+    text('rd_fuel_r', 1390, 765, H + 'fuel', RED, scale=1.7, wpx=330, value='-', visible=H + 'fuel_low')
 
-    # right column: position, fuel margin in laps, gaps to the cars ahead and behind
-    label('rd_l_pos', cx[4], 0.84, 'POS')
-    text('rd_pos', cx[4], 0.52, H + 'pos', WHITE, scale=1.3, width=1.0, value='-')
-    label('rd_l_fuel', cx[4], 0.14, 'FUEL')
-    # the game's own fuel margin: 'laps_of_fuel_format', the text the stock fuel line puts in its "laps"
-    # replacement (a string there, default '0.0'). Needs no UDP. ('laps_of_fuel_text' itself is a localisation
-    # key, not plain text.)
-    text('rd_fuel', cx[4], -0.18, 'laps_of_fuel_format', WHITE, scale=1.15, width=1.0, value='-')
-    label('rd_l_gap', cx[4], -0.56, 'GAP')
-    text('rd_gap_a', cx[4], -0.75, H + 'gap_a', GREEN, scale=0.8, width=1.0, value='-')
-    text('rd_gap_b', cx[4], -0.94, H + 'gap_b', RED, scale=0.8, width=1.0, value='-')
+    # ---- car page (page 1): a top-down car of rectangles, nose to the right, each part coloured by its damage
+    # (green, amber, red; grey until known); the tyres by their wear
+    PART_G, PART_A, PART_R, PART_N = (70, 230, 70), (255, 170, 30), (245, 50, 50), (120, 120, 128)
+    BODY = (95, 95, 102)
 
-    # SOC bar: 20 segments of 5 %, the first 3 red; unlit ones show the dark strip behind
-    seg, gap = 0.23, 0.02
-    lcd.add_rect('rd_soc_strip', X[0], Y_BAR, X[5] - X[0], 0.26, layer=L_SHAPE)
-    tpl.add_group('rd_soc_strip_group', ['rd_soc_strip'], colour=(38, 38, 42))
-    for i in range(20):
-        nm = f'rd_soc_{i + 1:02d}'
-        lcd.add_rect(nm, X[0] + gap / 2 + i * (seg + gap), Y_BAR + 0.03, seg, 0.20, layer=L_SEG)
-        tpl.add_group(f'{nm}_group', [nm], f'{H}soc{i + 1:02d}', colour=RED if i < 3 else GREEN)
+    def part(key, rects):
+        for tag, colour in (('g', PART_G), ('a', PART_A), ('r', PART_R), ('n', PART_N)):
+            for i, (x0, y0, x1, y1) in enumerate(rects):
+                box(f'rd_car_{key}_{tag}{i}', x0, y0, x1, y1, colour, H + f'c{tag}_{key}')
+
+    # the body first (grey, not a damage part): nose and cockpit
+    box('rd_car_nose', 775, 255, 1360, 335, BODY, H + 'p1')
+    box('rd_car_cockpit', 780, 225, 980, 365, BODY, H + 'p1')
+    part('floor', [(450, 120, 820, 480)])
+    part('side', [(470, 140, 805, 235), (470, 365, 805, 460)])  # sidepods left (top) and right
+    part('eng', [(585, 245, 770, 355)])
+    part('gbox', [(450, 270, 585, 330)])
+    part('diff', [(372, 200, 450, 400)])
+    part('rw', [(283, 175, 360, 425)])
+    part('fwl', [(1235, 100, 1390, 280)])
+    part('fwr', [(1235, 320, 1390, 500)])
+    for corner, rect in (('rl', (337, 78, 490, 170)), ('rr', (337, 430, 490, 522)),
+                         ('fl', (1050, 78, 1210, 165)), ('fr', (1050, 433, 1210, 520))):
+        part(f't{corner}', [rect])
+    # bottom left: fuel mode | differential; bottom right: brake bias
+    line('rd_v_cb', 330, 650, 330, 850, 1)
+    label('rd_l_mix', 180, 678, 'FUEL MODE', page=1)
+    text('rd_mix', 180, 785, H + 'mix', WHITE, scale=1.7, wpx=280, value='-', page=1)
+    label('rd_l_diff', 465, 678, 'DIFF', page=1)
+    text('rd_diff', 462, 785, H + 'diff', WHITE, scale=1.6, wpx=260, value='-', page=1)
+    label('rd_l_bbal', 1312, 640, 'BRAKE BIAS', page=1)
+    text('rd_bbal', 1290, 765, H + 'bbal', WHITE, scale=1.8, wpx=300, value='-', page=1)
+    label('rd_l_bbal_front', 1290, 862, 'FRONT', page=1)
+
+    # ---- pit page (page 2), the user's mock-up: pit window | current tyres; rejoin position | front wing damage;
+    # bottom left the tyre wear, bottom right the last pit stop's time. (The mock-up's next tyres, downforce level
+    # and wing repair are the MFD's pit plan, which nothing outside the MFD can read.)
+    line('rd_p2_v', 835, 30, 835, 570, 2)
+    line('rd_p2_h', 35, 323, 1635, 323, 2)
+    label('rd_l_pw', 250, 62, 'PIT WINDOW', page=2)
+    label('rd_l_pw_laps', 440, 122, 'LAPS', page=2)
+    text('rd_pw_w', 440, 225, H + 'pw', WHITE, scale=1.8, wpx=620, value='-', visible=H + 'pw_n')
+    text('rd_pw_g', 440, 225, H + 'pw', GREEN, scale=1.8, wpx=620, value='-', visible=H + 'pw_g')
+    label('rd_l_tyre', 1075, 62, 'CURRENT TYRES', page=2)
+    for tag, colour in (('s', (245, 45, 45)), ('m', (250, 225, 0)), ('h', WHITE), ('i', (60, 200, 80)),
+                        ('w', (40, 120, 255)), ('n', GREY)):
+        text(f'rd_tyre_{tag}', 1240, 190, H + 'tyre', colour, scale=1.6, wpx=760, value='-', visible=H + f'ty_{tag}')
+    text('rd_tyre_age', 1240, 282, H + 'tyre_age', WHITE, style='OSD_19_bold', wpx=600, value='-', page=2)
+    label('rd_l_rejoin', 290, 368, 'REJOIN POSITION', page=2)
+    text('rd_rejoin', 440, 475, H + 'rejoin', WHITE, scale=1.8, wpx=400, value='-', page=2)
+    label('rd_l_wing', 1110, 368, 'FRONT WING DAMAGE', page=2)
+    label('rd_l_wing_lr', 1240, 418, 'LEFT / RIGHT', page=2, colour=GREY)
+    for tag, colour in (('g', GREEN), ('a', AMBER), ('r', RED), ('n', GREY)):
+        text(f'rd_wing_{tag}', 1240, 500, H + 'wing', colour, scale=1.3, wpx=760, value='-', visible=H + f'wing_{tag}')
+    # tyre wear: a box per corner, the % coloured by the wear limits in the settings
+    for corner, x0, y0, x1, y1 in (('fl', 47, 650, 303, 745), ('fr', 323, 650, 570, 745),
+                                   ('rl', 47, 765, 303, 860), ('rr', 323, 765, 570, 860)):
+        outline(f'rd_wbox_{corner}', x0, y0, x1, y1, 2)
+        cy = (y0 + y1) / 2
+        label(f'rd_l_w{corner}', x0 + 48, cy, corner.upper(), page=2, scale=1.3)
+        for tag, colour in (('g', GREEN), ('a', YELLOW), ('r', RED), ('n', GREY)):
+            text(f'rd_w{tag}_{corner}', x0 + 170, cy, H + f'w_{corner}', colour, scale=0.78, wpx=180, value='--',
+                 visible=H + f'w{tag}_{corner}')
+    # the last pit stop's time stationary
+    label('rd_l_pst', 1383, 640, 'PIT STOP TIME', page=2)
+    text('rd_pst', 1360, 765, H + 'pst', WHITE, scale=1.7, wpx=330, value='-', page=2)
+    label('rd_l_pst_s', 1590, 800, 's', page=2, scale=1.4, visible=H + 'pst_on')
 
     os.makedirs(os.path.join(ROOT, 'ui', 'clips'), exist_ok=True)
     open(os.path.join(ROOT, 'ui', 'lcd_display.idf'), 'wb').write(lcd.encode())

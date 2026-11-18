@@ -9,29 +9,57 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 0.2.1, testing before 1.0.** Turn off Wheel Dash (`ross.wheel-dash`) while using it: both replace the
+**Status: 0.4.8, testing before 1.0.** Turn off Wheel Dash (`ross.wheel-dash`) while using it: both replace the
 same two UI files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias, fuel mix, the
 differential, tyre wear and the game's exact lap times.
 
 ## The screen
 
-| | | | | |
-|---|---|---|---|---|
-| **Last lap** (green) | | **RPM** (red) | **Delta** to your best lap (green faster, red slower) | |
-| SPEED | TYRE FL (temp, wear) | **GEAR** | TYRE FR | POS |
-| LAP | TYRE RL | | TYRE RR | FUEL (laps margin) |
-| SOC % (red under 15) | MIX | ERS MODE | BBAL | GAP (ahead / behind) |
-| **SOC bar**: 20 segments of 5 %, the first 3 red | | | | |
+Three pages, switched by the page button; the bottom middle cell (ERS SOC and the mode badge) and its pop-ups are
+on all of them.
 
-- The bottom centre panel pops up a box in place: blue for 2 s when the ERS mode changes (and fuel mix, brake
-  bias or the differential, when those are known), amber under a safety car / VSC / formation lap, red under a
-  red flag.
-- Gear, tyre temperatures and fuel are the game's own LCD values.
+**Race page**
+
+| | | |
+|---|---|---|
+| LAP TIME (running; the finished lap for 3 s after the line) | GEAR, RPM, SPEED | PREV LAP / BEST LAP delta (green faster, red slower) |
+| POS, LAP n/total | | AHEAD / BEHIND gaps |
+| Tyres FL FR RL RR (blue cold / green / red hot) | ERS SOC % + mode badge | FUEL margin (green / red) |
+
+**Car page:** a top-down car built from blocks, each part coloured by its damage (front wings, rear wing,
+sidepods, floor, diffuser, engine, gearbox: green / amber / red, grey until known) and the tyres by their wear;
+FUEL MODE and DIFF bottom left, BRAKE BIAS bottom right.
+
+**Pit page:** PIT WINDOW laps (green while you're in it) and CURRENT TYRES (compound colour, age) on top; REJOIN
+POSITION (where you'd rejoin if you pitted now) and FRONT WING DAMAGE (left / right) in the middle; tyre wear per
+corner bottom left, the last PIT STOP TIME bottom right. The MFD's pit plan (next tyres, downforce level, wing
+repair) is the MFD's own data and nothing outside it can read it, so the page can't show it.
+
+- **Mode badge** under ERS SOC: straight mode (2026) or DRS (2025): an empty grey outline counting the metres
+  down to the next zone, a green box when ready, a purple box (the game's colour) when active / open. ERS SOC turns blue while overtake is available or on (2026).
+- **Flags** fill the whole screen: red flag, safety car / VSC / formation lap (bright yellow), yellow, blue flag. The
+  "Flag screen" setting shows them for 4 s when they come out (then a blinking strip along the top and bottom edges: some wheels, such as the Ferrari, cut the top off) or for as
+  long as they are out. After the flag screen the background stays dark amber under a safety car / VSC and dark
+  red under a red flag. When a safety car, VSC or yellow clears, a **green flag** flashes over the
+  whole screen for 3 s. The **pit limiter** takes the whole screen (PIT LIMITER with your speed) while it is
+  on, coloured by the flag out: blue normally, yellow under a yellow, amber under a safety car / VSC, red under a
+  red flag. A **penalty** (time penalty, drive through, stop-go, disqualification) takes the whole screen
+  in white for 4 s with the reason; a **warning** pops up amber in the ERS SOC cell, an invalidated lap red.
+  The **chequered flag** fills the screen with chequers: 4 s when it comes out (FINAL LAP), 8 s when you finish
+  (FINISHED P n). **Setting changes** (ERS mode, fuel mode, brake bias, differential) pop up in the ERS SOC
+  cell for 2 s.
+- Lap time and delta hold still while the game pauses its lap packets (replays, flashbacks).
+- The page button is a "UDP Action" bound in the game's Controls menu, on any device (wheel, controller,
+  keyboard); UDP Action 1 by default, changeable in the addon's settings.
+- Settings: what the delta compares with (previous or best lap), the flag screen, the tyre temperature and wear
+  colour limits, the page button.
+- Tyre temperatures and the fuel margin come from the game's packets, else the game's own LCD values (uncoloured).
 - Brake bias, fuel mix, the differential, tyre wear and the game's last lap time come from the game's UDP
   telemetry packets ("-" while the game's UDP telemetry is off).
-- Lap times are timed by the addon: on the game's session time when the launcher has it (it stops in pauses and
-  replays and goes back with a flashback), else frame time with pauses, a frozen car (replays) and flashbacks
-  taken out. A race's opening lap counts from leaving the grid.
+- The delta runs on the game's own lap clock from its lap packets (as Wheel Dash did): the clock rewinds with a
+  flashback and stops in pauses and replays; the reference is your previous lap or your best one by the game's
+  own times (invalid laps only until there is a valid one). Last lap is the game's own time. Without the packets the addon
+  times laps itself (on the game's session time when the launcher has it, else frame time).
 - Turn on **Debug log** in the addon's settings to write timing and telemetry values to `swofty/loader.log`
   every 10 s.
 

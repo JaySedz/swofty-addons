@@ -13,7 +13,8 @@ Turn on **Debug log** in the addon's settings for test runs; the notes say which
       turned off.
 - [ ] SimHub (or another UDP app) still receives telemetry while the addon runs.
 - [ ] With the launcher's own UDP hook active (a career with custom drivers: `[udp] stock ids on` in the log) the
-      dash and the launcher both still work.
+      dash and the launcher both still work: the log says `udp tap (try 1): tapped; ... sendto launcher:...`
+      (the tap behind the launcher's hook), the page button, ERS mode, MIX/BBAL and the colours all work.
 
 ## Layout
 
@@ -40,7 +41,53 @@ Turn on **Debug log** in the addon's settings for test runs; the notes say which
 - [ ] Safety car, VSC: amber box for as long as it's out. Red flag: red box.
 - [ ] UDP telemetry off in the game: the UDP values show `-`, nothing else breaks.
 
+## Flags, colours, pages (0.3.0)
+
+- [ ] Yellow flag in your sector (an incident ahead, no safety car): amber YELLOW FLAG box and blinking yellow
+      strip (log: `track status: yellow`). Blue flag when being lapped: blue box and strip.
+- [ ] Tyre temperature colours change at the limits set in the addon's settings; wear colours too.
+- [ ] Fuel margin red when below 0, green above.
+- [ ] Page button via UDP Action 1 (bound in the game's controls) switches race <-> car page (log: `page 2`).
+- [ ] Page button bound on a wheel, a controller and the keyboard.
+- [ ] Car page: wing / floor / diffuser / sidepod damage matches the game's damage screen; brake temperatures;
+      gearbox / engine / ICE in the panel, hidden under a pop-up.
+
+## DRS, straight mode, overtake (0.3.3)
+
+- [ ] 2025 content: DRS cell grey OFF, metres to the next zone, green READY in a zone, cyan OPEN when open.
+- [ ] 2026 content: ERS mode turns blue in the overtake window and while using it, yellow otherwise.
+- [ ] 2026 content with the Debug log on: drive through straight-mode zones and use overtake; the log's
+      `packet 16 (...)` lines map straight mode (send the log).
+
+## 0.4.0 layout (the mock-ups)
+
+- [ ] Race page: everything inside its cell; LAP TIME runs, shows the finished lap for 3 s at the line; LAP n/total
+      in a race; P01 style position; gear R / N / 1-8; RPM with a thousands comma.
+- [ ] Delta against the previous lap (default) and against the best lap (setting); the label follows.
+- [ ] Mode badge: OVERTAKE blue (2026); DRS green / DRS OPEN yellow (2025); gone otherwise.
+- [ ] Car page: the block car readable; parts change colour with damage; tyres with wear; FUEL MODE, DIFF, BRAKE
+      BIAS values right.
+- [ ] Pop-ups cover the bottom middle cell on both pages; the flag strip along the top edge.
+- [ ] The Δ sign shows in "FUEL Δ" and "PREV LAP Δ" (if it shows as a box, the font lacks it).
+
 ## Release
 
 - [ ] Version 1.0.0 in `swofty.json`, README status line updated.
 - [ ] `repository` points at the published source.
+
+## Penalties, chequered flag, pit page (0.4.6)
+
+- [ ] A time penalty (e.g. track limits after three warnings): white screen `+5 SEC PENALTY` with the reason for
+      4 s (log: `penalty event: type 4 ...`).
+- [ ] A track limits warning: amber pop-up `WARNING` / `TRACK LIMITS` in the ERS SOC cell.
+- [ ] Qualifying: an invalidated lap pops up red `LAP INVALID`.
+- [ ] Drive through / stop-go (e.g. pit lane speeding): white screen, and UNSERVED on the pit page until served.
+- [ ] Chequered flag: chequers with FINAL LAP when it comes out, FINISHED P n when you cross the line (log:
+      `chequered flag out`, `finished: ...`). A red flag still shows over it.
+- [ ] Page button cycles race -> car -> pit -> race (log: `page 3`).
+- [ ] Pit page: PIT WINDOW laps and REJOIN match the MFD's pit panel (log: `session packet N bytes: pit window
+      a-b, rejoin Pn ...`); OPEN in green inside the window.
+- [ ] Pit page: tyre compound, colour and age match the game; PIT STOP TIME appears after a stop.
+- [ ] Pit page: front wing damage matches the game's damage screen; tyre wear % matches the car page's colours.
+- [ ] VSC screen reads "VSC" and fits; the safety car screen's black text reads clearly on the yellow.
+- [ ] Flag strip blinks along the bottom edge too (check on the Ferrari wheel, which cuts the top off).

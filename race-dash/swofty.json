@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.race-dash",
   "name": "Race Dash",
-  "version": "0.2.1",
+  "version": "0.4.8",
   "author": "Sedz",
   "description": "A steering wheel LCD laid out like a real F1 dash: last lap, RPM, live delta, speed, lap, SOC with a 20-segment bar, tyre temperatures and wear, gear, position, fuel, gaps, fuel mix, ERS mode and brake bias, with pop-ups for setting changes, safety cars and red flags. Reads the game's own UDP telemetry packets in the game (passed through unchanged, no sockets opened).",
   "license": "MIT",
@@ -26,6 +26,97 @@
     }
   ],
   "options": [
+    {
+      "id": "delta_ref",
+      "type": "choice",
+      "label": "Delta against",
+      "description": "What the live delta compares your lap with: the previous lap or your best lap of the session.",
+      "values": [
+        {
+          "value": "previous",
+          "label": "Previous lap"
+        },
+        {
+          "value": "best",
+          "label": "Best lap"
+        }
+      ],
+      "default": "previous",
+      "binds": "native"
+    },
+    {
+      "id": "flag_screen",
+      "type": "choice",
+      "label": "Flag screen",
+      "description": "Flags (red flag, safety car, VSC, yellow, blue) fill the whole dash: briefly when they come out (4 s, then a blinking strip along the top edge), or for as long as they are out.",
+      "values": [
+        {
+          "value": "brief",
+          "label": "Briefly (4 s)"
+        },
+        {
+          "value": "full",
+          "label": "While the flag is out"
+        }
+      ],
+      "default": "brief",
+      "binds": "native"
+    },
+    {
+      "id": "page_action",
+      "type": "slider",
+      "label": "Page button (UDP Action)",
+      "description": "Bind a button (wheel, controller or keyboard) to this \"UDP Action\" in the game's Controls menu: it switches the dash between the race and car pages. 0 turns it off. Needs the game's UDP telemetry on.",
+      "min": 0,
+      "max": 12,
+      "step": 1,
+      "default": 1,
+      "binds": "native"
+    },
+    {
+      "id": "tyre_cold_below",
+      "type": "slider",
+      "label": "Tyres cold below (°C)",
+      "description": "Tyre temperatures below this show blue.",
+      "min": 40,
+      "max": 110,
+      "step": 1,
+      "default": 80,
+      "binds": "native"
+    },
+    {
+      "id": "tyre_hot_above",
+      "type": "slider",
+      "label": "Tyres hot above (°C)",
+      "description": "Tyre temperatures above this show red; between the two limits they show green.",
+      "min": 80,
+      "max": 140,
+      "step": 1,
+      "default": 105,
+      "binds": "native"
+    },
+    {
+      "id": "wear_amber",
+      "type": "slider",
+      "label": "Tyre wear amber from (%)",
+      "description": "Tyre wear from this shows amber.",
+      "min": 10,
+      "max": 90,
+      "step": 5,
+      "default": 40,
+      "binds": "native"
+    },
+    {
+      "id": "wear_red",
+      "type": "slider",
+      "label": "Tyre wear red from (%)",
+      "description": "Tyre wear from this shows red.",
+      "min": 20,
+      "max": 100,
+      "step": 5,
+      "default": 70,
+      "binds": "native"
+    },
     {
       "id": "verbose",
       "type": "toggle",
