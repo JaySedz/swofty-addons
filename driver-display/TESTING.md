@@ -1,7 +1,6 @@
-# Testing before 1.0
+# Testing
 
-Every update on the Swofty launcher is approved by hand (the addon reads the game's UDP packets), so 1.0 goes there
-only once everything below passes. 0.x builds are for testing (locally, or overtake.gg for early feedback).
+1.0.10 (2026-11-19) and 1.1.0 went on the Swofty launcher, auto-approved. Test builds stay local until a release.
 Turn on **Debug log** in the addon's settings for test runs; the notes say which `[driver-display]` lines to check.
 Ticked: confirmed in a test (the version in brackets). Unticked: still to check on the release candidate.
 
@@ -10,7 +9,8 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [x] Grand Prix practice and race load and run (0.4.x); a full-length race (0.4.33).
 - [x] A career / modded profile with ~70 addons: loads and runs (0.4.29, 0.4.33).
 - [x] The tap behind the launcher's own UDP hook: `udp tap (try 1): tapped; ... sendto launcher:...` (0.4.x).
-- [ ] Qualifying and time trial load and run.
+- [x] Practice and qualifying load and run (1.0.17-1.0.22).
+- [ ] Time trial loads and runs.
 - [ ] A race with a formation lap, and one without.
 - [ ] No crash leaving a session, restarting a session, returning to the menus, and loading a second session.
 - [ ] SimHub (or another UDP app) still receives telemetry while the addon runs.
@@ -21,12 +21,13 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 ## Race page
 
 - [x] Lap time, gear, RPM, speed, position, LAP n/total match the game (0.4.36 photos).
-- [x] Delta (PREV LAP) green faster / red slower; gaps AHEAD yellow, BEHIND green (0.4.36).
+- [x] Delta (PREV LAP) green faster / red slower (0.4.36); gaps AHEAD yellow, BEHIND green (1.0.19: white before,
+      the colour order bug).
 - [x] ERS SOC yellow, red under 15 %, blue while overtake is available (0.4.36).
 - [x] Straight mode badge: grey with the metres counting down, green READY, purple ACTIVE (0.4.2, 0.4.36).
-- [ ] AHEAD / BEHIND show the drivers' codes (HAM, LEC) from the live driver names (log: `driver codes from the
+- [x] (1.0.19) AHEAD / BEHIND show the drivers' codes (HAM, LEC) from the live driver names (log: `driver codes from the
       live state's driver names`; needs the current launcher) (0.4.38).
-- [ ] Tyre temperatures (white, centred, with °) and the fuel margin (white) right; `--` / the game's value before
+- [x] (1.0.x photos) Tyre temperatures (white, centred, with °) and the fuel margin (white) right; `--` / the game's value before
       the packets (1.0).
 - [ ] Lap time reads 0:00.000 on the grid and the formation lap, starts at the real start (log: `off the grid at
       ...` only when pulling away) (0.4.29).
@@ -61,12 +62,23 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [ ] Drive through / stop-go: white screen, served at the pit.
 - [ ] Chequered flag when it comes out (CHEQUERED FLAG) and at the finish (FINISHED P n), squares not covering
       the screen at any other time.
-- [ ] Lap 2 of a race: blue OVERTAKE / ENABLED (DRS on 2025 content); safety car / rain: OVERTAKE / DISABLED with
+- [x] (1.0.2, ENABLED; DISABLED unconfirmed) Lap 2 of a race: blue OVERTAKE / ENABLED (DRS on 2025 content); safety car / rain: OVERTAKE / DISABLED with
       the reason (log: `event: ...`; the `event code seen:` lines list what the 2026 pack sends).
 - [ ] Setting changes (ERS mode, fuel mix, brake bias, differential) pop up blue in the ERS SOC cell.
-- [ ] Safety car and VSC: full screen 4 s, then the amber bottom bar (SAFETY CAR / VSC, then SC IN THIS LAP / VSC
+- [x] (1.0.4) Safety car and VSC: full screen 4 s, then the amber bottom bar (SAFETY CAR / VSC, then SC IN THIS LAP / VSC
       ENDING); SC DELTA in the delta box, green above, red too fast; SLOW DOWN screen when too fast; PREV LAP back
       and the green flag after (log: `SC delta ...` every 5 s, `safety car event: type 2 event 1`) (1.0.4).
+
+## Practice, qualifying and race messages (1.0.16-1.0.22)
+
+- [x] Practice / qualifying layout: sector times purple / green / yellow, TO PB, time left (1.0.19).
+- [x] The race layout on the grid, not qualifying's (1.0.19).
+- [x] DNF / RETIRED stays on the screen for the rest of the session (1.0.20).
+- [x] Start lights, GO at lights out (1.0.22).
+- [x] Fastest lap bar with the right driver and time (1.0.22: BEA, LEC, ANT).
+- [x] RETIRED and CONTACT across the bottom row (1.0.22).
+- [ ] BACKMARKER (compare with the game's own message), PIT WINDOW OPEN, RAIN IN n MIN, FINAL LAP.
+- [ ] Battle alert blink; fuel per lap under the margin.
 
 ## Boot screen
 
@@ -85,8 +97,8 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 
 ## Release
 
-- [x] Version 1.0.0 in `swofty.json`, README status line updated.
-- [ ] `repository` points at the published source (the `driver-display` folder pushed to GitHub).
+- [x] Version 1.1.0 in `swofty.json`, README status line updated (1.1.1: the feature list left out of the description: the launcher shows it in the small settings panel).
+- [x] `repository` points at the published source (the `driver-display` folder pushed to GitHub).
 
 ## After the launcher's 1.10
 

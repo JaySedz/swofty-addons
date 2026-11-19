@@ -41,6 +41,17 @@ struct Values {
     std::atomic<int> session_size{0}, session_type{-1};
     std::atomic<int> pit_ideal{0}, pit_latest{0}, pit_rejoin{0};
     std::atomic<int> weather{-1}, weather10{-1}, rain10{-1}, forecast_min{-1};
+    std::atomic<int> session_left{-1}; // session packet sessionTimeLeft (s)
+    // the header's sessionUID of the latest packet: a new one (a new session loading, the race after practice) clears
+    // the session type until the new session's own session packet comes (1.0.18: the game sends that only once the
+    // race starts, so the grid kept practice's layout)
+    std::atomic<uint64_t> session_uid{0};
+    std::atomic<uint32_t> session_uid_seq{0};
+    // the player's latest time in each sector (ms, -1 none yet this session) and its colour: 0 yellow (neither best),
+    // 1 green (the player's best), 2 purple (the best of every car this session); valid laps only set the bests
+    std::atomic<int> sector_ms[3] = {{-1}, {-1}, {-1}};
+    std::atomic<int> sector_col[3] = {{0}, {0}, {0}};
+    std::atomic<uint32_t> sector_seq{0}; // a sector of the player's completed (for the log)
     // lap data: pit stops, penalty seconds, warnings, track limit warnings, unserved drive throughs / stop-gos, the
     // result status (2 running, 3 finished), the pit lane timers (the last stop's time in the lane and stationary)
     std::atomic<int> stops{-1}, pen_s{-1}, warns{-1}, tl_warns{-1}, unserved_dt{-1}, unserved_sg{-1};
@@ -55,6 +66,11 @@ struct Values {
     std::atomic<uint32_t> drse_seq{0}, drsd_seq{0};
     std::atomic<int> drsd_reason{-1};
     std::atomic<uint32_t> event_code{0}, event_seq{0};
+    // 1.0.21 events (F1 25 spec, details from byte 33): start lights "STLG" (numLights), lights out "LGOT", fastest
+    // lap "FTLP" (vehicleIdx, lapTime f32), retirement "RTMT" (vehicleIdx, reason), collision "COLL" (two vehicleIdx)
+    std::atomic<int> lights{0}, ftlp_car{-1}, rtmt_car{-1}, coll_a{-1}, coll_b{-1};
+    std::atomic<float> ftlp_time{0.f};
+    std::atomic<uint32_t> lights_seq{0}, lgot_seq{0}, ftlp_seq{0}, rtmt_seq{0}, coll_seq{0};
     std::atomic<int> pen_type{-1}, pen_infr{-1}, pen_time{0};
     // lap data safetyCarDelta (s, the player's car), and the safety car event "SCAR": safetyCarType (1 full, 2
     // virtual, 3 formation), eventType (0 deployed, 1 returning, 2 returned, 3 resume race)

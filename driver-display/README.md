@@ -9,7 +9,7 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.0.14. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+**Status: 1.1.1. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
 telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
@@ -26,6 +26,11 @@ Three pages, switched by the page button (a "UDP Action" bound in the game's con
 | LAP TIME (running; the finished lap for 3 s after the line) | GEAR, RPM, SPEED | PREV LAP / BEST LAP delta (green faster, red slower) |
 | POS, LAP n/total | | Gaps to the cars ahead / behind, labelled with their drivers' codes (HAM, LEC) |
 | Tyre temperatures FL FR / RL RR | ERS SOC % + mode badge | FUEL margin |
+
+**Practice, qualifying and time trial:** the race page changes its right column to the sector times (S1, S2,
+S3: purple the session's best of any car, green your best, yellow neither; each stays until you next complete that
+sector), shows the delta to your best lap (TO PB) under the lap time in place of LAP n/total, and the session's
+time left (Q2 TIME LEFT) in place of the fuel margin. Needs the game's UDP telemetry.
 
 **Car page:** a top-down car drawn from its own textures (art/car), each part coloured by its damage (front
 wings, rear wing, sidepods, floor and bargeboards, diffuser, gearbox, brakes: green / amber / red, grey until
@@ -58,8 +63,16 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
 - **DRS / overtake enabled and disabled** (with the reason: wet track, safety car, red flag, too early): the whole
   screen in blue (the game's overtake colour) for 3 s, as the game announces them at the top of its HUD.
 - **Chequered flag:** chequers over the screen, 4 s when it comes out, 8 s when you finish (FINISHED P n). Out of
-  the race (DNF, RETIRED, NOT CLASSIFIED): white on black for 5 s.
+  the race (DNF, RETIRED, NOT CLASSIFIED): white on black for the rest of the session.
 - **Setting changes** (ERS mode, fuel mode, brake bias, differential) pop up in the ERS SOC cell for 2 s.
+- **Start lights:** the screen goes black and the five red lights come on with the game's, then a green GO at
+  lights out.
+- **Fastest lap:** the bottom row turns purple for 5 s with the driver and the time.
+- **Across the bottom row** (blue, amber for incidents): BACKMARKER with the driver's code as you close on a lapped car (races), PIT WINDOW OPEN,
+  RAIN IN n MIN when the forecast's chance passes 50 % in the dry, RETIRED with the driver's code when a car
+  retires, CONTACT with the driver's code when you touch another car.
+- **FINAL LAP** over the screen in blue as the last lap starts. The gap to the car ahead or behind blinks for 3 s
+  as it comes within a second (from lap 2). Under the fuel margin: the margin per lap left (+ to spend, - to save).
 - **Boot screen:** when the game hands you the car (the end of the intro, skipped or watched; else when the car
   first moves), your team's logo shows on black for 3 s, as the dash switching on. The logo is the game's own 2026
   team logo, asked for by its name so that a logo replaced by a mod (the launcher's importer) shows too; nothing

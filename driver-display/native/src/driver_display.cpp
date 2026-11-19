@@ -901,10 +901,17 @@ void chequered(const Reading &r, double dt)
     }
     // out of the race (1.0.7): DNF, not classified, retired, white on black for 5 s (a disqualification has its
     // own screen from the penalty event)
+    // the screen stays up until the player races again (a new session) (1.0.20: 1.0.7-1.0.19 gave it 5 s; until
+    // 1.0.18 it happened to stay, as nothing else wrote the screen)
+    static const char *out = nullptr;
     if (!first && last_result == 2 && (r.result == 4 || r.result == 6 || r.result == 7)) {
-        warn("", r.result == 4 ? "DNF" : r.result == 6 ? "NOT CLASSIFIED" : "RETIRED", 5.0);
+        out = r.result == 4 ? "DNF" : r.result == 6 ? "NOT CLASSIFIED" : "RETIRED";
         swofty::log("[driver-display] out of the race: result status %d", r.result);
     }
+    if (out && r.result == 2)
+        out = nullptr;
+    if (out)
+        warn("", out, 1.0);
     if (r.result >= 0)
         last_result = r.result;
     was = r.chequered;
@@ -917,6 +924,31 @@ void chequered(const Reading &r, double dt)
 // safety car, when the track dries), which a player without the HUD or in VR doesn't see; it takes the whole screen
 // for 3 s, in blue (the game's overtake colour; disabled with the reason), under any flag, penalty or limiter screen. 2026 content
 // calls it overtake. Every other event code is logged once, to learn what the season pack sends.
+// 1.0.21: the start lights on (0 none), the fastest lap's line and time left
+int g_lights = 0;
+double g_lights_left = 0.0, g_fl_left = 0.0;
+std::string g_fl_text;
+// a race message across the bottom row (1.0.22): 'b' blue (information), 'a' amber (an incident); the latest replaces
+// the one up
+std::string g_row_text;
+char g_row_colour = 'b';
+double g_row_left = 0.0;
+void row(const std::string &text, char colour, double secs = 3.0)
+{
+    g_row_text = text;
+    g_row_colour = colour;
+    g_row_left = secs;
+}
+
+// a car's driver code by its packet index (the live state's driver names: the packets' index is the live vehicle id)
+std::string car_code(int idx)
+{
+    if (idx >= 0)
+        if (auto n = swofty::live::driver_name(uint32_t(idx)); n && !n->empty())
+            return driver_code(n->c_str());
+    return idx >= 0 ? "CAR " + std::to_string(idx + 1) : std::string("-");
+}
+
 std::string g_msg_title, g_msg_sub;
 int g_msg_tone = 6; // the blue screen: the game's overtake colour
 double g_msg_left = 0.0;
@@ -944,6 +976,64 @@ void race_messages(double dt)
         g_msg_left = 3.0;
         swofty::log("[driver-display] event: %s disabled (reason %d)", what, rs);
     }
+    // 1.0.21: start lights, lights out (GO), the fastest lap (the bottom row), retirements and the player's contact
+    // (the ERS SOC cell's pop-up: with the AI mods there are many, so no full screens)
+    static uint32_t sl = G.lights_seq, so = G.lgot_seq, sf = G.ftlp_seq, sr = G.rtmt_seq, scl = G.coll_seq;
+    if (G.lights_seq != sl) {
+        sl = G.lights_seq;
+        g_lights = G.lights;
+        g_lights_left = 10.0;
+    }
+    if (G.lgot_seq != so) {
+        so = G.lgot_seq;
+        g_lights = 0;
+        g_lights_left = 0.0;
+        g_msg_title = "GO";
+        g_msg_sub = "";
+        g_msg_tone = 8; // green
+        g_msg_left = 1.5;
+        swofty::log("[driver-display] event: lights out");
+    }
+    if (g_lights_left > 0.0)
+        g_lights_left -= dt;
+    bool lights = g_lights > 0 && g_lights_left > 0.0;
+    put_flag("lights", lights);
+    for (int i = 1; i <= 5; i++) {
+        char k[8];
+        std::snprintf(k, sizeof k, "lt%d", i);
+        put_flag(k, lights && i <= g_lights);
+    }
+    int me = G.player;
+    if (G.ftlp_seq != sf) {
+        sf = G.ftlp_seq;
+        float s = G.ftlp_time;
+        char t[48];
+        int ms = int(std::lround(double(s) * 1000.0));
+        std::snprintf(t, sizeof t, "FASTEST LAP  %s  %d:%02d.%03d", car_code(G.ftlp_car).c_str(), ms / 60000,
+                      ms / 1000 % 60, ms % 1000);
+        g_fl_text = t;
+        g_fl_left = 5.0;
+        swofty::log("[driver-display] event: %s", t);
+    }
+    if (g_fl_left > 0.0)
+        g_fl_left -= dt;
+    if (g_row_left > 0.0)
+        g_row_left -= dt;
+    if (G.rtmt_seq != sr) {
+        sr = G.rtmt_seq;
+        if (G.rtmt_car != me) {
+            row("RETIRED  " + car_code(G.rtmt_car), 'a');
+            swofty::log("[driver-display] event: car %d retired", int(G.rtmt_car));
+        }
+    }
+    if (G.coll_seq != scl) {
+        scl = G.coll_seq;
+        int a = G.coll_a, b = G.coll_b;
+        if (a == me || b == me) {
+            row("CONTACT  " + car_code(a == me ? b : a), 'a', 2.5);
+            swofty::log("[driver-display] event: contact with car %d", a == me ? b : a);
+        }
+    }
     if (g_msg_left > 0.0)
         g_msg_left -= dt;
     if (G.event_seq != sev) {
@@ -955,6 +1045,77 @@ void race_messages(double dt)
             swofty::log("[driver-display] event code seen: %s", code);
         }
     }
+}
+
+// 1.0.21, in a race: the backmarker ahead (the game's own message isn't readable: worked out from the live state),
+// the final lap, the pit window opening; in any session: rain in the forecast
+void race_extras(const Reading &r)
+{
+    int type = udp_tap::g.session_type;
+    bool race = type >= 15 && type <= 17;
+    // backmarker: the nearest car within 200 m ahead on the road that is half a lap or more behind in the race, not
+    // in the pit lane, still running; the pop-up once per car as the player closes in
+    static int bm_last = -1;
+    int bm = -1;
+    auto me = swofty::live::player();
+    auto ses = swofty::live::session();
+    if (race && r.sc == 0 && me && ses && swofty::live::has(*ses, SWOFTY_LIVE_SHAVE_TRACK_LENGTH) &&
+        swofty::live::has(*me, SWOFTY_LIVE_HAVE_PROGRESS) && ses->track_length_m > 500.f) {
+        float L = ses->track_length_m, best = 200.f;
+        for (uint32_t v : swofty::live::road_order()) {
+            if (v == me->vehicle)
+                continue;
+            auto c = swofty::live::car(v);
+            if (!c || !swofty::live::has(*c, SWOFTY_LIVE_HAVE_PROGRESS) || swofty::live::in_pit(*c))
+                continue;
+            if (swofty::live::has(*c, SWOFTY_LIVE_HAVE_CLASS) && c->result_status != 2)
+                continue;
+            float ahead = c->lap_m - me->lap_m;
+            if (ahead < 0.f)
+                ahead += L;
+            if (ahead > 0.f && ahead < best && me->total_m - c->total_m > L * 0.5f) {
+                best = ahead;
+                bm = int(v);
+            }
+        }
+    }
+    if (bm >= 0 && bm != bm_last) {
+        row("BACKMARKER  " + car_code(bm), 'b');
+        swofty::log("[driver-display] backmarker ahead: car %d", bm);
+    }
+    bm_last = bm;
+    // the final lap: a blue message over the screen as it starts
+    static int last_lap = -1;
+    int total = udp_tap::g.total_laps;
+    if (race && total > 1 && r.lap >= 0 && r.lap != last_lap && r.lap + 1 == total) {
+        g_msg_title = "FINAL LAP";
+        g_msg_sub = "";
+        g_msg_tone = 6;
+        g_msg_left = 3.0;
+        swofty::log("[driver-display] final lap");
+    }
+    if (r.lap >= 0)
+        last_lap = r.lap;
+    // the pit window opening (the session packet's ideal lap)
+    auto &G = udp_tap::g;
+    bool sess = udp_tap::fresh(G.session_tick);
+    static int pw_said = -1;
+    int lap = r.lap >= 0 ? r.lap + 1 : 0, ideal = sess ? int(G.pit_ideal) : 0, latest = sess ? int(G.pit_latest) : 0;
+    if (race && ideal > 0 && latest >= ideal && lap >= ideal && lap <= latest && pw_said != ideal) {
+        row("PIT WINDOW OPEN", 'b');
+        pw_said = ideal;
+        swofty::log("[driver-display] pit window open (laps %d-%d)", ideal, latest);
+    }
+    // rain in the forecast while it's dry: once as the chance passes 50 %, again only after it fell below 30 %
+    static bool rain_said = false;
+    int r10 = sess ? int(G.rain10) : -1, wnow = sess ? int(G.weather) : -1, at = G.forecast_min;
+    if (r10 >= 50 && wnow >= 0 && wnow <= 2 && !rain_said) {
+        row((at > 0 ? "RAIN IN " + std::to_string(at) + " MIN  " : std::string("RAIN  ")) + std::to_string(r10) + "%", 'b', 4.0);
+        rain_said = true;
+        swofty::log("[driver-display] rain forecast: %d%% in %d min", r10, at);
+    }
+    if (r10 >= 0 && r10 < 30)
+        rain_said = false;
 }
 
 void popups(const Reading &r, const std::string &mode, double dt)
@@ -982,6 +1143,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
     }
     if (g_pop_left > 0.0)
         g_pop_left -= dt;
+    race_extras(r);
     // the flag the game shows this car (its status packet), and the live state's yellow sectors for the
     // sector the car is in: a local yellow (no overtaking there) without a safety car, and the blue flag
     bool udp_status = udp_tap::fresh(udp_tap::g.status_tick);
@@ -1122,6 +1284,17 @@ void popups(const Reading &r, const std::string &mode, double dt)
     put_flag("tint_sc", !full && (kind == 2 || kind == 3));
     bool bar = !full && (flag_kind == 2 || flag_kind == 3);
     put_flag("sc_bar", bar);
+    bool flb = !full && !bar && g_fl_left > 0.0;
+    put_flag("fl_bar", flb);
+    if (flb)
+        put("fl_text", g_fl_text);
+    bool rowb = !full && !bar && !flb && g_row_left > 0.0;
+    put_flag("row_blue", rowb && g_row_colour == 'b');
+    put_flag("row_amber", rowb && g_row_colour == 'a');
+    put_flag("row_light", rowb && g_row_colour == 'b');
+    put_flag("row_dark", rowb && g_row_colour == 'a');
+    if (rowb)
+        put("row_text", g_row_text);
     if (bar)
         put("sc_bar_text", g_sc_slow ? "SLOW DOWN" : flag_kind == 2 ? (sc_ending ? "SC IN THIS LAP" : "SAFETY CAR")
                                                                : (sc_ending ? "VSC ENDING" : "VSC"));
@@ -1208,6 +1381,32 @@ void page_input()
 
 // a value shown only on one page
 inline bool on_page(int p, bool v) { return v && g_page == p; }
+// page 0's layout (1.0.16): the race's, or practice / qualifying / time trial's (sector times, time left)
+bool g_quali = false;
+inline bool on_race0(bool v) { return v && g_page == 0 && !g_quali; }
+inline bool on_quali0(bool v) { return v && g_page == 0 && g_quali; }
+
+// the session's name for the time left label, "" for a race (the session packet's sessionType, F1 25 spec)
+const char *session_name(int type)
+{
+    switch (type) {
+    case 1: return "P1";
+    case 2: return "P2";
+    case 3: return "P3";
+    case 4: return "PRACTICE";
+    case 5: return "Q1";
+    case 6: return "Q2";
+    case 7: return "Q3";
+    case 8: return "QUALI";
+    case 9: case 14: return "ONE-SHOT";
+    case 10: return "SQ1";
+    case 11: return "SQ2";
+    case 12: return "SQ3";
+    case 13: return "SPRINT QUALI";
+    case 18: return "TIME TRIAL";
+    default: return "";
+    }
+}
 
 // the car page's colours: each part green under 20 % damage, amber under 50 %, red from 50 %, grey until known;
 // the tyres by their wear (green, amber from the first limit, red from the second)
@@ -1221,8 +1420,7 @@ void car_page(const Reading &r)
             std::snprintf(k, sizeof k, "c%c_%s", tags[i], key);
             put_flag(k, on_page(1, known && band == i));
         }
-        std::snprintf(k, sizeof k, "cn_%s", key);
-        put_flag(k, on_page(1, !known));
+        // (unknown: no copy shows, the grey base car shows through; 1.0.15)
     };
     auto band = [](int v) { return v >= 50 ? 2 : v >= 20 ? 1 : 0; };
     struct Part {
@@ -1309,7 +1507,7 @@ void pit_page(const Reading &r)
     else std::snprintf(t, sizeof t, "-");
     put("rejoin", t);
     // the tyre on the car, in its compound's colour, and its age
-    char ty = 'n';
+    char ty = 'h'; // unknown or another compound: the hard's copy (white; 1.0.17 dropped the grey one)
     std::string name = "-";
     switch (r.tyre_vis) {
     case 16: name = "SOFT"; ty = 's'; break;
@@ -1320,7 +1518,7 @@ void pit_page(const Reading &r)
     default: if (r.tyre_vis > 0) name = "TYRE " + std::to_string(r.tyre_vis); break;
     }
     put("tyre", name);
-    static const char tys[] = {'s', 'm', 'h', 'i', 'w', 'n'};
+    static const char tys[] = {'s', 'm', 'h', 'i', 'w'};
     for (char c : tys) {
         char k[8];
         std::snprintf(k, sizeof k, "ty_%c", c);
@@ -1330,12 +1528,12 @@ void pit_page(const Reading &r)
     // front wing damage: the game's damage packet (the launcher's telemetry has no part damage)
     bool dmg = udp_tap::fresh(G.damage_tick) && !G.from_launcher;
     int fl = G.dmg_fwl, fr = G.dmg_fwr, worst = fl > fr ? fl : fr;
-    char wing = !dmg ? 'n' : worst >= 50 ? 'r' : worst >= 20 ? 'a' : 'g';
+    char wing = !dmg ? 'g' : worst >= 50 ? 'r' : worst >= 20 ? 'a' : 'g'; // unknown: "-" in green (1.0.17)
     if (!dmg) std::snprintf(t, sizeof t, "-");
     else if (worst == 0) std::snprintf(t, sizeof t, "NONE");
     else std::snprintf(t, sizeof t, "%d%% / %d%%", fl, fr);
     put("wing", t);
-    static const char bands[] = {'g', 'a', 'r', 'n'};
+    static const char bands[] = {'g', 'a', 'r'};
     for (char c : bands) {
         char k[10];
         std::snprintf(k, sizeof k, "wing_%c", c);
@@ -1350,7 +1548,7 @@ void pit_page(const Reading &r)
         if (w >= 0.f) std::snprintf(t, sizeof t, "%d%%", int(std::lround(w)));
         else std::snprintf(t, sizeof t, "--");
         put(k, t);
-        char band = w < 0.f ? 'n' : w >= float(int(wear_red)) ? 'r' : w >= float(int(wear_amber)) ? 'a' : 'g';
+        char band = w < 0.f ? 'g' : w >= float(int(wear_red)) ? 'r' : w >= float(int(wear_amber)) ? 'a' : 'g'; // unknown: "--" in green
         for (char c : bands) {
             std::snprintf(k, sizeof k, "w%c_%s", c, corners[i]);
             put_flag(k, on_page(2, band == c));
@@ -1481,6 +1679,8 @@ void on_frame(double dt, void *)
     {
         auto ses = swofty::live::session();
         uint32_t gen = ses ? ses->generation : 0;
+        // (1.0.18 armed it on a new session in the game's packets too: it still didn't show on the grid, and a
+        // retirement changes the packets' session, so it played over the DNF screen; reverted in 1.0.20)
         if (r.src && (!last_src || gen != boot_gen)) {
             if (!boot_armed)
                 swofty::log("[driver-display] boot screen armed (session generation %u)", gen);
@@ -1622,6 +1822,13 @@ void on_frame(double dt, void *)
     // the lap time and the delta where they were (0.4.0 switched to its own clock there, which kept counting).
     game_laps();
     bool udp_laps = udp_tap::fresh(udp_tap::g.lap_tick);
+    {
+        int st = udp_tap::g.session_type;
+        bool q = (st >= 1 && st <= 14) || st == 18;
+        if (q != g_quali)
+            swofty::log("[driver-display] page layout: %s (session type %d)", q ? "practice / qualifying" : "race", st);
+        g_quali = q;
+    }
     static bool laps_seen = false;
     laps_seen = laps_seen || udp_laps;
     bool hold_laps = laps_seen && !udp_laps;
@@ -1650,9 +1857,8 @@ void on_frame(double dt, void *)
     if (sc_delta) {
         std::snprintf(t, sizeof t, "%c%.2f", delta > 0 ? '-' : '+', std::fabs(delta));
         put("delta", t);
-        put_flag("delta_neg", on_page(0, delta <= 0));
-        put_flag("delta_pos", on_page(0, delta > 0));
-        put_flag("delta_none", false);
+        put_flag("delta_neg", on_race0(delta <= 0));
+        put_flag("delta_pos", on_race0(delta > 0));
     } else if (hold_laps) {
         have_delta = g_held_have;
         delta = g_held_delta;
@@ -1664,10 +1870,60 @@ void on_frame(double dt, void *)
         if (have_delta) {
             std::snprintf(t, sizeof t, "%c%.2f", delta < 0 ? '-' : '+', std::fabs(delta));
             put("delta", t);
+        } else {
+            put("delta", "--.--");
         }
-        put_flag("delta_neg", on_page(0, have_delta && delta < 0));
-        put_flag("delta_pos", on_page(0, have_delta && delta >= 0));
-        put_flag("delta_none", on_page(0, !have_delta));
+        // no delta yet: "--.--" in the green copy (1.0.17: the grey copy took 2 of the display's 512 nodes)
+        put_flag("delta_neg", on_race0(!have_delta || delta < 0));
+        put_flag("delta_pos", on_race0(have_delta && delta >= 0));
+    }
+    // practice / qualifying: the delta to the best lap, the sector times, the session's time left
+    {
+        bool qh = udp_laps ? g_game.have : g_laps.have_delta;
+        double qd = udp_laps ? g_game.delta : g_laps.delta;
+        if (qh) {
+            std::snprintf(t, sizeof t, "%c%.3f", qd < 0 ? '-' : '+', std::fabs(qd));
+            put("qdelta", t);
+        } else {
+            put("qdelta", "--.--");
+        }
+        put_flag("qd_neg", on_quali0(!qh || qd < 0)); // no best lap yet: "--.--" in green
+        put_flag("qd_pos", on_quali0(qh && qd >= 0));
+        static const char tags[] = {'y', 'g', 'p'};
+        char k[16];
+        for (int i = 0; i < 3; i++) {
+            int ms = udp_tap::g.sector_ms[i], col = udp_tap::g.sector_col[i];
+            if (ms > 0) {
+                if (ms >= 60000) std::snprintf(t, sizeof t, "%d:%06.3f", ms / 60000, (ms % 60000) / 1000.0);
+                else std::snprintf(t, sizeof t, "%.3f", ms / 1000.0);
+            } else {
+                std::snprintf(t, sizeof t, "-");
+                col = 0;
+            }
+            std::snprintf(k, sizeof k, "s%d", i + 1);
+            put(k, t);
+            for (int c = 0; c < 3; c++) {
+                std::snprintf(k, sizeof k, "s%d_%c", i + 1, tags[c]);
+                put_flag(k, on_quali0(col == c));
+            }
+        }
+        static uint32_t seen = 0;
+        if (udp_tap::g.sector_seq != seen) {
+            seen = udp_tap::g.sector_seq;
+            swofty::log("[driver-display] sectors: %d %d %d ms (colours %d %d %d: 0 yellow, 1 green, 2 purple)",
+                        int(udp_tap::g.sector_ms[0]), int(udp_tap::g.sector_ms[1]), int(udp_tap::g.sector_ms[2]),
+                        int(udp_tap::g.sector_col[0]), int(udp_tap::g.sector_col[1]), int(udp_tap::g.sector_col[2]));
+        }
+        const char *sn = session_name(udp_tap::g.session_type);
+        put("sess_label", udp_tap::g.session_type == 18 ? std::string("TIME TRIAL") : std::string(sn) + " TIME LEFT");
+        int left = udp_tap::fresh(udp_tap::g.session_tick) ? int(udp_tap::g.session_left) : -1;
+        if (left > 0 && udp_tap::g.session_type != 18) {
+            if (left >= 3600) std::snprintf(t, sizeof t, "%d:%02d:%02d", left / 3600, left / 60 % 60, left % 60);
+            else std::snprintf(t, sizeof t, "%02d:%02d", left / 60, left % 60);
+        } else {
+            std::snprintf(t, sizeof t, "--:--");
+        }
+        put("sess_left", t);
     }
     static int delta_src = -1;
     if (int(udp_laps) != delta_src) {
@@ -1694,6 +1950,23 @@ void on_frame(double dt, void *)
     put("pos", t);
     if (r.gap_ms > 0 && r.pos > 1) std::snprintf(t, sizeof t, "+%.3f", r.gap_ms / 1000.0); else std::snprintf(t, sizeof t, "-");
     put("gap_a", t);
+    {
+        static double ba_left = 0.0, bb_left = 0.0, phase = 0.0;
+        static bool was_a = false, was_b = false;
+        bool live_race = !g_quali && r.sc == 0 && r.lap >= 1;
+        bool in_a = live_race && r.gap_ms > 0 && r.pos > 1 && r.gap_ms < 1000;
+        bool in_b = live_race && r.gap_b_ms > 0 && r.gap_b_ms < 1000;
+        if (in_a && !was_a) ba_left = 3.0;
+        if (in_b && !was_b) bb_left = 3.0;
+        was_a = in_a;
+        was_b = in_b;
+        phase += g_step;
+        bool off = std::fmod(phase, 0.5) >= 0.3;
+        if (ba_left > 0.0) ba_left -= g_step;
+        if (bb_left > 0.0) bb_left -= g_step;
+        put_flag("gap_a_on", on_race0(!(ba_left > 0.0 && off)));
+        put_flag("gap_b_on", on_race0(!(bb_left > 0.0 && off)));
+    }
     if (r.gap_b_ms > 0) std::snprintf(t, sizeof t, "-%.3f", r.gap_b_ms / 1000.0); else std::snprintf(t, sizeof t, "-");
     put("gap_b", t);
     // the cars ahead and behind by their drivers' codes (HAM, LEC), else the words
@@ -1735,9 +2008,11 @@ void on_frame(double dt, void *)
             r.wear[i] = udp_tap::g.wear[i];
     page_input();
     put_flag("p0", g_page == 0);
+    put_flag("p0r", g_page == 0 && !g_quali);
+    put_flag("p0q", g_page == 0 && g_quali);
     put_flag("p1", g_page == 1);
     put_flag("p2", g_page == 2);
-    put_flag("calib", bool(calibration));
+    // put_flag("calib", bool(calibration)); // the grid is out of the build since 1.0.15 (tools/build_ui.py, CALIBRATION)
     penalties(r, g_step);
     chequered(r, g_step);
     race_messages(g_step);
@@ -1784,8 +2059,18 @@ void on_frame(double dt, void *)
     float fl = udp_tap::g.fuel_laps;
     std::snprintf(t, sizeof t, "%+.2f", double(fl));
     put("fuel", fuel_known ? std::string(t) : std::string("-"));
-    put_flag("fuel_game", on_page(0, !fuel_known));
-    put_flag("fuel_ok", on_page(0, fuel_known)); // white (1.0)
+    put_flag("fuel_game", on_race0(!fuel_known));
+    put_flag("fuel_ok", on_race0(fuel_known)); // white (1.0)
+    {
+        int total = udp_tap::g.total_laps;
+        int left = total > 0 && r.lap >= 0 ? total - r.lap : 0;
+        bool on = fuel_known && left > 0;
+        if (on) {
+            std::snprintf(t, sizeof t, "%+.2f / LAP", double(fl) / left);
+            put("fuel_pl", t);
+        }
+        put_flag("fuel_pl_on", on_race0(on));
+    }
 
     static double logt = 0.0;
     logt += g_step;
@@ -1852,7 +2137,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.0.14: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.1.1: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);

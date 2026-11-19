@@ -349,9 +349,11 @@ def order_nodes(lcd, tpl):
     rest = [k for k in kids if k.get('name').v.startswith('rd_') and k.get('name').v not in seen]
     lcd.scene.set('children', L(stock + first + rest))
     print(f'colour nodes: every car\'s up to node {len(stock) + last_every - 1}, the Ferrari copies up to '
-          f'{len(stock) + len(first) - 1} (colour reaches ~133)')
-    if len(stock) + last_every - 1 >= 128:
-        raise SystemExit('the coloured nodes reach past the ~133 the game colours: cut some')
+          f'{len(stock) + len(first) - 1} (colour reaches 128: nodes 0-127)')
+    # The limit taken as 128 (a power of two; 2026-11-19 photos: node 113 coloured, 135 white, in the file as
+    # written). Before 1.0.19 this printout described an order the written file never had.
+    if len(stock) + len(first) - 1 >= 128:
+        raise SystemExit('the coloured nodes (the Ferrari copies too) reach past node 127: cut some')
 
 
 # ------------------------------------------------------------------ the 2026 team logo set
@@ -523,13 +525,100 @@ def main():
         text(name, px, py, H + 'none', colour=colour, style='OSD_14_regular', value=value, wpx=326, scale=scale,
              visible=visible, page=page)
 
+    PART_G, PART_A, PART_R, PART_N = (70, 230, 70), (255, 170, 30), (245, 50, 50), (120, 120, 128)
+    BODY, SUSP = (150, 150, 158), (120, 120, 128)
+    QUAD, SLOT = 'mod_1_icon_bg', 'mod_icon_bg'
+    MAT_DIR = 'eaid://ui_package/art/osd/materials/steering_lcd_display/'
+    EMB_DIR = 'eaid://ui_package/art/osd/components/steering_lcd_display/'
+    stock_material = stock_frags('eaid://ui_package/art/materials/lcd_default.material', 'GfxMaterialRes')[0]
+    from PIL import Image
+    textures, materials, bindings = [], [], []  # (resource, type, [source files])
+
+    def car_texture(stem):
+        """The part's texture from art/car/<stem>.png, cropped to its shape (2 px spare, 4 px blocks), named so
+        its view path has the stock texture's 46 characters; its box in the canvas's pixels."""
+        im = Image.open(os.path.join(ROOT, 'art', 'car', stem + '.png')).convert('RGBA')
+        alpha = im.getchannel('A')
+        bx0, by0, bx1, by1 = alpha.getbbox()
+        x0, y0 = max(0, bx0 - 2), max(0, by0 - 2)
+        w, h = (bx1 + 2 - x0 + 3) // 4 * 4, (by1 + 2 - y0 + 3) // 4 * 4
+        crop = alpha.crop((x0, y0, x0 + w, y0 + h))  # past the canvas edge reads as 0
+        tag = f'rd_car_p_{len(textures) // 2:02d}'
+        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
+        image_res = view_res + '.image'
+        rel = 'ui/tex/' + tag
+        files[rel + '.head'] = texture.surface_head(w, h)
+        files[rel + '.pixels'] = texture.bc7_white(crop.tobytes(), w, h)
+        files[rel + '.view'] = texture.view(image_res)
+        textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
+        textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
+        return tag, view_res, (x0, y0, x0 + w, y0 + h)
+
+    def car_quad(name, view_res, box, colour, visible, layer):
+        """A quad over box drawing the texture in colour, shown by the leaf visible."""
+        x0, y0, x1, y1 = box
+        mat_res = MAT_DIR + name + '.material'
+        emb_res = EMB_DIR + name + '.emb?context=default'
+        files[f'ui/tex/{name}.material'] = texture.material(stock_material, view_res, colour)
+        files[f'ui/tex/{name}.emb'] = texture.binding([(SLOT, mat_res)])
+        materials.append((mat_res, 'GfxMaterialRes', [f'ui/tex/{name}.material']))
+        bindings.append((emb_res, 'GfxMatBindRes', [f'ui/tex/{name}.emb']))
+        n = lcd.add_rect(name, X(x0), Y(y1), W(x1 - x0), Y(y0) - Y(y1), layer=layer, like=QUAD)
+        n.get('geoms')[0].set('materialid', V('str', emb_res))
+        tpl.add_group(f'{name}_group', [name], visible)
+
+    part_stems = []  # the damage parts, for the grey base car
+
+    def car_part(stem, key, layer):
+        """A damage part: a copy per colour, each shown by its own leaf (c<g|a|r>_<key>). While its damage is
+        unknown none shows, and the grey base car under the parts shows through (1.0.15: a grey copy of each part
+        took 22 of the display's 512 nodes)."""
+        tag, view_res, box = car_texture(stem)
+        part_stems.append(stem)
+        for c, colour in (('g', PART_G), ('a', PART_A), ('r', PART_R)):
+            car_quad(f'{tag}_{c}', view_res, box, colour, H + f'c{c}_{key}', layer)
+
+    def car_fixed(stem, colour, layer):
+        """A part not coloured by damage: shown on the car page."""
+        tag, view_res, box = car_texture(stem)
+        car_quad(f'{tag}_f', view_res, box, colour, H + 'p1', layer)
+
+    def overlay_texture(tag, alpha):
+        """A full-canvas texture from an alpha picture (836 x 472, half the canvas: 4 px blocks), named tag (11
+        characters, so its view path has the stock texture's 46)."""
+        assert len(tag) == 11 and alpha.size == (836, 472)
+        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
+        image_res = view_res + '.image'
+        rel = 'ui/tex/' + tag
+        files[rel + '.head'] = texture.surface_head(836, 472)
+        files[rel + '.pixels'] = texture.bc7_white(alpha.tobytes(), 836, 472)
+        files[rel + '.view'] = texture.view(image_res)
+        textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
+        textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
+        return view_res
+
+    def white_texture():
+        """An 8 x 8 white texture (once), for the boxes: a material-coloured quad over it draws a box."""
+        tag = 'rd_ovl_wht0'
+        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
+        if not any(t[0] == view_res for t in textures):
+            image_res = view_res + '.image'
+            rel = 'ui/tex/' + tag
+            files[rel + '.head'] = texture.surface_head(8, 8)
+            files[rel + '.pixels'] = texture.bc7_white(bytes([255]) * 64, 8, 8)
+            files[rel + '.view'] = texture.view(image_res)
+            textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
+            textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
+        return view_res
+
     def box(name, x0, y0, x1, y1, colour, visible=None, layer=None):
-        lcd.add_rect(name, X(x0), Y(y1), W(x1 - x0), Y(y0) - Y(y1), layer=L_PART if layer is None else layer)
-        tpl.add_group(f'{name}_group', [name], visible, colour=colour)
+        """A box: a quad over the white texture with its colour in the material (1.0.16; a rectangle with a
+        colourOverride took one of the ~133 nodes the override reaches)."""
+        car_quad(name, white_texture(), (x0, y0, x1, y1), colour, visible, L_PART if layer is None else layer)
 
     # the lines: drawn into textures per group (shared, each page, the badge outline), one straight and one
     # against the Ferrari's bend, instead of a rectangle each (49 rectangles: the LCD holds 512 nodes at most)
-    lines = {'sha': [], 'pg0': [], 'pg1': [], 'pg2': [], 'bdg': []}
+    lines = {'sha': [], 'pg0': [], 'pgr': [], 'pgq': [], 'pg1': [], 'pg2': [], 'bdg': []}
 
     def line(name, x0, y0, x1, y1, page=None, t=10):
         group = 'sha' if page is None else f'pg{page}'
@@ -577,6 +666,21 @@ def main():
     box('rd_sc_bar', 30, 595, 1640, 905, (255, 205, 0), H + 'sc_bar', L_POPTEXT + 1)
     text('rd_sc_bar_text', 835, 750, H + 'sc_bar_text', (10, 10, 10), scale=1.9, wpx=1500, value='SAFETY CAR',
          visible=H + 'sc_bar', layer=L_POPTEXT + 2)
+
+    # race messages across the bottom row (1.0.22: backmarker, pit window, rain, retirements, contact; the ERS SOC
+    # cell's pop-up was too narrow for them and stays for setting changes): blue with white text for information,
+    # amber with black text for incidents
+    box('rd_row_blue', 30, 595, 1640, 905, (10, 92, 255), H + 'row_blue', L_POPTEXT + 1)
+    box('rd_row_amber', 30, 595, 1640, 905, (240, 160, 0), H + 'row_amber', L_POPTEXT + 1)
+    text('rd_row_text_l', 835, 750, H + 'row_text', WHITE, scale=1.35, wpx=1500, value='-',
+         visible=H + 'row_light', layer=L_POPTEXT + 2)
+    text('rd_row_text_d', 835, 750, H + 'row_text', (10, 10, 10), scale=1.35, wpx=1500, value='-',
+         visible=H + 'row_dark', layer=L_POPTEXT + 2)
+
+    # the fastest lap of the race (1.0.21): the bottom row purple with the driver and the time for 5 s
+    box('rd_fl_bar', 30, 595, 1640, 905, (150, 60, 225), H + 'fl_bar', L_POPTEXT + 1)
+    text('rd_fl_text', 835, 750, H + 'fl_text', WHITE, scale=1.35, wpx=1500, value='FASTEST LAP',
+         visible=H + 'fl_bar', layer=L_POPTEXT + 2)
 
     # flags over the whole screen (as Wheel Dash had them): red flag, safety car / VSC / formation (amber), yellow,
     # blue flag; black text on amber and yellow, white on red and blue
@@ -638,10 +742,40 @@ def main():
     text('rd_chq_sub', 835, 610, H + 'full_sub', WHITE, scale=1.6, style='OSD_14_regular', wpx=1500,
          visible=H + 'full_chq_text', layer=L_FULLTEXT)
 
+    # the start lights (1.0.21): black over everything, the five lights coming on one by one (the game's start light
+    # events), then a green GO (the full screen, from the plugin) at lights out. One circle texture, five quads.
+    def circle_texture():
+        from PIL import ImageDraw
+        tag = 'rd_ovl_cir0'
+        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
+        image_res = view_res + '.image'
+        rel = 'ui/tex/' + tag
+        size = 128
+        disc = Image.new('L', (size * 4, size * 4), 0)
+        ImageDraw.Draw(disc).ellipse([8, 8, size * 4 - 9, size * 4 - 9], fill=255)
+        disc = disc.resize((size, size), Image.LANCZOS)
+        files[rel + '.head'] = texture.surface_head(size, size)
+        files[rel + '.pixels'] = texture.bc7_white(disc.tobytes(), size, size)
+        files[rel + '.view'] = texture.view(image_res)
+        textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
+        textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
+        return view_res
+    box('rd_lt_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'lights', L_FULL + 4)
+    circle = circle_texture()
+    for i in range(5):
+        cx = 835 + (i - 2) * 300
+        car_quad(f'rd_lt{i + 1}', circle, (cx - 120, 351, cx + 120, 591), (235, 20, 20), H + f'lt{i + 1}', L_FULL + 5)
+
     # the flag strip across the top edge, blinking: yellow (a yellow flag, SC, VSC), blue (blue flag), red (red flag)
+    # (one texture a colour with both bars since 1.0.17: two boxes a colour took 3 more of the 512 nodes)
+    from PIL import ImageDraw
+    bars = Image.new('L', (836, 472), 0)
+    dd = ImageDraw.Draw(bars)
+    dd.rectangle([15, 4, 819, 14], fill=255)    # canvas 30..1640 x 8..30, halved
+    dd.rectangle([15, 456, 819, 466], fill=255)  # canvas 30..1640 x 912..934, halved
     for tag, colour in (('yellow', (250, 210, 0)), ('blue', (20, 110, 255)), ('red', (225, 0, 0))):
-        box(f'rd_strip_{tag}', 30, 8, 1640, 30, colour, H + f'strip_{tag}', L_POP)
-        box(f'rd_strip_b_{tag}', 30, 912, 1640, 934, colour, H + f'strip_{tag}', L_POP)
+        stag = f'rd_ovl_st{tag[0]}0'
+        car_quad(f'rd_strip_{tag}', overlay_texture(stag, bars), (0, 0, 1670, 942), colour, H + f'strip_{tag}', L_POP)
 
     # ---- race page (page 0)
     line('rd_v_t1', 618, 45, 618, 570, 0)
@@ -649,21 +783,25 @@ def main():
     line('rd_h_tl', 35, 300, 605, 300, 0)
     line('rd_v_tl', 297, 325, 297, 565, 0)
     line('rd_h_g', 650, 395, 1020, 395, 0)
-    line('rd_h_tr1', 1065, 300, 1635, 300, 0)
-    line('rd_h_tr2', 1078, 428, 1635, 428, 0)
+    # page 0 has two layouts since 1.0.16: race ('r') and practice / qualifying / time trial ('q'), the same lines
+    # but the right column's (the race: the delta over the gaps; qualifying: three sectors evenly spaced)
+    line('rd_h_tr1', 1065, 300, 1635, 300, 'r')
+    line('rd_h_tr2', 1078, 428, 1635, 428, 'r')
+    line('rd_h_tq1', 1075, 218, 1635, 218, 'q')
+    line('rd_h_tq2', 1075, 385, 1635, 385, 'q')
     # lap time (running; the finished lap's for 3 s after the line), delta to the reference lap
     label('rd_l_lap_time', 181, 95, 'LAP TIME', page=0)
     text('rd_lap_time', 325, 207, H + 'cur', WHITE, scale=1.39, wpx=560, value='-:--.---', page=0)
     text('rd_l_delta', 1245, 95, H + 'delta_label', LABEL, style='OSD_14_regular',
-         value='PREV LAP', page=0, scale=1.0, wpx=326)
-    for tag, colour, vis in (('g', GREEN, 'delta_neg'), ('r', RED, 'delta_pos'), ('w', GREY, 'delta_none')):
+         value='PREV LAP', visible=H + 'p0r', scale=1.0, wpx=326)
+    for tag, colour, vis in (('g', GREEN, 'delta_neg'), ('r', RED, 'delta_pos')):  # no delta: "--.--" in green
         text(f'rd_delta_{tag}', 1330, 207, H + 'delta', colour, scale=1.5, wpx=460, value='--.--',
              visible=H + vis)
     # position, lap
     label('rd_l_pos', 106, 355, 'POS', page=0)
     text('rd_pos', 162, 460, H + 'pos', WHITE, scale=1.4, wpx=250, value='-', page=0)
-    label('rd_l_lap', 385, 355, 'LAP', page=0)
-    text('rd_lap', 462, 460, H + 'lap', WHITE, scale=1.25, wpx=300, value='-', page=0)
+    label('rd_l_lap', 385, 355, 'LAP', visible=H + 'p0r')
+    text('rd_lap', 462, 460, H + 'lap', WHITE, scale=1.25, wpx=300, value='-', visible=H + 'p0r')
     # gear, rpm, speed
     label('rd_l_gear', 838, 62, 'GEAR', page=0)
     text('rd_gear', 838, 245, H + 'gear', WHITE, scale=0.85, style='OSD_80_bold', wpx=330, value='N', page=0)
@@ -671,11 +809,28 @@ def main():
     text('rd_speed', 838, 505, H + 'speed', WHITE, scale=1.5, wpx=330, value='0', page=0)
     # gaps
     text('rd_l_ahead', 1205, 368, H + 'code_a', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='AHEAD',
-         page=0)
-    text('rd_gap_a', 1480, 368, H + 'gap_a', YELLOW, scale=0.95, wpx=330, value='-', page=0)
+         visible=H + 'p0r')
+    text('rd_gap_a', 1480, 368, H + 'gap_a', YELLOW, scale=0.95, wpx=330, value='-', visible=H + 'gap_a_on')
     text('rd_l_behind', 1205, 492, H + 'code_b', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='BEHIND',
-         page=0)
-    text('rd_gap_b', 1480, 492, H + 'gap_b', GREEN, scale=0.95, wpx=330, value='-', page=0)
+         visible=H + 'p0r')
+    text('rd_gap_b', 1480, 492, H + 'gap_b', GREEN, scale=0.95, wpx=330, value='-', visible=H + 'gap_b_on')
+
+    # practice / qualifying / time trial (1.0.16, the user's mock-up): sector times on the right (purple the best of
+    # every car, green the player's best, yellow neither), the delta to the best lap under the lap time where the
+    # race has LAP n/total, and the session's time left where the race has the fuel margin
+    PURPLE = (175, 85, 245)
+    for k, sy in ((1, 140), (2, 300), (3, 465)):
+        text(f'rd_l_s{k}', 1133, sy, H + 'none', WHITE, style='OSD_19_bold', scale=1.4, wpx=200, value=f'S{k}',
+             visible=H + 'p0q')
+        for tag, colour in (('p', PURPLE), ('g', GREEN), ('y', YELLOW)):
+            text(f'rd_s{k}_{tag}', 1452, sy + 10, H + f's{k}', colour, scale=1.5, wpx=400, value='-',
+                 visible=H + f's{k}_{tag}')
+    label('rd_l_qd', 430, 355, 'TO PB', visible=H + 'p0q')
+    for tag, colour, vis in (('g', GREEN, 'qd_neg'), ('r', RED, 'qd_pos')):  # no best lap: "--.--" in green
+        text(f'rd_qd_{tag}', 455, 460, H + 'qdelta', colour, scale=1.05, wpx=290, value='--.--', visible=H + vis)
+    text('rd_l_sess', 1383, 630, H + 'sess_label', LABEL, style='OSD_14_regular', value='TIME LEFT', wpx=460,
+         visible=H + 'p0q')
+    text('rd_sess', 1383, 765, H + 'sess_left', WHITE, scale=1.7, wpx=330, value='--:--', visible=H + 'p0q')
     # tyres: a box each, the corner and its temperature: blue cold / green / red hot from the game's packets,
     # else the game's own formatted temperature (white)
     # bigger since 0.4.34 (the degree sign was hard to read): the boxes fill the bottom left cell. White since 1.0:
@@ -687,9 +842,12 @@ def main():
         text(f'rd_t_{corner}', cx, cy, H + f't_{corner}', WHITE, scale=1.55, style='OSD_19_bold', wpx=200,
              value='--', page=0)
     # fuel margin (the game's packets), else the game's own value; white (1.0)
-    label('rd_l_fuel', 1267, 630, 'FUEL', page=0)
+    label('rd_l_fuel', 1267, 630, 'FUEL', visible=H + 'p0r')
     text('rd_fuel', 1390, 765, 'laps_of_fuel_format', WHITE, scale=1.7, wpx=330, value='-', visible=H + 'fuel_game')
     text('rd_fuel_g', 1390, 765, H + 'fuel', WHITE, scale=1.7, wpx=330, value='-', visible=H + 'fuel_ok')
+    # the margin shared over the laps left (1.0.21): what can be spent (+) or must be saved (-) each lap
+    text('rd_fuel_pl', 1390, 862, H + 'fuel_pl', WHITE, style='OSD_14_regular', wpx=330, value='-',
+         visible=H + 'fuel_pl_on')
 
     # ---- car page (page 1): the user's top-down car (art/car: white parts on a 1671 x 941 canvas, the mock-up's
     # pixels), each part coloured by its damage (green, amber, red; grey until known), the tyres by their wear, the
@@ -699,72 +857,6 @@ def main():
     # part's texture and its colour in me_colour, one per colour (the group widgets only show the right one). The
     # launcher's UI art docs give this route; 0.4.9/0.4.10 switched textures with textureOverride, which the LCD
     # ignored (stretched white boxes).
-    PART_G, PART_A, PART_R, PART_N = (70, 230, 70), (255, 170, 30), (245, 50, 50), (120, 120, 128)
-    BODY, SUSP = (150, 150, 158), (120, 120, 128)
-    QUAD, SLOT = 'mod_1_icon_bg', 'mod_icon_bg'
-    MAT_DIR = 'eaid://ui_package/art/osd/materials/steering_lcd_display/'
-    EMB_DIR = 'eaid://ui_package/art/osd/components/steering_lcd_display/'
-    stock_material = stock_frags('eaid://ui_package/art/materials/lcd_default.material', 'GfxMaterialRes')[0]
-    from PIL import Image
-    textures, materials, bindings = [], [], []  # (resource, type, [source files])
-
-    def car_texture(stem):
-        """The part's texture from art/car/<stem>.png, cropped to its shape (2 px spare, 4 px blocks), named so
-        its view path has the stock texture's 46 characters; its box in the canvas's pixels."""
-        im = Image.open(os.path.join(ROOT, 'art', 'car', stem + '.png')).convert('RGBA')
-        alpha = im.getchannel('A')
-        bx0, by0, bx1, by1 = alpha.getbbox()
-        x0, y0 = max(0, bx0 - 2), max(0, by0 - 2)
-        w, h = (bx1 + 2 - x0 + 3) // 4 * 4, (by1 + 2 - y0 + 3) // 4 * 4
-        crop = alpha.crop((x0, y0, x0 + w, y0 + h))  # past the canvas edge reads as 0
-        tag = f'rd_car_p_{len(textures) // 2:02d}'
-        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
-        image_res = view_res + '.image'
-        rel = 'ui/tex/' + tag
-        files[rel + '.head'] = texture.surface_head(w, h)
-        files[rel + '.pixels'] = texture.bc7_white(crop.tobytes(), w, h)
-        files[rel + '.view'] = texture.view(image_res)
-        textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
-        textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
-        return tag, view_res, (x0, y0, x0 + w, y0 + h)
-
-    def car_quad(name, view_res, box, colour, visible, layer):
-        """A quad over box drawing the texture in colour, shown by the leaf visible."""
-        x0, y0, x1, y1 = box
-        mat_res = MAT_DIR + name + '.material'
-        emb_res = EMB_DIR + name + '.emb?context=default'
-        files[f'ui/tex/{name}.material'] = texture.material(stock_material, view_res, colour)
-        files[f'ui/tex/{name}.emb'] = texture.binding([(SLOT, mat_res)])
-        materials.append((mat_res, 'GfxMaterialRes', [f'ui/tex/{name}.material']))
-        bindings.append((emb_res, 'GfxMatBindRes', [f'ui/tex/{name}.emb']))
-        n = lcd.add_rect(name, X(x0), Y(y1), W(x1 - x0), Y(y0) - Y(y1), layer=layer, like=QUAD)
-        n.get('geoms')[0].set('materialid', V('str', emb_res))
-        tpl.add_group(f'{name}_group', [name], visible)
-
-    def car_part(stem, key, layer):
-        """A damage part: a copy per colour, each shown by its own leaf (c<g|a|r|n>_<key>)."""
-        tag, view_res, box = car_texture(stem)
-        for c, colour in (('g', PART_G), ('a', PART_A), ('r', PART_R), ('n', PART_N)):
-            car_quad(f'{tag}_{c}', view_res, box, colour, H + f'c{c}_{key}', layer)
-
-    def car_fixed(stem, colour, layer):
-        """A part not coloured by damage: shown on the car page."""
-        tag, view_res, box = car_texture(stem)
-        car_quad(f'{tag}_f', view_res, box, colour, H + 'p1', layer)
-
-    def overlay_texture(tag, alpha):
-        """A full-canvas texture from an alpha picture (836 x 472, half the canvas: 4 px blocks), named tag (11
-        characters, so its view path has the stock texture's 46)."""
-        assert len(tag) == 11 and alpha.size == (836, 472)
-        view_res = f'eaid://ui_package/art/textures/{tag}.tif'
-        image_res = view_res + '.image'
-        rel = 'ui/tex/' + tag
-        files[rel + '.head'] = texture.surface_head(836, 472)
-        files[rel + '.pixels'] = texture.bc7_white(alpha.tobytes(), 836, 472)
-        files[rel + '.view'] = texture.view(image_res)
-        textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
-        textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
-        return view_res
 
     from PIL import ImageDraw
     # the chequered flag's squares: 16 x 9, white ones over the black screen (one quad: 0.4.6-0.4.22 drew 72)
@@ -796,6 +888,18 @@ def main():
     for corner, stem in (('fl', 'front_left'), ('fr', 'front_right'), ('rl', 'rear_left'), ('rr', 'rear_right')):
         car_part(f'tyre_{stem}', f't{corner}', 56)
         car_part(f'brake_{stem}', f'b{corner}', 57)
+    # the grey base car: every damage part's shape in one texture (at the canvas's size, then halved), grey, under
+    # all the parts; a part's coloured copy covers its own shape once its damage is known
+    from PIL import ImageChops
+    union = Image.new('L', (1672, 944), 0)
+    for stem in part_stems:
+        a = Image.open(os.path.join(ROOT, 'art', 'car', stem + '.png')).convert('RGBA').getchannel('A')
+        canvas = Image.new('L', (1672, 944), 0)
+        canvas.paste(a, (0, 0))
+        union = ImageChops.lighter(union, canvas)
+    car_quad('rd_ovl_car0', overlay_texture('rd_ovl_car0', union.resize((836, 472), Image.LANCZOS)),
+             (0, 0, 1670, 942), PART_N, H + 'p1', 51)
+
     # bottom left: fuel mode | differential; bottom right: brake bias
     line('rd_v_cb', 330, 650, 330, 850, 1)
     label('rd_l_mix', 180, 678, 'FUEL MODE', page=1)
@@ -822,21 +926,21 @@ def main():
     text('rd_pw_g', 440, 225, H + 'pw', GREEN, scale=1.8, wpx=620, value='-', visible=H + 'pw_g')
     label('rd_l_tyre', 1075, 62, 'CURRENT TYRES', page=2)
     for tag, colour in (('s', (245, 45, 45)), ('m', (250, 225, 0)), ('h', WHITE), ('i', (60, 200, 80)),
-                        ('w', (40, 120, 255)), ('n', GREY)):
+                        ('w', (40, 120, 255))):  # unknown: "-" in the hard's white copy
         text(f'rd_tyre_{tag}', 1240, 190, H + 'tyre', colour, scale=1.6, wpx=760, value='-', visible=H + f'ty_{tag}')
     text('rd_tyre_age', 1240, 282, H + 'tyre_age', WHITE, style='OSD_19_bold', wpx=600, value='-', page=2)
     label('rd_l_rejoin', 290, 368, 'REJOIN POSITION', page=2)
     text('rd_rejoin', 440, 475, H + 'rejoin', WHITE, scale=1.8, wpx=400, value='-', page=2)
     label('rd_l_wing', 1110, 368, 'FRONT WING DAMAGE', page=2)
     label('rd_l_wing_lr', 1240, 418, 'LEFT / RIGHT', page=2, colour=GREY)
-    for tag, colour in (('g', GREEN), ('a', AMBER), ('r', RED), ('n', GREY)):
+    for tag, colour in (('g', GREEN), ('a', AMBER), ('r', RED)):  # unknown: "-" in green
         text(f'rd_wing_{tag}', 1240, 500, H + 'wing', colour, scale=1.3, wpx=760, value='-', visible=H + f'wing_{tag}')
     # tyre wear: a box per corner, the % coloured by the wear limits in the settings
     for corner, x0, y0, x1, y1 in (('fl', 40, 618, 310, 755), ('fr', 326, 618, 588, 755),
                                    ('rl', 40, 768, 310, 900), ('rr', 326, 768, 588, 900)):
         outline(f'rd_wbox_{corner}', x0, y0, x1, y1, 2)
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2 + 12  # as the race page's tyre temperatures: centred, no label
-        for tag, colour in (('g', GREEN), ('a', YELLOW), ('r', RED), ('n', GREY)):
+        for tag, colour in (('g', GREEN), ('a', YELLOW), ('r', RED)):  # unknown: "--" in green
             text(f'rd_w{tag}_{corner}', cx, cy, H + f'w_{corner}', colour, scale=1.55, style='OSD_19_bold',
                  wpx=200, value='--', visible=H + f'w{tag}_{corner}')
     # the last pit stop's time stationary
@@ -862,10 +966,15 @@ def main():
     def straight(x, y):
         return x, y
 
+    # page 0's lines: the shared ones in each of its two layouts (one texture each, not three)
+    lines['pgr'] = lines['pg0'] + lines['pgr']
+    lines['pgq'] = lines['pg0'] + lines['pgq']
+    lines['pg0'] = []
     for group, segs in lines.items():
         if not segs:
             continue
-        vis = {'sha': None, 'pg0': H + 'p0', 'pg1': H + 'p1', 'pg2': H + 'p2', 'bdg': H + 'badge_n'}[group]
+        vis = {'sha': None, 'pg0': H + 'p0', 'pgr': H + 'p0r', 'pgq': H + 'p0q', 'pg1': H + 'p1', 'pg2': H + 'p2',
+               'bdg': H + 'badge_n'}[group]
         colour = (150, 150, 158) if group == 'bdg' else LINE
         vis_n, vis_f = split_leaf(vis)
         for v, bend, vv in (('n', straight, vis_n), ('f', ferrari, vis_f)):
@@ -874,18 +983,23 @@ def main():
 
     # (two textures since 0.4.23: 0.4.22's 35 rectangles took the display past 512 nodes and it drew nothing; a
     # Ferrari copy of each since 0.4.24, bent the other way: on that wheel it should show straight)
-    L_CALIB = L_FULL + 9
-    box('rd_cal_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'calib', L_CALIB - 1)
-    grid_segs = [(i * 83.5, 0, i * 83.5, 942, 6) for i in range(21) if i != 10] + \
-                [(0, j * 78.5, 1670, j * 78.5, 6) for j in range(13) if j != 6]
-    cross_segs = [(835, 0, 835, 942, 6), (0, 471, 1670, 471, 6)]
-    cal_n, cal_f = split_leaf(H + 'calib')
-    for v, bend, vv in (('0', straight, cal_n), ('2', ferrari, cal_f)):
-        car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(grid_segs, bend)), (0, 0, 1670, 942),
-                 (255, 255, 255), vv, L_CALIB)
-    for v, bend, vv in (('1', straight, cal_n), ('3', ferrari, cal_f)):
-        car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(cross_segs, bend)),
-                 (0, 0, 1670, 942), (255, 40, 40), vv, L_CALIB + 1)
+    # Out of the build since 1.0.15 (it took 5 of the display's 512 nodes; the setting was hidden in 1.0.2). To measure
+    # a new wheel: CALIBRATION = True here, the "calibration" toggle back in swofty.json and the plugin's
+    # put_flag("calib", ...) back.
+    CALIBRATION = False
+    if CALIBRATION:
+        L_CALIB = L_FULL + 9
+        box('rd_cal_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'calib', L_CALIB - 1)
+        grid_segs = [(i * 83.5, 0, i * 83.5, 942, 6) for i in range(21) if i != 10] + \
+                    [(0, j * 78.5, 1670, j * 78.5, 6) for j in range(13) if j != 6]
+        cross_segs = [(835, 0, 835, 942, 6), (0, 471, 1670, 471, 6)]
+        cal_n, cal_f = split_leaf(H + 'calib')
+        for v, bend, vv in (('0', straight, cal_n), ('2', ferrari, cal_f)):
+            car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(grid_segs, bend)), (0, 0, 1670, 942),
+                     (255, 255, 255), vv, L_CALIB)
+        for v, bend, vv in (('1', straight, cal_n), ('3', ferrari, cal_f)):
+            car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(cross_segs, bend)),
+                     (0, 0, 1670, 942), (255, 40, 40), vv, L_CALIB + 1)
 
     # the switches the plugin splits (names after ui_menu_data.hud_rdash_)
     hdr = ['// Written by tools/build_ui.py: the switches drawn as two copies, <name>_n on any other car and',
@@ -896,9 +1010,12 @@ def main():
 
     os.makedirs(os.path.join(ROOT, 'ui', 'clips'), exist_ok=True)
     os.makedirs(os.path.join(ROOT, 'ui', 'tex'), exist_ok=True)
-    open(os.path.join(ROOT, 'ui', 'lcd_display.idf'), 'wb').write(lcd.encode())
     order_widgets(tpl)
     order_nodes(lcd, tpl)
+    # written after order_nodes (1.0.19): until 1.0.18 it was written before, so the coloured nodes never came first
+    # in the game's file and every colour past about node 113 of the creation order showed white (the gaps, the
+    # sector times, the pit page's)
+    open(os.path.join(ROOT, 'ui', 'lcd_display.idf'), 'wb').write(lcd.encode())
     open(os.path.join(ROOT, 'ui', 'race_assets_f1.ui'), 'wb').write(tpl.encode())
     for rel, data in files.items():
         open(os.path.join(ROOT, rel), 'wb').write(data)

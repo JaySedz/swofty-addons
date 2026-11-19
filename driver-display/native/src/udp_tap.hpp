@@ -33,6 +33,80 @@ template <class T> inline T rd(const uint8_t *p)
 
 constexpr size_t kHeader = 29;
 
+// Sector times for every car from the lap data (F1 25 spec: sector1TimeMSPart u16 @8 + minutes u8 @10,
+// sector2TimeMSPart u16 @11 + minutes u8 @13, sector u8 @36 (0..2), currentLapNum @33, currentLapInvalid @37,
+// lastLapTimeInMS @0). A sector is complete when a car's sector index steps on within a lap (S1, S2), and S3 when it
+// starts its next lap from sector 3 (the last lap's time less S1 and S2). Flashbacks (a step back) only re-sync.
+struct SectorState {
+    bool init = false;
+    int sector = 0, lap = 0, s1 = 0, s2 = 0;
+    bool invalid = false;
+};
+inline SectorState g_sec_cars[24];
+inline int g_sec_best[3] = {0, 0, 0}, g_sec_pb[3] = {0, 0, 0}; // ms, 0 none
+inline uint64_t g_sec_uid = 0;
+
+inline void sector_done(int car, int me, int k, int ms, bool invalid)
+{
+    if (ms <= 0 || ms > 600000)
+        return;
+    if (car == me) {
+        int col = !invalid && (!g_sec_best[k] || ms < g_sec_best[k]) ? 2
+                  : !invalid && (!g_sec_pb[k] || ms < g_sec_pb[k])   ? 1
+                                                                      : 0;
+        g.sector_ms[k] = ms;
+        g.sector_col[k] = col;
+        g.sector_seq++;
+    }
+    if (invalid)
+        return;
+    if (!g_sec_best[k] || ms < g_sec_best[k])
+        g_sec_best[k] = ms;
+    if (car == me && (!g_sec_pb[k] || ms < g_sec_pb[k]))
+        g_sec_pb[k] = ms;
+}
+
+inline void sectors(const uint8_t *d, size_t per, int cars, int me)
+{
+    uint64_t uid = rd<uint64_t>(d + 7); // the header's sessionUID: a new session starts the bests again
+    if (uid != g_sec_uid) {
+        g_sec_uid = uid;
+        for (auto &c : g_sec_cars) c = SectorState{};
+        for (int k = 0; k < 3; k++) {
+            g_sec_best[k] = g_sec_pb[k] = 0;
+            g.sector_ms[k] = -1;
+            g.sector_col[k] = 0;
+        }
+    }
+    for (int i = 0; i < cars && i < 24; i++) {
+        const uint8_t *c = d + kHeader + per * i;
+        int sector = c[36], lap = c[33];
+        int s1 = rd<uint16_t>(c + 8) + c[10] * 60000, s2 = rd<uint16_t>(c + 11) + c[13] * 60000;
+        int last = int(rd<uint32_t>(c));
+        bool invalid = c[37] != 0;
+        SectorState &st = g_sec_cars[i];
+        if (!st.init || lap <= 0 || sector > 2) {
+            st = SectorState{true, sector, lap, 0, 0, invalid};
+            continue;
+        }
+        if (lap == st.lap && sector == st.sector + 1) {
+            if (sector == 1) { st.s1 = s1; sector_done(i, me, 0, s1, st.invalid || invalid); }
+            if (sector == 2) { st.s2 = s2; sector_done(i, me, 1, s2, st.invalid || invalid); }
+        } else if (lap == st.lap + 1 && st.sector == 2 && sector == 0) {
+            if (st.s1 > 0 && st.s2 > 0 && last > st.s1 + st.s2)
+                sector_done(i, me, 2, last - st.s1 - st.s2, st.invalid);
+            st.s1 = st.s2 = 0;
+            st.invalid = false;
+        } else if (lap != st.lap) {
+            st.s1 = st.s2 = 0;
+            st.invalid = false;
+        }
+        st.sector = sector;
+        st.lap = lap;
+        st.invalid = st.invalid || invalid;
+    }
+}
+
 inline void decode(const uint8_t *d, size_t n)
 {
     if (n < kHeader)
@@ -46,6 +120,12 @@ inline void decode(const uint8_t *d, size_t n)
         return;
     g.packets++;
     g.format = format;
+    if (uint64_t uid = rd<uint64_t>(d + 7); uid != g.session_uid) {
+        g.session_uid = uid;
+        g.session_type = -1;
+        g.session_left = -1;
+        g.session_uid_seq++;
+    }
     g.player = me;
     uint64_t now = GetTickCount64();
     switch (id) {
@@ -59,6 +139,7 @@ inline void decode(const uint8_t *d, size_t n)
             const uint8_t *s = d + kHeader;
             int type = s[6];
             g.session_type = type;
+            g.session_left = rd<uint16_t>(s + 9); // sessionTimeLeft
             g.weather = s[0];
             int count = s[126] <= 64 ? s[126] : 0;
             int w10 = -1, r10 = -1, at = -1;
@@ -106,6 +187,8 @@ inline void decode(const uint8_t *d, size_t n)
             g.lane_ms = rd<uint16_t>(c + 47); // pitLaneTimeInLaneInMS
             g.stop_ms = rd<uint16_t>(c + 49); // pitStopTimerInMS
         }
+        if (per >= 38)
+            sectors(d, per, cars, me);
         g.lap_tick = now;
         break;
     }
@@ -134,6 +217,33 @@ inline void decode(const uint8_t *d, size_t n)
         // not DRSE; seen in a 1.0.0 log)
         if (n >= kHeader + 4 && (std::memcmp(d + kHeader, "DRSE", 4) == 0 || std::memcmp(d + kHeader, "OVEN", 4) == 0)) {
             g.drse_seq++;
+            return;
+        }
+        if (n >= kHeader + 5 && std::memcmp(d + kHeader, "STLG", 4) == 0) {
+            g.lights = d[kHeader + 4];
+            g.lights_seq++;
+            return;
+        }
+        if (n >= kHeader + 4 && std::memcmp(d + kHeader, "LGOT", 4) == 0) {
+            g.lights = 0;
+            g.lgot_seq++;
+            return;
+        }
+        if (n >= kHeader + 9 && std::memcmp(d + kHeader, "FTLP", 4) == 0) {
+            g.ftlp_car = d[kHeader + 4];
+            g.ftlp_time = rd<float>(d + kHeader + 5);
+            g.ftlp_seq++;
+            return;
+        }
+        if (n >= kHeader + 5 && std::memcmp(d + kHeader, "RTMT", 4) == 0) {
+            g.rtmt_car = d[kHeader + 4];
+            g.rtmt_seq++;
+            return;
+        }
+        if (n >= kHeader + 6 && std::memcmp(d + kHeader, "COLL", 4) == 0) {
+            g.coll_a = d[kHeader + 4];
+            g.coll_b = d[kHeader + 5];
+            g.coll_seq++;
             return;
         }
         if (n >= kHeader + 6 && std::memcmp(d + kHeader, "SCAR", 4) == 0) {
