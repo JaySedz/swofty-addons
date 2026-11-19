@@ -1,4 +1,4 @@
-# Cockpit HUD
+# Driver Display
 
 A full HUD on the F1 25 steering wheel display, built to replace the game's on-screen HUD (for VR, or with the
 game's HUD turned off). Its values come from the launcher's live car state (`swofty::live`), the launcher's
@@ -9,7 +9,8 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.0.0.** Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
+**Status: 1.0.14. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
 
@@ -27,8 +28,8 @@ Three pages, switched by the page button (a "UDP Action" bound in the game's con
 | Tyre temperatures FL FR / RL RR | ERS SOC % + mode badge | FUEL margin |
 
 **Car page:** a top-down car drawn from its own textures (art/car), each part coloured by its damage (front
-wings, rear wing, sidepods, floor and bargeboards, diffuser, engine cover, gearbox, brakes: green / amber / red,
-grey until known) and the tyres by their wear; chassis, cockpit and suspension grey. Brake temperatures either
+wings, rear wing, sidepods, floor and bargeboards, diffuser, gearbox, brakes: green / amber / red, grey until
+known), the engine cover by the engine's temperature (green, amber from 130 C, red from 150 C) and the tyres by their wear; chassis, cockpit and suspension grey. Brake temperatures either
 side of the car (the fronts by the nose); FUEL MODE and DIFF bottom left, BRAKE BIAS bottom right.
 
 **Pit page:** PIT WINDOW laps (green while you're in it) and CURRENT TYRES (compound colour, age) on top; REJOIN
@@ -44,6 +45,11 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   edges: some wheels, such as the Ferrari's, cut the top off) or for as long as they are out. After the flag
   screen the background stays dark amber under a safety car / VSC and dark red under a red flag. When a safety
   car, VSC or yellow clears, a **green flag** flashes over the whole screen for 3 s.
+- **Safety car / VSC:** after the flag screen the bottom row turns amber with SAFETY CAR or VSC (SC IN THIS LAP /
+  VSC ENDING when the game says it is ending), and the delta box becomes SC DELTA: the game's safety car delta,
+  green while above it, red when too fast. Going under it shows SLOW DOWN in white on black for 3 s, and in the bar
+  until back above it. The delta box returns to the lap delta when the caution clears. Needs the game's UDP
+  telemetry.
 - **Pit limiter:** the whole screen (PIT LIMITER with your speed) while it is on, coloured by the flag out: blue
   normally, yellow under a yellow, amber under a safety car / VSC, red under a red flag.
 - **Penalties** (time penalty, drive through, stop-go, disqualification): white over the whole screen for 4 s
@@ -51,7 +57,8 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   invalidated lap pops up red in the ERS SOC cell.
 - **DRS / overtake enabled and disabled** (with the reason: wet track, safety car, red flag, too early): the whole
   screen in blue (the game's overtake colour) for 3 s, as the game announces them at the top of its HUD.
-- **Chequered flag:** chequers over the screen, 4 s when it comes out, 8 s when you finish (FINISHED P n).
+- **Chequered flag:** chequers over the screen, 4 s when it comes out, 8 s when you finish (FINISHED P n). Out of
+  the race (DNF, RETIRED, NOT CLASSIFIED): white on black for 5 s.
 - **Setting changes** (ERS mode, fuel mode, brake bias, differential) pop up in the ERS SOC cell for 2 s.
 - **Boot screen:** when the game hands you the car (the end of the intro, skipped or watched; else when the car
   first moves), your team's logo shows on black for 3 s, as the dash switching on. The logo is the game's own 2026
@@ -84,9 +91,9 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
 - `tools/erp.py` reads the game's `.erp` packages (zstd needs a 64-bit `libzstd.dll`; it finds the one GitHub
   Desktop ships, or set `ZSTD_DLL`).
 - `tools/build_ui.py` starts from the game's own `lcd_display.idf` and `race_assets_f1.ui`, hides the stock
-  elements, adds the dash's, and writes them to `ui/` with `erp/cockpit_hud.json`, the launcher ops that swap them
+  elements, adds the dash's, and writes them to `ui/` with `erp/driver_display.json`, the launcher ops that swap them
   in.
-- `native/src/cockpit_hud.cpp` writes the values to `ui_menu_data.hud_rdash_*` leaves with the launcher's HUD API.
+- `native/src/driver_display.cpp` writes the values to `ui_menu_data.hud_rdash_*` leaves with the launcher's HUD API.
 - `native/src/udp_tap.hpp` reads the game's UDP packets (below); `native/src/packet_values.hpp` holds what it
   decodes.
 
@@ -110,7 +117,7 @@ build.bat
 package.bat
 ```
 
-`package.bat` writes `dist\sedz.cockpit-hud.swoftyaddon`.
+`package.bat` writes `dist\sedz.driver-display.swoftyaddon`.
 
 ## Format notes
 

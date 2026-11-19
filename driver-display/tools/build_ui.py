@@ -1,7 +1,7 @@
 # Builds the dash's UI files from the game's own stock files:
 #   ui/lcd_display.idf    the wheel LCD layout (UILayout)
 #   ui/race_assets_f1.ui  the race HUD template that feeds it (UIDF)
-# and erp/cockpit_hud.json, the launcher ops that swap them into the game's packages.
+# and erp/driver_display.json, the launcher ops that swap them into the game's packages.
 #
 # Usage: python tools/build_ui.py ["<F1 25 install folder>"]
 # Reads the untouched originals from <install>/Original_GameData, falling back to the live packages.
@@ -572,6 +572,12 @@ def main():
         text(f'rd_pop_value_{tone}', 861, 775, H + 'pop_value', colour, scale=1.0, style='OSD_24_bold', wpx=500,
              visible=H + f'pop_{tone}', layer=L_POPTEXT)
 
+    # under a safety car / VSC, after its full screen: the bottom row turns amber with what is out (SAFETY CAR, VSC,
+    # VSC ENDING, SC IN THIS LAP, SLOW DOWN), so gear, speed and the SC delta stay readable above it (1.0.4)
+    box('rd_sc_bar', 30, 595, 1640, 905, (255, 205, 0), H + 'sc_bar', L_POPTEXT + 1)
+    text('rd_sc_bar_text', 835, 750, H + 'sc_bar_text', (10, 10, 10), scale=1.9, wpx=1500, value='SAFETY CAR',
+         visible=H + 'sc_bar', layer=L_POPTEXT + 2)
+
     # flags over the whole screen (as Wheel Dash had them): red flag, safety car / VSC / formation (amber), yellow,
     # blue flag; black text on amber and yellow, white on red and blue
     L_FULL, L_FULLTEXT = 70, 72
@@ -625,6 +631,13 @@ def main():
         text(f'rd_full_sub_{tone}', 835, 600, H + 'full_sub', colour, scale=1.6, style='OSD_14_regular', wpx=1500,
              visible=H + f'full_{tone}', layer=L_FULLTEXT)
 
+    # the chequered flag's own title and line, lower than the other full screens' (1.0.6: at 400 the title sat
+    # against the top squares; the band runs 300-680)
+    text('rd_chq_title', 835, 440, H + 'full_title', WHITE, scale=1.9, wpx=1500, visible=H + 'full_chq_text',
+         layer=L_FULLTEXT)
+    text('rd_chq_sub', 835, 610, H + 'full_sub', WHITE, scale=1.6, style='OSD_14_regular', wpx=1500,
+         visible=H + 'full_chq_text', layer=L_FULLTEXT)
+
     # the flag strip across the top edge, blinking: yellow (a yellow flag, SC, VSC), blue (blue flag), red (red flag)
     for tag, colour in (('yellow', (250, 210, 0)), ('blue', (20, 110, 255)), ('red', (225, 0, 0))):
         box(f'rd_strip_{tag}', 30, 8, 1640, 30, colour, H + f'strip_{tag}', L_POP)
@@ -670,7 +683,7 @@ def main():
     for corner, x0, y0, x1, y1 in (('fl', 40, 618, 310, 755), ('fr', 326, 618, 588, 755),
                                    ('rl', 40, 768, 310, 900), ('rr', 326, 768, 588, 900)):
         outline(f'rd_tbox_{corner}', x0, y0, x1, y1, 0)
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2  # the number centred, no corner label (the box's place says it)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2 + 12  # centred, no corner label; 12 px low (1.0.3: it touched the top line)
         text(f'rd_t_{corner}', cx, cy, H + f't_{corner}', WHITE, scale=1.55, style='OSD_19_bold', wpx=200,
              value='--', page=0)
     # fuel margin (the game's packets), else the game's own value; white (1.0)
@@ -822,7 +835,7 @@ def main():
     for corner, x0, y0, x1, y1 in (('fl', 40, 618, 310, 755), ('fr', 326, 618, 588, 755),
                                    ('rl', 40, 768, 310, 900), ('rr', 326, 768, 588, 900)):
         outline(f'rd_wbox_{corner}', x0, y0, x1, y1, 2)
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2  # as the race page's tyre temperatures: centred, no label
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2 + 12  # as the race page's tyre temperatures: centred, no label
         for tag, colour in (('g', GREEN), ('a', YELLOW), ('r', RED), ('n', GREY)):
             text(f'rd_w{tag}_{corner}', cx, cy, H + f'w_{corner}', colour, scale=1.55, style='OSD_19_bold',
                  wpx=200, value='--', visible=H + f'w{tag}_{corner}')
@@ -908,7 +921,7 @@ def main():
         for res, rtype, sources in textures + materials + bindings + boot_extra:
             ops.append({'op': 'add-resource', 'erp': pkg, 'resource': res, 'type': rtype, 'sources': sources})
     os.makedirs(os.path.join(ROOT, 'erp'), exist_ok=True)
-    json.dump({'schema_version': 1, 'ops': ops}, open(os.path.join(ROOT, 'erp', 'cockpit_hud.json'), 'w'), indent=2)
+    json.dump({'schema_version': 1, 'ops': ops}, open(os.path.join(ROOT, 'erp', 'driver_display.json'), 'w'), indent=2)
     # sanity: both files read back
     pkgfmt.read(lcd.encode())
     # the LCD holds at most 512 nodes: 0.4.22 had 520 and the display drew nothing at all
@@ -917,7 +930,7 @@ def main():
     if n_nodes > 512:
         raise SystemExit(f'the LCD layout has {n_nodes} nodes: the game draws nothing past 512')
     pkgfmt.read(tpl.encode())
-    print('wrote ui/lcd_display.idf, ui/race_assets_f1.ui, erp/cockpit_hud.json')
+    print('wrote ui/lcd_display.idf, ui/race_assets_f1.ui, erp/driver_display.json')
 
 
 if __name__ == '__main__':

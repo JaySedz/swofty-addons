@@ -90,6 +90,7 @@ inline void decode(const uint8_t *d, size_t n)
         g.last_lap_ms = rd<uint32_t>(c);      // lastLapTimeInMS
         g.cur_lap_ms = rd<uint32_t>(c + 4);   // currentLapTimeInMS
         g.lap_dist = rd<float>(c + 20);       // lapDistance
+        g.sc_delta = rd<float>(c + 28);       // safetyCarDelta
         g.lap_num = c[33];                    // currentLapNum
         g.lap_invalid = c[37] != 0;           // currentLapInvalid
         if (per >= 51) {
@@ -129,8 +130,16 @@ inline void decode(const uint8_t *d, size_t n)
             g.event_code = rd<uint32_t>(d + kHeader);
             g.event_seq++;
         }
-        if (n >= kHeader + 4 && std::memcmp(d + kHeader, "DRSE", 4) == 0) {
+        // "DRSE" (2025 content) or "OVEN" (overtake enabled, the 2026 pack: it sends OVEN at the start of lap 2,
+        // not DRSE; seen in a 1.0.0 log)
+        if (n >= kHeader + 4 && (std::memcmp(d + kHeader, "DRSE", 4) == 0 || std::memcmp(d + kHeader, "OVEN", 4) == 0)) {
             g.drse_seq++;
+            return;
+        }
+        if (n >= kHeader + 6 && std::memcmp(d + kHeader, "SCAR", 4) == 0) {
+            g.scar_type = d[kHeader + 4];
+            g.scar_event = d[kHeader + 5];
+            g.scar_seq++;
             return;
         }
         if (n >= kHeader + 4 && std::memcmp(d + kHeader, "DRSD", 4) == 0) {
@@ -169,6 +178,12 @@ inline void decode(const uint8_t *d, size_t n)
             g.tyre_inner[order[i]] = c[34 + i];
         }
         g.drs_open = c[18];                 // drs: 0 off, 1 on
+        // engineTemperature @38: a u8 in the 2026 format (59 bytes a car), a u16 before (60 bytes); the launcher's
+        // notes (udp_telemetry_logic.hpp) and the f1-packets 2026 spec
+        if (format >= 2026 && per >= 39)
+            g.engine_temp = c[38];
+        else if (format < 2026 && per >= 40)
+            g.engine_temp = rd<uint16_t>(c + 38);
         g.tel_tick = now;
         break;
     }

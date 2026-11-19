@@ -1,4 +1,4 @@
-// Cockpit HUD: a steering wheel LCD for F1 25, fed from the launcher's car state (no UDP socket of its own).
+// Driver Display: a steering wheel LCD for F1 25, fed from the launcher's car state (no UDP socket of its own).
 //
 // The layout and template in ui/ (built by tools/build_ui.py) show the game's own LCD values where it has
 // them (the gear) and these HUD leaves, written here (tyre temperatures t_fl..t_rr from the telemetry too):
@@ -43,7 +43,8 @@
 
 SWOFTY_SETTING(bool, verbose, false);
 SWOFTY_SETTING(bool, ferrari_fix, true); // the 2026 Ferrari wheel: text and lines placed against its bend
-SWOFTY_SETTING(bool, calibration, false); // a straight grid over the whole display (measuring a wheel's bend)
+SWOFTY_SETTING(bool, calibration, false); // a straight grid over the whole display (measuring a wheel's bend);
+// hidden since 1.0.2 (no entry in swofty.json, so it stays off): add the toggle back to measure a new wheel
 SWOFTY_SETTING(int, wear_amber, 40);
 SWOFTY_SETTING(int, wear_red, 70);
 SWOFTY_SETTING(std::string_view, delta_ref, "previous"); // the delta against the previous lap or the best one
@@ -93,7 +94,7 @@ void put(const char *name, const std::string &v)
     auto r = swofty::hud::set(l.path, v);
     if (r != swofty::hud::Result::ok) {
         if (l.logged++ < 1)
-            swofty::log("[cockpit-hud] hud %s -> %s", l.path.c_str(), swofty::hud::name(r));
+            swofty::log("[driver-display] hud %s -> %s", l.path.c_str(), swofty::hud::name(r));
         return;
     }
     l.last = v;
@@ -165,7 +166,7 @@ void tyres_from(const swofty::telemetry::CarState &c, Reading &r)
 {
     static int logged = 0;
     if (logged++ < 2)
-        swofty::log("[cockpit-hud] telemetry tyre_temp raw [%.0f %.0f %.0f %.0f]", double(c.tyre_temp[0]),
+        swofty::log("[driver-display] telemetry tyre_temp raw [%.0f %.0f %.0f %.0f]", double(c.tyre_temp[0]),
                     double(c.tyre_temp[1]), double(c.tyre_temp[2]), double(c.tyre_temp[3]));
     r.tyre[2] = c.tyre_temp[0];
     r.tyre[3] = c.tyre_temp[1];
@@ -388,7 +389,7 @@ void neighbour_codes(std::string &ahead, std::string &behind)
     }
     static int logged_named = -1, logged_placed = -1, logged_mine = -1;
     if (named != logged_named || placed != logged_placed || (mine > 0) != (logged_mine > 0)) {
-        swofty::log("[cockpit-hud] driver codes: %d named and %d placed of 24 (participants %u), player %u at P%d",
+        swofty::log("[driver-display] driver codes: %d named and %d placed of 24 (participants %u), player %u at P%d",
                     named, placed, s.participant_count, s.player_index, mine);
         logged_named = named;
         logged_placed = placed;
@@ -420,7 +421,7 @@ bool live_neighbour_codes(std::string &ahead, std::string &behind)
         }
     static bool logged = false;
     if (any && !logged) {
-        swofty::log("[cockpit-hud] driver codes from the live state's driver names");
+        swofty::log("[driver-display] driver codes from the live state's driver names");
         logged = true;
     }
     return any;
@@ -451,7 +452,7 @@ void launcher_fill()
         return;
     static int logged = 0;
     if (!logged++)
-        swofty::log("[cockpit-hud] the tap reads no packets: tyres, brakes, fuel and flags from the launcher's telemetry");
+        swofty::log("[driver-display] the tap reads no packets: tyres, brakes, fuel and flags from the launcher's telemetry");
     uint64_t now = GetTickCount64();
     static const int order[4] = {2, 3, 0, 1};
     bool temps = false, wear = false;
@@ -521,7 +522,7 @@ void time_laps(const Reading &r, double dt)
     static int gt_logged = -1;
     if (int(use_gt) != gt_logged) {
         gt_logged = int(use_gt);
-        swofty::log("[cockpit-hud] lap clock: %s", use_gt ? "the game's session time" : "frame time");
+        swofty::log("[driver-display] lap clock: %s", use_gt ? "the game's session time" : "frame time");
     }
     bool frozen = false;
     if (!use_gt) {
@@ -534,7 +535,7 @@ void time_laps(const Reading &r, double dt)
         still_m = r.lap_m;
         if (frozen && !L.frozen_logged) {
             L.frozen_logged = true;
-            swofty::log("[cockpit-hud] lap clock held: the car is frozen at %.1f m (a replay?), pause reasons %#x",
+            swofty::log("[driver-display] lap clock held: the car is frozen at %.1f m (a replay?), pause reasons %#x",
                         double(r.lap_m), swofty::view::pause_reasons());
         } else if (!frozen) {
             L.frozen_logged = false;
@@ -560,7 +561,7 @@ void time_laps(const Reading &r, double dt)
             static double last_log = -10.0;
             if (L.clock < last_log - 5.0 || L.clock > last_log + 5.0) { // a flashback's rewind takes many frames
                 last_log = L.clock;
-                swofty::log("[cockpit-hud] flashback: %.0f m -> %.0f m, lap clock back to %.2f", double(prev_m),
+                swofty::log("[driver-display] flashback: %.0f m -> %.0f m, lap clock back to %.2f", double(prev_m),
                             double(r.lap_m), L.clock);
             }
         }
@@ -583,7 +584,7 @@ void time_laps(const Reading &r, double dt)
             L.whole = true;
             L.clock = 0.0;
             std::fill(L.cur.begin(), L.cur.end(), -1.f);
-            swofty::log("[cockpit-hud] off the grid at %.1f m: the opening lap is timed from here", double(r.lap_m));
+            swofty::log("[driver-display] off the grid at %.1f m: the opening lap is timed from here", double(r.lap_m));
         }
     }
 
@@ -699,7 +700,7 @@ void game_laps()
                 G.best = G.held;
                 G.best_s = lap_s;
                 G.best_invalid = G.held_invalid;
-                swofty::log("[cockpit-hud] reference lap %.3f%s", double(lap_s), G.held_invalid ? " (invalid)" : "");
+                swofty::log("[driver-display] reference lap %.3f%s", double(lap_s), G.held_invalid ? " (invalid)" : "");
             }
         } else if (G.held_age > 60) {
             G.pending = false;
@@ -765,12 +766,15 @@ std::string g_pen_title, g_pen_sub, g_chq_title, g_chq_sub;
 double g_pen_left = 0.0, g_chq_left = 0.0;
 // a warning (track limits, a collision, ...): white on black over the whole screen for 3 s (the black and white
 // flag); the cell's small amber pop-up of 0.4.6-0.4.36 was hard to read
-std::string g_warn_sub;
+// under a safety car / VSC: below the game's SC delta (too fast), and the frame it went below (for SLOW DOWN)
+bool g_sc_slow = false, g_sc_slow_rise = false;
+std::string g_warn_title = "WARNING", g_warn_sub;
 double g_warn_left = 0.0;
-void warn(const std::string &sub)
+void warn(const std::string &sub, const char *title = "WARNING", double secs = 3.0)
 {
+    g_warn_title = title;
     g_warn_sub = sub;
-    g_warn_left = 3.0;
+    g_warn_left = secs;
 }
 
 // an infringement in a few words (the F1 25 UDP specification's list), "" for one without a short name
@@ -830,7 +834,7 @@ void penalties(const Reading &r, double dt)
         since_event = 0.0;
         int type = G.pen_type, infr = G.pen_infr, secs = G.pen_time;
         std::string why = infringement(infr);
-        swofty::log("[cockpit-hud] penalty event: type %d infringement %d time %d", type, infr, secs);
+        swofty::log("[driver-display] penalty event: type %d infringement %d time %d", type, infr, secs);
         switch (type) {
         case 0: full("DRIVE THROUGH", why); break;
         case 1: full(secs > 0 ? "STOP-GO " + std::to_string(secs) + " SEC" : std::string("STOP-GO PENALTY"), why); break;
@@ -884,7 +888,7 @@ void chequered(const Reading &r, double dt)
         g_chq_title = "CHEQUERED FLAG";
         g_chq_sub = "";
         g_chq_left = 4.0;
-        swofty::log("[cockpit-hud] chequered flag out (%s)", event ? "event" : "live state");
+        swofty::log("[driver-display] chequered flag out (%s)", event ? "event" : "live state");
     }
     if (!first && last_result == 2 && r.result == 3) {
         char t[32];
@@ -893,7 +897,13 @@ void chequered(const Reading &r, double dt)
         g_chq_title = "CHEQUERED FLAG";
         g_chq_sub = t;
         g_chq_left = 8.0;
-        swofty::log("[cockpit-hud] finished: %s", t);
+        swofty::log("[driver-display] finished: %s", t);
+    }
+    // out of the race (1.0.7): DNF, not classified, retired, white on black for 5 s (a disqualification has its
+    // own screen from the penalty event)
+    if (!first && last_result == 2 && (r.result == 4 || r.result == 6 || r.result == 7)) {
+        warn("", r.result == 4 ? "DNF" : r.result == 6 ? "NOT CLASSIFIED" : "RETIRED", 5.0);
+        swofty::log("[driver-display] out of the race: result status %d", r.result);
     }
     if (r.result >= 0)
         last_result = r.result;
@@ -922,7 +932,7 @@ void race_messages(double dt)
         g_msg_sub = "ENABLED";
         g_msg_tone = 6;
         g_msg_left = 3.0;
-        swofty::log("[cockpit-hud] event: %s enabled", what);
+        swofty::log("[driver-display] event: %s enabled", what);
     }
     if (G.drsd_seq != sd) {
         sd = G.drsd_seq;
@@ -932,7 +942,7 @@ void race_messages(double dt)
         g_msg_sub = rs >= 0 && rs < 4 ? std::string("DISABLED: ") + why[rs] : std::string("DISABLED");
         g_msg_tone = 6;
         g_msg_left = 3.0;
-        swofty::log("[cockpit-hud] event: %s disabled (reason %d)", what, rs);
+        swofty::log("[driver-display] event: %s disabled (reason %d)", what, rs);
     }
     if (g_msg_left > 0.0)
         g_msg_left -= dt;
@@ -942,7 +952,7 @@ void race_messages(double dt)
         uint32_t c = G.event_code;
         if (seen.insert(c).second) {
             char code[5] = {char(c), char(c >> 8), char(c >> 16), char(c >> 24), 0};
-            swofty::log("[cockpit-hud] event code seen: %s", code);
+            swofty::log("[driver-display] event code seen: %s", code);
         }
     }
 }
@@ -953,7 +963,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
     if (r.ers_mode != last_mode) {
         if (last_mode >= 0 && r.ers_mode >= 0)
             pop("ERS MODE", mode);
-        swofty::log("[cockpit-hud] ERS mode %d -> %d", last_mode, r.ers_mode);
+        swofty::log("[driver-display] ERS mode %d -> %d", last_mode, r.ers_mode);
         last_mode = r.ers_mode;
     }
     // the settings only the game's UDP packets carry: a change pops up, as on Wheel Dash and a real wheel
@@ -1015,6 +1025,28 @@ void popups(const Reading &r, const std::string &mode, double dt)
         if (green_left > 0.0)
             green_left -= dt;
     }
+    // Under a safety car / VSC (1.0.4): the full screen for its 4 s, then the bottom row turns amber with what is out
+    // (SAFETY CAR / VSC, then SC IN THIS LAP / VSC ENDING once the game's safety car event says it is returning) and
+    // the delta box shows the game's SC delta (sc_delta_shown). Going under the delta (negative: too fast, the game
+    // penalises it) shows SLOW DOWN in white on black for 3 s and in the bar until back above it.
+    static bool sc_ending = false;
+    static uint32_t scar_seen = udp_tap::g.scar_seq;
+    if (udp_tap::g.scar_seq != scar_seen) {
+        scar_seen = udp_tap::g.scar_seq;
+        int st = udp_tap::g.scar_type, ev = udp_tap::g.scar_event;
+        swofty::log("[driver-display] safety car event: type %d event %d", st, ev);
+        if (st == 1 || st == 2)
+            sc_ending = ev == 1;
+    }
+    bool sc_out = kind == 2 || kind == 3;
+    if (!sc_out)
+        sc_ending = false;
+    if (sc_out && g_sc_slow_rise) {
+        char d[32];
+        std::snprintf(d, sizeof d, "DELTA %+.2f", double(udp_tap::g.sc_delta));
+        warn(d, "SLOW DOWN");
+    }
+    g_sc_slow_rise = false;
     if (green_left > 0.0 && (kind == 0 || kind == 6)) {
         kind = 8;
         full = true;
@@ -1058,7 +1090,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
         put("full_title", g_msg_title);
         put("full_sub", g_msg_sub);
     } else if (full && kind == 12) {
-        put("full_title", "WARNING");
+        put("full_title", g_warn_title);
         put("full_sub", g_warn_sub);
     } else if (full) {
         put("full_title", titles[kind]);
@@ -1083,10 +1115,16 @@ void popups(const Reading &r, const std::string &mode, double dt)
     put_flag("full_chq", full && tone == 10);
     put_flag("full_black", full && tone == 12);
     put_flag("full_dark", full && ((tone >= 2 && tone <= 5) || tone == 9)); // black text on amber, yellow, white
-    put_flag("full_light", full && (tone == 1 || tone == 6 || tone == 8 || tone == 10 || tone == 12)); // white on red, blue, green, chequered
+    put_flag("full_light", full && (tone == 1 || tone == 6 || tone == 8 || tone == 12)); // white on red, blue, green, black
+    put_flag("full_chq_text", full && tone == 10); // the chequered flag's own (lower) title and line
     // after the flag screen, the background takes a tone for as long as a full course caution is out: dark amber
     // under a safety car / VSC, dark red under a red flag
     put_flag("tint_sc", !full && (kind == 2 || kind == 3));
+    bool bar = !full && (flag_kind == 2 || flag_kind == 3);
+    put_flag("sc_bar", bar);
+    if (bar)
+        put("sc_bar_text", g_sc_slow ? "SLOW DOWN" : flag_kind == 2 ? (sc_ending ? "SC IN THIS LAP" : "SAFETY CAR")
+                                                               : (sc_ending ? "VSC ENDING" : "VSC"));
     put_flag("tint_red", !full && kind == 1);
     bool on = g_pop_left > 0.0;
     if (on) {
@@ -1115,7 +1153,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
     static int last_flag = -1;
     int flag = r.red_flag ? 9 : r.sc ? r.sc : yellow ? 5 : blue_flag ? 6 : 0;
     if (flag != last_flag) {
-        swofty::log("[cockpit-hud] track status: %s%s", r.red_flag ? "red flag" : r.sc == 1 ? "safety car" : r.sc == 2 ? "VSC"
+        swofty::log("[driver-display] track status: %s%s", r.red_flag ? "red flag" : r.sc == 1 ? "safety car" : r.sc == 2 ? "VSC"
                     : r.sc == 3 ? "formation" : yellow ? "yellow" : blue_flag ? "blue flag" : "green",
                     yellow && fia != 3 ? " (sector, live state)" : "");
         last_flag = flag;
@@ -1164,7 +1202,7 @@ void page_input()
     }
     if (presses > 0) {
         g_page = (g_page + presses) % kPages;
-        swofty::log("[cockpit-hud] page %d", g_page + 1);
+        swofty::log("[driver-display] page %d", g_page + 1);
     }
 }
 
@@ -1192,9 +1230,28 @@ void car_page(const Reading &r)
         int v;
     } parts[] = {{"fwl", udp_tap::g.dmg_fwl},     {"fwr", udp_tap::g.dmg_fwr},       {"rw", udp_tap::g.dmg_rw},
                  {"floor", udp_tap::g.dmg_floor}, {"diff", udp_tap::g.dmg_diffuser}, {"side", udp_tap::g.dmg_sidepod},
-                 {"gbox", udp_tap::g.dmg_gearbox}, {"eng", udp_tap::g.dmg_engine}};
+                 {"gbox", udp_tap::g.dmg_gearbox}};
     for (auto &p : parts)
         colour(p.key, dmg, band(p.v));
+    // the engine by its temperature (1.0.13; it was the damage packet's engineDamage, whose place in the 2026 pack's
+    // packet isn't known: it showed amber with nothing wrong). Green under 130 C, amber from 130, red from 150
+    // (1.0.14, the user's limits)
+    {
+        bool tel = udp_tap::fresh(udp_tap::g.tel_tick) && !udp_tap::g.from_launcher;
+        int et = udp_tap::g.engine_temp;
+        bool known = tel && et > 0;
+        int eb = et >= 150 ? 2 : et >= 130 ? 1 : 0;
+        colour("eng", known, eb);
+        static int logged_band = -1, hottest = 0;
+        if (known && eb != logged_band) {
+            swofty::log("[driver-display] engine %d C: %s", et, eb == 2 ? "red" : eb == 1 ? "amber" : "green");
+            logged_band = eb;
+        }
+        if (known && et > hottest + 4) { // the session's hottest so far, in 5 C steps (for setting the limits)
+            hottest = et;
+            swofty::log("[driver-display] engine hottest so far: %d C", et);
+        }
+    }
     // brake temperatures beside the car (the game's packets)
     {
         static const char *bt[] = {"bt_fl", "bt_fr", "bt_rl", "bt_rr"};
@@ -1229,7 +1286,7 @@ void pit_page(const Reading &r)
         static int logged_ideal = -2, logged_latest = -2, logged_rejoin = -2, logged_size = -2;
         int i = G.pit_ideal, l = G.pit_latest, j = G.pit_rejoin, n = G.session_size;
         if (sess && (i != logged_ideal || l != logged_latest || j != logged_rejoin || n != logged_size)) {
-            swofty::log("[cockpit-hud] session packet %d bytes: pit window %d-%d, rejoin P%d, type %d, weather %d, "
+            swofty::log("[driver-display] session packet %d bytes: pit window %d-%d, rejoin P%d, type %d, weather %d, "
                         "+%d min %d rain %d%%", n, i, l, j, int(G.session_type), int(G.weather),
                         int(G.forecast_min), int(G.weather10), int(G.rain10));
             logged_ideal = i;
@@ -1376,7 +1433,7 @@ void aero(double dt)
             char hex[64];
             for (int i = 0; i < 16; i++)
                 std::snprintf(hex + i * 3, 4, "%02x ", unsigned((i < 8 ? lo >> (8 * i) : hi >> (8 * (i - 8))) & 0xff));
-            swofty::log("[cockpit-hud] packet 16 (%d bytes a car): %s| speed %d drs-allowed %d", int(udp_tap::g.t2_size), hex,
+            swofty::log("[driver-display] packet 16 (%d bytes a car): %s| speed %d drs-allowed %d", int(udp_tap::g.t2_size), hex,
                         g_last_speed, int(udp_tap::g.drs_allowed));
         }
     }
@@ -1403,7 +1460,7 @@ void on_frame(double dt, void *)
                 fer = *key == "ferrari_26";
         fer = fer && bool(ferrari_fix);
         if (fer != g_fer) {
-            swofty::log("[cockpit-hud] Ferrari wheel correction %s", fer ? "on" : "off");
+            swofty::log("[driver-display] Ferrari wheel correction %s", fer ? "on" : "off");
             g_fer = fer;
         }
         put_flag("all", true); // the switch of everything always shown (its _n / _f copies)
@@ -1426,7 +1483,7 @@ void on_frame(double dt, void *)
         uint32_t gen = ses ? ses->generation : 0;
         if (r.src && (!last_src || gen != boot_gen)) {
             if (!boot_armed)
-                swofty::log("[cockpit-hud] boot screen armed (session generation %u)", gen);
+                swofty::log("[driver-display] boot screen armed (session generation %u)", gen);
             boot_armed = true;
             boot_gen = gen;
         }
@@ -1443,7 +1500,7 @@ void on_frame(double dt, void *)
             int type = udp_tap::fresh(udp_tap::g.session_tick) ? int(udp_tap::g.session_type) : -1;
             bool race = type >= 15 && type <= 17; // F1 25 session types: race, race 2, race 3
             if (race && r.sc != 3 && !handed) {
-                swofty::log("[cockpit-hud] boot screen skipped: a race start without a formation lap");
+                swofty::log("[driver-display] boot screen skipped: a race start without a formation lap");
                 boot_armed = false;
             } else {
                 due = true;
@@ -1467,10 +1524,10 @@ void on_frame(double dt, void *)
                         boot_slice = i;
                 boot_left = boot_slice >= 0 ? 3.0 : 0.0;
                 boot_armed = due = false;
-                swofty::log("[cockpit-hud] boot screen: team %s, logo slice %d (%s)", key->c_str(), boot_slice,
+                swofty::log("[driver-display] boot screen: team %s, logo slice %d (%s)", key->c_str(), boot_slice,
                             due_handed ? "the car handed to the player" : "the car moved");
             } else if (!waiting_logged) {
-                swofty::log("[cockpit-hud] boot screen: waiting for the car's team badge");
+                swofty::log("[driver-display] boot screen: waiting for the car's team badge");
                 waiting_logged = true;
             }
         }
@@ -1487,7 +1544,7 @@ void on_frame(double dt, void *)
     }
     if (r.src != last_src) {
         last_src = r.src;
-        swofty::log("[cockpit-hud] data source: %s", r.src == 'L' ? "live state" : r.src == 'T' ? "telemetry" : "none");
+        swofty::log("[driver-display] data source: %s", r.src == 'L' ? "live state" : r.src == 'T' ? "telemetry" : "none");
         if (!r.src) {
             g_laps = Laps{}; // the session ended
             g_session_s = 0.0;
@@ -1510,7 +1567,7 @@ void on_frame(double dt, void *)
         static uint32_t last_pr = 0;
         uint32_t pr = swofty::view::pause_reasons();
         if (pr != last_pr) {
-            swofty::log("[cockpit-hud] pause reasons %#x -> %#x", last_pr, pr);
+            swofty::log("[driver-display] pause reasons %#x -> %#x", last_pr, pr);
             last_pr = pr;
         }
     }
@@ -1569,27 +1626,53 @@ void on_frame(double dt, void *)
     laps_seen = laps_seen || udp_laps;
     bool hold_laps = laps_seen && !udp_laps;
     bool prev_ref = std::string_view(delta_ref) != "best";
-    put("delta_label", prev_ref ? "PREV LAP" : "BEST LAP"); // (the font has no delta sign: 0.4.0 drew a box)
+    // under a safety car / VSC the box shows the game's SC delta (lap data safetyCarDelta: positive is above it,
+    // green; negative too fast, red), back to the lap delta when it clears (1.0.4)
+    bool sc_delta = (r.sc == 1 || r.sc == 2) && udp_laps && !udp_tap::g.from_launcher;
+    put("delta_label", sc_delta ? "SC DELTA" : prev_ref ? "PREV LAP" : "BEST LAP"); // (the font has no delta sign: 0.4.0 drew a box)
     bool have_delta = udp_laps ? (prev_ref ? g_game.have_prev : g_game.have) : g_laps.have_delta;
     double delta = udp_laps ? (prev_ref ? g_game.delta_prev : g_game.delta) : g_laps.delta;
-    if (hold_laps) {
+    if (sc_delta) {
+        double d = udp_tap::g.sc_delta;
+        if (!g_sc_slow && d < 0.0) { g_sc_slow = true; g_sc_slow_rise = true; }
+        else if (g_sc_slow && d > 0.05) g_sc_slow = false; // a little hysteresis around 0
+        static double logged = 0.0;
+        logged -= g_step;
+        if (logged <= 0.0) {
+            swofty::log("[driver-display] SC delta %+.2f", d);
+            logged = 5.0;
+        }
+        have_delta = true;
+        delta = -d; // the box's colours: negative green, positive red
+    } else {
+        g_sc_slow = false;
+    }
+    if (sc_delta) {
+        std::snprintf(t, sizeof t, "%c%.2f", delta > 0 ? '-' : '+', std::fabs(delta));
+        put("delta", t);
+        put_flag("delta_neg", on_page(0, delta <= 0));
+        put_flag("delta_pos", on_page(0, delta > 0));
+        put_flag("delta_none", false);
+    } else if (hold_laps) {
         have_delta = g_held_have;
         delta = g_held_delta;
     } else {
         g_held_have = have_delta;
         g_held_delta = delta;
     }
-    if (have_delta) {
-        std::snprintf(t, sizeof t, "%c%.2f", delta < 0 ? '-' : '+', std::fabs(delta));
-        put("delta", t);
+    if (!sc_delta) {
+        if (have_delta) {
+            std::snprintf(t, sizeof t, "%c%.2f", delta < 0 ? '-' : '+', std::fabs(delta));
+            put("delta", t);
+        }
+        put_flag("delta_neg", on_page(0, have_delta && delta < 0));
+        put_flag("delta_pos", on_page(0, have_delta && delta >= 0));
+        put_flag("delta_none", on_page(0, !have_delta));
     }
-    put_flag("delta_neg", on_page(0, have_delta && delta < 0));
-    put_flag("delta_pos", on_page(0, have_delta && delta >= 0));
-    put_flag("delta_none", on_page(0, !have_delta));
     static int delta_src = -1;
     if (int(udp_laps) != delta_src) {
         delta_src = int(udp_laps);
-        swofty::log("[cockpit-hud] delta: %s", udp_laps ? "the game's lap clock (lap packets)" : "the addon's own lap timing");
+        swofty::log("[driver-display] delta: %s", udp_laps ? "the game's lap clock (lap packets)" : "the addon's own lap timing");
     }
 
     std::snprintf(t, sizeof t, "%d", r.speed_kmh < 0 ? 0 : r.speed_kmh);
@@ -1622,7 +1705,7 @@ void on_frame(double dt, void *)
         put("code_b", b.empty() ? std::string("BEHIND") : b);
         static std::string logged_a, logged_b;
         if (a != logged_a || b != logged_b) {
-            swofty::log("[cockpit-hud] around: ahead %s, behind %s", a.empty() ? "-" : a.c_str(), b.empty() ? "-" : b.c_str());
+            swofty::log("[driver-display] around: ahead %s, behind %s", a.empty() ? "-" : a.c_str(), b.empty() ? "-" : b.c_str());
             logged_a = a;
             logged_b = b;
         }
@@ -1678,7 +1761,7 @@ void on_frame(double dt, void *)
     {
         static int logged = -2;
         if (actual != logged) {
-            swofty::log("[cockpit-hud] tyre compound %s (%d): window %d-%d", tw.name, actual, tw.min, tw.max);
+            swofty::log("[driver-display] tyre compound %s (%d): window %d-%d", tw.name, actual, tw.min, tw.max);
             logged = actual;
         }
     }
@@ -1708,7 +1791,7 @@ void on_frame(double dt, void *)
     logt += g_step;
     if (verbose && logt > 10.0) {
         logt = 0.0;
-        swofty::log("[cockpit-hud] %c lap %d %.1f m clock %.2f last %.3f (game %.3f) best %.3f delta %s%.3f soc %d pos %d gap %d",
+        swofty::log("[driver-display] %c lap %d %.1f m clock %.2f last %.3f (game %.3f) best %.3f delta %s%.3f soc %d pos %d gap %d",
                     r.src, r.lap, double(r.lap_m), g_laps.clock, double(last), double(game_last), double(g_laps.best_s),
                     g_laps.have_delta ? "" : "(none) ", g_laps.delta, r.soc, r.pos, r.gap_ms);
         swofty::telemetry::SessionState s{};
@@ -1716,24 +1799,25 @@ void on_frame(double dt, void *)
         swofty::telemetry::CarState c{};
         bool sess = swofty::telemetry::session(&s) == swofty::telemetry::Result::ok;
         bool car = sess && telemetry_car(c);
-        swofty::log("[cockpit-hud] telemetry: session %d (udp format %u, packets %u, player %u, time %.2f left %.0f, laps %u), "
+        swofty::log("[driver-display] telemetry: session %d (udp format %u, packets %u, player %u, time %.2f left %.0f, laps %u), "
                     "car %d: flags %#x lap %u last %.3f fuel %.2f laps %.2f tyres [%.0f %.0f %.0f %.0f] wear [%.0f %.0f %.0f %.0f]",
                     int(sess), s.udp_format, s.packets_seen, s.player_index, double(s.session_time),
                     double(s.session_time_left), s.total_laps, int(car), c.flags, c.lap,
                     double(c.last_lap_time), double(c.fuel), double(c.fuel_laps), double(c.tyre_temp[0]),
                     double(c.tyre_temp[1]), double(c.tyre_temp[2]), double(c.tyre_temp[3]), double(c.tyre_wear[0]),
                     double(c.tyre_wear[1]), double(c.tyre_wear[2]), double(c.tyre_wear[3]));
-        swofty::log("[cockpit-hud] udp tap calls: sendto [%u %u %u %u] WSASendTo [%u %u]",
+        swofty::log("[driver-display] udp tap calls: sendto [%u %u %u %u] WSASendTo [%u %u]",
                     unsigned(udp_tap::g_calls[0][0]), unsigned(udp_tap::g_calls[0][1]), unsigned(udp_tap::g_calls[0][2]),
                     unsigned(udp_tap::g_calls[0][3]), unsigned(udp_tap::g_calls[1][0]), unsigned(udp_tap::g_calls[1][1]));
-        swofty::log("[cockpit-hud] udp tap: %u packet(s), format %d, player %d; status %d (mix %d bbal %d fuel %.2f ers %d) "
-                    "setup %d (diff %d) damage %d (wear %.1f %.1f %.1f %.1f) lap %d (last %u ms)",
+        swofty::log("[driver-display] udp tap: %u packet(s), format %d, player %d; status %d (mix %d bbal %d fuel %.2f ers %d) "
+                    "setup %d (diff %d) damage %d (wear %.1f %.1f %.1f %.1f) lap %d (last %u ms) engine %d C",
                     unsigned(udp_tap::g.packets), int(udp_tap::g.format), int(udp_tap::g.player),
                     int(udp_tap::fresh(udp_tap::g.status_tick)), int(udp_tap::g.mix), int(udp_tap::g.bbal),
                     double(udp_tap::g.fuel_laps), int(udp_tap::g.ers_mode), int(udp_tap::fresh(udp_tap::g.setup_tick)),
                     int(udp_tap::g.diff), int(udp_tap::fresh(udp_tap::g.damage_tick)), double(udp_tap::g.wear[0]),
                     double(udp_tap::g.wear[1]), double(udp_tap::g.wear[2]), double(udp_tap::g.wear[3]),
-                    int(udp_tap::fresh(udp_tap::g.lap_tick)), unsigned(udp_tap::g.last_lap_ms));
+                    int(udp_tap::fresh(udp_tap::g.lap_tick)), unsigned(udp_tap::g.last_lap_ms),
+                    int(udp_tap::g.engine_temp));
     }
 }
 
@@ -1748,7 +1832,7 @@ void try_tap()
     auto res = udp_tap::install();
     g_tapped = res.sendto_slots || res.wsa_slots;
     if (g_tapped || g_tap_tries == 1 || g_tap_tries == 24)
-        swofty::log("[cockpit-hud] udp tap (try %d): %s; sendto slot(s) %d, WSASendTo slot(s) %d, %d MB scanned%s%s", g_tap_tries,
+        swofty::log("[driver-display] udp tap (try %d): %s; sendto slot(s) %d, WSASendTo slot(s) %d, %d MB scanned%s%s", g_tap_tries,
                     res.how, res.sendto_slots, res.wsa_slots, res.scanned_mb, res.where[0] ? ": " : "", res.where);
 }
 
@@ -1768,7 +1852,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[cockpit-hud] loaded 1.0.0: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.0.14: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -1777,13 +1861,13 @@ SWOFTY_ON_LOAD
     auto r = swofty::events::on<swofty::sessions::events::PlayerControl>().after(
         [](const swofty::sessions::events::PlayerControl &e, const swofty::events::Context &) {
             if (int64_t(e.car.index()) == g_player_vehicle.load()) // the player's car only (it fires for all)
-                swofty::log("[cockpit-hud] player control: %s -> %s (reason %d)",
+                swofty::log("[driver-display] player control: %s -> %s (reason %d)",
                             e.from == swofty::sessions::Control::human ? "human" : "ai",
                             e.to == swofty::sessions::Control::human ? "human" : "ai", int(e.reason));
             if (e.to == swofty::sessions::Control::human && int64_t(e.car.index()) == g_player_vehicle.load())
                 g_to_human = true;
         });
-    swofty::log("[cockpit-hud] player control events: %s", r == swofty::events::Result::ok ? "on" : "not available");
+    swofty::log("[driver-display] player control events: %s", r == swofty::events::Result::ok ? "on" : "not available");
     try_tap();
     swofty::events::on_frame(tap_frame);
 }

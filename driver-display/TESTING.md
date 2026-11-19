@@ -2,7 +2,7 @@
 
 Every update on the Swofty launcher is approved by hand (the addon reads the game's UDP packets), so 1.0 goes there
 only once everything below passes. 0.x builds are for testing (locally, or overtake.gg for early feedback).
-Turn on **Debug log** in the addon's settings for test runs; the notes say which `[cockpit-hud]` lines to check.
+Turn on **Debug log** in the addon's settings for test runs; the notes say which `[driver-display]` lines to check.
 Ticked: confirmed in a test (the version in brackets). Unticked: still to check on the release candidate.
 
 ## Loading and coexistence
@@ -64,6 +64,9 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [ ] Lap 2 of a race: blue OVERTAKE / ENABLED (DRS on 2025 content); safety car / rain: OVERTAKE / DISABLED with
       the reason (log: `event: ...`; the `event code seen:` lines list what the 2026 pack sends).
 - [ ] Setting changes (ERS mode, fuel mix, brake bias, differential) pop up blue in the ERS SOC cell.
+- [ ] Safety car and VSC: full screen 4 s, then the amber bottom bar (SAFETY CAR / VSC, then SC IN THIS LAP / VSC
+      ENDING); SC DELTA in the delta box, green above, red too fast; SLOW DOWN screen when too fast; PREV LAP back
+      and the green flag after (log: `SC delta ...` every 5 s, `safety car event: type 2 event 1`) (1.0.4).
 
 ## Boot screen
 
@@ -83,7 +86,7 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 ## Release
 
 - [x] Version 1.0.0 in `swofty.json`, README status line updated.
-- [ ] `repository` points at the published source (the `cockpit-hud` folder pushed to GitHub).
+- [ ] `repository` points at the published source (the `driver-display` folder pushed to GitHub).
 
 ## After the launcher's 1.10
 

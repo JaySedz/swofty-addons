@@ -1,13 +1,14 @@
 {
   "schema_version": 1,
-  "id": "sedz.cockpit-hud",
-  "name": "Cockpit HUD",
-  "version": "1.0.0",
+  "id": "sedz.driver-display",
+  "name": "Driver Display",
+  "version": "1.0.14",
   "author": "Sedz",
-  "description": "A full HUD on the steering wheel display, built to replace the game's on-screen one. Three pages (race, car damage, pit), switched by a button: lap time and live delta, gear, RPM, speed, position, lap, gaps, tyre temperatures and wear, fuel, ERS SOC with the straight mode / DRS badge, a drawn car coloured by damage, the pit window, rejoin position and pit stop time. Flags, safety cars, the pit limiter, penalties and the chequered flag take the whole screen; setting changes and warnings pop up. Reads the game's own UDP telemetry packets in the game (passed through unchanged, no sockets opened).",
+  "description": "A full HUD on the steering wheel display. Can be used in cockpit view as a replacement to the game's on-screen one, or outside cockpit view as just an immersive texture replacer.\n\nIt contains three pages (race, car damage, and pit information), switched by a button you assign. Flags, safety cars, warnings, and penalties will pop up on screen. Fully compatible with SimHub and other UDP telemetry mods.\n\nSteam only for now: on the EA app version of the game the launcher doesn't provide the data the display needs yet.",
   "license": "MIT",
-  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/cockpit-hud",
-  "category": "hud",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/driver-display",
+  "icon": "icon.png",
+  "category": "utility",
   "kind": [
     "erp",
     "native"
@@ -17,7 +18,8 @@
   ],
   "compat": {
     "game": "f1_25",
-    "launcher": ">=1.8.36"
+    "launcher": ">=1.8.36",
+    "platforms": ["steam"]
   },
   "requires": [
     {
@@ -104,14 +106,6 @@
       "binds": "native"
     },
     {
-      "id": "calibration",
-      "type": "toggle",
-      "label": "Calibration grid",
-      "description": "Draws a straight grid over the whole steering wheel display, for measuring how a wheel bends its screen. Not for racing: it covers everything.",
-      "default": false,
-      "binds": "native"
-    },
-    {
       "id": "verbose",
       "type": "toggle",
       "label": "Debug log",
@@ -122,11 +116,11 @@
   ],
   "operations": {
     "erp": [
-      "erp/cockpit_hud.json"
+      "erp/driver_display.json"
     ],
     "native": [
       {
-        "dll": "native/cockpit_hud.dll"
+        "dll": "native/driver_display.dll"
       }
     ]
   }

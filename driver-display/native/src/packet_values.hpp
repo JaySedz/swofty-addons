@@ -19,6 +19,7 @@ struct Values {
     std::atomic<float> wear[4] = {{-1.f}, {-1.f}, {-1.f}, {-1.f}}; // FL FR RL RR %
     std::atomic<int> tyre_inner[4] = {{-1}, {-1}, {-1}, {-1}};      // FL FR RL RR deg C (carcass, as the game shows)
     std::atomic<int> brake_temp[4] = {{-1}, {-1}, {-1}, {-1}};      // FL FR RL RR deg C
+    std::atomic<int> engine_temp{-1};                                // deg C (car telemetry engineTemperature)
     std::atomic<int> dmg_fwl{0}, dmg_fwr{0}, dmg_rw{0}, dmg_floor{0}, dmg_diffuser{0}, dmg_sidepod{0};
     std::atomic<int> dmg_gearbox{0}, dmg_engine{0}, wear_ice{0}; // %
     std::atomic<int> dmg_brake[4] = {{0}, {0}, {0}, {0}}; // FL FR RL RR %
@@ -55,6 +56,11 @@ struct Values {
     std::atomic<int> drsd_reason{-1};
     std::atomic<uint32_t> event_code{0}, event_seq{0};
     std::atomic<int> pen_type{-1}, pen_infr{-1}, pen_time{0};
+    // lap data safetyCarDelta (s, the player's car), and the safety car event "SCAR": safetyCarType (1 full, 2
+    // virtual, 3 formation), eventType (0 deployed, 1 returning, 2 returned, 3 resume race)
+    std::atomic<float> sc_delta{0.f};
+    std::atomic<int> scar_type{-1}, scar_event{-1};
+    std::atomic<uint32_t> scar_seq{0};
     // DRS (2025 rules): open (car telemetry), allowed here and the distance to the next zone (car status)
     std::atomic<int> drs_open{-1}, drs_allowed{-1}, drs_distance{-1};
     // 2026 season pack, packet 16 ("car telemetry 2"): overtake available / active, the 2026 rules flag (as Wheel
