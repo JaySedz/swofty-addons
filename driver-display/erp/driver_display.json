@@ -931,6 +931,15 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_row_red.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_row_red.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
       "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_fl_bar.material",
       "type": "GfxMaterialRes",
       "sources": [
@@ -1925,6 +1934,15 @@
       "type": "GfxMatBindRes",
       "sources": [
         "ui/tex/rd_row_amber.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_row_red.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_row_red.emb"
       ]
     },
     {
@@ -4378,6 +4396,15 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_row_red.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_row_red.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
       "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_fl_bar.material",
       "type": "GfxMaterialRes",
       "sources": [
@@ -5372,6 +5399,15 @@
       "type": "GfxMatBindRes",
       "sources": [
         "ui/tex/rd_row_amber.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_row_red.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_row_red.emb"
       ]
     },
     {

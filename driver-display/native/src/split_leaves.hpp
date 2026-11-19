@@ -18,6 +18,8 @@ inline constexpr const char *kSplitLeaves[] = {
     "full_light",
     "gap_a_on",
     "gap_b_on",
+    "lim_dark",
+    "lim_light",
     "mid_show",
     "p0",
     "p0q",

@@ -1009,7 +1009,7 @@ void race_messages(double dt)
         float s = G.ftlp_time;
         char t[48];
         int ms = int(std::lround(double(s) * 1000.0));
-        std::snprintf(t, sizeof t, "FASTEST LAP  %s  %d:%02d.%03d", car_code(G.ftlp_car).c_str(), ms / 60000,
+        std::snprintf(t, sizeof t, "FASTEST LAP %s %d:%02d.%03d", car_code(G.ftlp_car).c_str(), ms / 60000,
                       ms / 1000 % 60, ms % 1000);
         g_fl_text = t;
         g_fl_left = 5.0;
@@ -1090,7 +1090,7 @@ void race_extras(const Reading &r)
     if (race && total > 1 && r.lap >= 0 && r.lap != last_lap && r.lap + 1 == total) {
         g_msg_title = "FINAL LAP";
         g_msg_sub = "";
-        g_msg_tone = 6;
+        g_msg_tone = 9; // white with black text: the white flag of the last lap (NASCAR, IndyCar) (1.1.2)
         g_msg_left = 3.0;
         swofty::log("[driver-display] final lap");
     }
@@ -1116,6 +1116,49 @@ void race_extras(const Reading &r)
     }
     if (r10 >= 0 && r10 < 30)
         rain_said = false;
+
+    // 1.1.4, any session, across the bottom row in amber: damage (from the game's damage packet) and tyre wear
+    // front / rear wing: as it rises 10 points or more past the last alert (a repair lowers the mark)
+    if (udp_tap::fresh(G.damage_tick) && !G.from_launcher) {
+        static int fw_said = 0, rw_said = 0;
+        int fl = G.dmg_fwl, fr = G.dmg_fwr, fw = fl > fr ? fl : fr, rw = G.dmg_rw;
+        if (fw >= 10 && fw >= fw_said + 10) {
+            row("FRONT WING DAMAGE", 'a', 4.0); // (1.1.7: with the L / R % it ran past the row)
+            swofty::log("[driver-display] alert: front wing damage %d%% / %d%%", fl, fr);
+            fw_said = fw;
+        } else if (fw < fw_said) {
+            fw_said = fw;
+        }
+        if (rw >= 10 && rw >= rw_said + 10) {
+            row("REAR WING DAMAGE", 'a', 4.0);
+            swofty::log("[driver-display] alert: rear wing damage %d%%", rw);
+            rw_said = rw;
+        } else if (rw < rw_said) {
+            rw_said = rw;
+        }
+    }
+    // tyre wear, per tyre (1.1.6: the user's rule; wear is what punctures a tyre, and a hit adds wear too, so the
+    // damage field isn't used): past 75 % TYRE WEAR (amber), at 100 % PUNCTURE (red); again after new tyres
+    {
+        static int said[4] = {}; // 0 none, 1 wear, 2 puncture
+        static const char *cn[] = {"FL", "FR", "RL", "RR"};
+        for (int i = 0; i < 4; i++) {
+            float w = r.wear[i];
+            if (w < 0.f)
+                continue;
+            int band = w >= 100.f ? 2 : w > 75.f ? 1 : 0;
+            if (band > said[i]) {
+                if (band == 2)
+                    row(std::string("PUNCTURE  ") + cn[i], 'r', 5.0);
+                else
+                    row(std::string("TYRE WEAR  ") + cn[i] + "  " + std::to_string(int(std::lround(w))) + "%", 'a', 4.0);
+                swofty::log("[driver-display] alert: %s %s %.0f%%", band == 2 ? "puncture" : "tyre wear", cn[i], double(w));
+                said[i] = band;
+            } else if (w < 20.f) {
+                said[i] = 0;
+            }
+        }
+    }
 }
 
 void popups(const Reading &r, const std::string &mode, double dt)
@@ -1256,8 +1299,8 @@ void popups(const Reading &r, const std::string &mode, double dt)
         put("full_sub", g_warn_sub);
     } else if (full) {
         put("full_title", titles[kind]);
-        if (kind == 7) // the speed under the limiter
-            put("full_sub", std::to_string(r.speed_kmh < 0 ? 0 : r.speed_kmh) + " KM/H");
+        if (kind == 7) // the speed under the limiter: the game's own speed text (rd_lim_speed, 1.1.3)
+            put("full_sub", "");
         else
             put("full_sub", subs[kind]);
     }
@@ -1274,6 +1317,8 @@ void popups(const Reading &r, const std::string &mode, double dt)
     put_flag("full_blue", full && tone == 6);
     put_flag("full_green", full && tone == 8);
     put_flag("full_white", full && tone == 9);
+    put_flag("lim_light", full && kind == 7 && (tone == 1 || tone == 6));
+    put_flag("lim_dark", full && kind == 7 && tone >= 2 && tone <= 5);
     put_flag("full_chq", full && tone == 10);
     put_flag("full_black", full && tone == 12);
     put_flag("full_dark", full && ((tone >= 2 && tone <= 5) || tone == 9)); // black text on amber, yellow, white
@@ -1291,7 +1336,8 @@ void popups(const Reading &r, const std::string &mode, double dt)
     bool rowb = !full && !bar && !flb && g_row_left > 0.0;
     put_flag("row_blue", rowb && g_row_colour == 'b');
     put_flag("row_amber", rowb && g_row_colour == 'a');
-    put_flag("row_light", rowb && g_row_colour == 'b');
+    put_flag("row_red", rowb && g_row_colour == 'r');
+    put_flag("row_light", rowb && (g_row_colour == 'b' || g_row_colour == 'r'));
     put_flag("row_dark", rowb && g_row_colour == 'a');
     if (rowb)
         put("row_text", g_row_text);
@@ -2137,7 +2183,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.1.1: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.1.7: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);

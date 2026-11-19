@@ -23,6 +23,7 @@ struct Values {
     std::atomic<int> dmg_fwl{0}, dmg_fwr{0}, dmg_rw{0}, dmg_floor{0}, dmg_diffuser{0}, dmg_sidepod{0};
     std::atomic<int> dmg_gearbox{0}, dmg_engine{0}, wear_ice{0}; // %
     std::atomic<int> dmg_brake[4] = {{0}, {0}, {0}, {0}}; // FL FR RL RR %
+    std::atomic<int> dmg_tyre[4] = {{0}, {0}, {0}, {0}};  // FL FR RL RR % (tyresDamage, 1.1.4)
     // presses of "UDP Action 1".."12" (the game's controls; any device): counted when a button goes down
     std::atomic<uint32_t> action_presses[12] = {};
     std::atomic<uint32_t> last_lap_ms{0};

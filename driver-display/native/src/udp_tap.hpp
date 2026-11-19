@@ -348,6 +348,10 @@ inline void decode(const uint8_t *d, size_t n)
         g.wear[3] = rd<float>(c + 4);
         g.wear[0] = rd<float>(c + 8);
         g.wear[1] = rd<float>(c + 12);
+        g.dmg_tyre[2] = c[16]; // tyresDamage RL RR FL FR @16
+        g.dmg_tyre[3] = c[17];
+        g.dmg_tyre[0] = c[18];
+        g.dmg_tyre[1] = c[19];
         g.dmg_brake[2] = c[20]; // brakesDamage RL RR FL FR @20
         g.dmg_brake[3] = c[21];
         g.dmg_brake[0] = c[22];

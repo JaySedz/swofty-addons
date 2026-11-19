@@ -672,14 +672,15 @@ def main():
     # amber with black text for incidents
     box('rd_row_blue', 30, 595, 1640, 905, (10, 92, 255), H + 'row_blue', L_POPTEXT + 1)
     box('rd_row_amber', 30, 595, 1640, 905, (240, 160, 0), H + 'row_amber', L_POPTEXT + 1)
-    text('rd_row_text_l', 835, 750, H + 'row_text', WHITE, scale=1.35, wpx=1500, value='-',
+    box('rd_row_red', 30, 595, 1640, 905, (215, 0, 0), H + 'row_red', L_POPTEXT + 1)  # a puncture (1.1.6)
+    text('rd_row_text_l', 835, 750, H + 'row_text', WHITE, scale=1.2, wpx=1500, value='-',
          visible=H + 'row_light', layer=L_POPTEXT + 2)
-    text('rd_row_text_d', 835, 750, H + 'row_text', (10, 10, 10), scale=1.35, wpx=1500, value='-',
+    text('rd_row_text_d', 835, 750, H + 'row_text', (10, 10, 10), scale=1.2, wpx=1500, value='-',
          visible=H + 'row_dark', layer=L_POPTEXT + 2)
 
     # the fastest lap of the race (1.0.21): the bottom row purple with the driver and the time for 5 s
     box('rd_fl_bar', 30, 595, 1640, 905, (150, 60, 225), H + 'fl_bar', L_POPTEXT + 1)
-    text('rd_fl_text', 835, 750, H + 'fl_text', WHITE, scale=1.35, wpx=1500, value='FASTEST LAP',
+    text('rd_fl_text', 835, 750, H + 'fl_text', WHITE, scale=1.2, wpx=1500, value='FASTEST LAP',
          visible=H + 'fl_bar', layer=L_POPTEXT + 2)
 
     # flags over the whole screen (as Wheel Dash had them): red flag, safety car / VSC / formation (amber), yellow,
@@ -766,6 +767,11 @@ def main():
         cx = 835 + (i - 2) * 300
         car_quad(f'rd_lt{i + 1}', circle, (cx - 120, 351, cx + 120, 591), (235, 20, 20), H + f'lt{i + 1}', L_FULL + 5)
 
+    # the pit limiter screen's speed: the game's speed text as on the race page (1.1.3)
+    for tone, colour in (('dark', (10, 10, 10)), ('light', WHITE)):
+        text(f'rd_lim_speed_{tone}', 835, 600, 'speed_str', colour, scale=1.6, wpx=1500, value='0',
+             visible=H + f'lim_{tone}', layer=L_FULLTEXT)
+
     # the flag strip across the top edge, blinking: yellow (a yellow flag, SC, VSC), blue (blue flag), red (red flag)
     # (one texture a colour with both bars since 1.0.17: two boxes a colour took 3 more of the 512 nodes)
     from PIL import ImageDraw
@@ -806,7 +812,9 @@ def main():
     label('rd_l_gear', 838, 62, 'GEAR', page=0)
     text('rd_gear', 838, 245, H + 'gear', WHITE, scale=0.85, style='OSD_80_bold', wpx=330, value='N', page=0)
     text('rd_rpm', 838, 372, H + 'rpm', WHITE, scale=0.8, style='OSD_19_bold', wpx=330, value='0 RPM', page=0)
-    text('rd_speed', 838, 505, H + 'speed', WHITE, scale=1.5, wpx=330, value='0', page=0)
+    # the game's own speed text (the stock speedo's speed_str): km/h or mph as set in the game's options (1.1.3;
+    # before, the plugin's own km/h)
+    text('rd_speed', 838, 505, 'speed_str', WHITE, scale=1.5, wpx=330, value='0', page=0)
     # gaps
     text('rd_l_ahead', 1205, 368, H + 'code_a', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='AHEAD',
          visible=H + 'p0r')

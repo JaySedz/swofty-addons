@@ -9,7 +9,7 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.1.1. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+**Status: 1.1.7. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
 telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
@@ -70,8 +70,10 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
 - **Fastest lap:** the bottom row turns purple for 5 s with the driver and the time.
 - **Across the bottom row** (blue, amber for incidents): BACKMARKER with the driver's code as you close on a lapped car (races), PIT WINDOW OPEN,
   RAIN IN n MIN when the forecast's chance passes 50 % in the dry, RETIRED with the driver's code when a car
-  retires, CONTACT with the driver's code when you touch another car.
-- **FINAL LAP** over the screen in blue as the last lap starts. The gap to the car ahead or behind blinks for 3 s
+  retires, CONTACT with the driver's code when you touch another car; FRONT WING / REAR WING DAMAGE as the damage rises
+  10 points, TYRE WEAR with the corner as a tyre passes 75 % wear, PUNCTURE in red
+  at 100 %.
+- **FINAL LAP** over the screen in white (the white flag) as the last lap starts. The gap to the car ahead or behind blinks for 3 s
   as it comes within a second (from lap 2). Under the fuel margin: the margin per lap left (+ to spend, - to save).
 - **Boot screen:** when the game hands you the car (the end of the intro, skipped or watched; else when the car
   first moves), your team's logo shows on black for 3 s, as the dash switching on. The logo is the game's own 2026
