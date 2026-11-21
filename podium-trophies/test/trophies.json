@@ -1,0 +1,521 @@
+{
+ "_comment": "Limit test: a trophy type a track (the game's career cabinet trophies), plus extras to reach 50 with the engine's two. Built into sedz.trophy-test-pack by test/build.bat.",
+ "trophies": [
+  {
+   "id": "trophy_test_melbourne",
+   "name": "Test: melbourne (country_career_champion_mel_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_mel_a.erp:trophy_country_career_champion_mel_a",
+   "height": "grip",
+   "tracks": [
+    "melbourne"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_suzuka",
+   "name": "Test: suzuka (country_career_champion_suz_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_suz_a.erp:trophy_country_career_champion_suz_a",
+   "height": "grip",
+   "tracks": [
+    "suzuka"
+   ],
+   "grip": "trophy_open_a"
+  },
+  {
+   "id": "trophy_test_shanghai",
+   "name": "Test: shanghai (country_career_champion_sha_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_sha_a.erp:trophy_country_career_champion_sha_a",
+   "height": "grip",
+   "tracks": [
+    "shanghai"
+   ],
+   "grip": "trophy_open_a"
+  },
+  {
+   "id": "trophy_test_bahrain",
+   "name": "Test: bahrain (country_career_champion_bah_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_bah_a.erp:trophy_country_career_champion_bah_a",
+   "height": "grip",
+   "tracks": [
+    "bahrain"
+   ],
+   "grip": "trophy_closed_a"
+  },
+  {
+   "id": "trophy_test_jeddah",
+   "name": "Test: jeddah (country_career_champion_jed_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_jed_a.erp:trophy_country_career_champion_jed_a",
+   "height": "grip",
+   "tracks": [
+    "jeddah"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_miami",
+   "name": "Test: miami (country_career_champion_mia_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_mia_a.erp:trophy_country_career_champion_mia_a",
+   "height": "grip",
+   "tracks": [
+    "miami"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_imola",
+   "name": "Test: imola (country_career_champion_imo_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_imo_a.erp:trophy_country_career_champion_imo_a",
+   "height": "grip",
+   "tracks": [
+    "imola"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_catalunya",
+   "name": "Test: catalunya (country_career_champion_cat_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_cat_a.erp:trophy_country_career_champion_cat_a",
+   "height": "grip",
+   "tracks": [
+    "catalunya"
+   ],
+   "grip": "trophy_open_e"
+  },
+  {
+   "id": "trophy_test_montreal",
+   "name": "Test: montreal (country_career_champion_mot_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_mot_a.erp:trophy_country_career_champion_mot_a",
+   "height": "grip",
+   "tracks": [
+    "montreal"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_austria",
+   "name": "Test: austria (country_career_champion_aus_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_aus_a.erp:trophy_country_career_champion_aus_a",
+   "height": "grip",
+   "tracks": [
+    "austria"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_silverstone",
+   "name": "Test: silverstone (country_career_champion_sil_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_sil_a.erp:trophy_country_career_champion_sil_a",
+   "height": "grip",
+   "tracks": [
+    "silverstone"
+   ],
+   "grip": "trophy_closed_b"
+  },
+  {
+   "id": "trophy_test_spa_francorchamps",
+   "name": "Test: spa_francorchamps (country_career_champion_spa_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_spa_a.erp:trophy_country_career_champion_spa_a",
+   "height": "grip",
+   "tracks": [
+    "spa_francorchamps"
+   ],
+   "grip": "trophy_modern_a"
+  },
+  {
+   "id": "trophy_test_hungaroring",
+   "name": "Test: hungaroring (country_career_champion_hun_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_hun_a.erp:trophy_country_career_champion_hun_a",
+   "height": "grip",
+   "tracks": [
+    "hungaroring"
+   ],
+   "grip": "trophy_open_e"
+  },
+  {
+   "id": "trophy_test_zandvoort",
+   "name": "Test: zandvoort (country_career_champion_zan_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_zan_a.erp:trophy_country_career_champion_zan_a",
+   "height": "grip",
+   "tracks": [
+    "zandvoort"
+   ],
+   "grip": "trophy_open_a"
+  },
+  {
+   "id": "trophy_test_monza",
+   "name": "Test: monza (country_career_champion_moz_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_moz_a.erp:trophy_country_career_champion_moz_a",
+   "height": "grip",
+   "tracks": [
+    "monza"
+   ],
+   "grip": "trophy_open_e"
+  },
+  {
+   "id": "trophy_test_baku",
+   "name": "Test: baku (country_career_champion_bak_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_bak_a.erp:trophy_country_career_champion_bak_a",
+   "height": "grip",
+   "tracks": [
+    "baku"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_singapore",
+   "name": "Test: singapore (country_career_champion_sin_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_sin_a.erp:trophy_country_career_champion_sin_a",
+   "height": "grip",
+   "tracks": [
+    "singapore"
+   ],
+   "grip": "trophy_modern_a"
+  },
+  {
+   "id": "trophy_test_texas",
+   "name": "Test: texas (country_career_champion_tex_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_tex_a.erp:trophy_country_career_champion_tex_a",
+   "height": "grip",
+   "tracks": [
+    "texas"
+   ],
+   "grip": "trophy_open_b"
+  },
+  {
+   "id": "trophy_test_mexico",
+   "name": "Test: mexico (country_career_champion_mex_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_mex_a.erp:trophy_country_career_champion_mex_a",
+   "height": "grip",
+   "tracks": [
+    "mexico"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_brazil",
+   "name": "Test: brazil (country_career_champion_bra_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_bra_a.erp:trophy_country_career_champion_bra_a",
+   "height": "grip",
+   "tracks": [
+    "brazil"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_las_vegas",
+   "name": "Test: las_vegas (f1_career_championship_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_f1_career_championship_a.erp:trophy_f1_career_championship_a",
+   "height": "grip",
+   "tracks": [
+    "las_vegas"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_losail",
+   "name": "Test: losail (country_career_champion_los_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_los_a.erp:trophy_country_career_champion_los_a",
+   "height": "grip",
+   "tracks": [
+    "losail"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_abu_dhabi",
+   "name": "Test: abu_dhabi (country_career_champion_abu_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_abu_a.erp:trophy_country_career_champion_abu_a",
+   "height": "grip",
+   "tracks": [
+    "abu_dhabi"
+   ],
+   "grip": "trophy_modern_a"
+  },
+  {
+   "id": "trophy_test_portimao",
+   "name": "Test: portimao (country_career_champion_por_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_por_a.erp:trophy_country_career_champion_por_a",
+   "height": "grip",
+   "tracks": [
+    "portimao"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_paul_ricard",
+   "name": "Test: paul_ricard (country_career_champion_pau_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_pau_a.erp:trophy_country_career_champion_pau_a",
+   "height": "grip",
+   "tracks": [
+    "paul_ricard"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_texas_nat",
+   "name": "Test: texas_nat (country_career_champion_tex_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_tex_a.erp:trophy_country_career_champion_tex_a",
+   "height": "grip",
+   "tracks": [
+    "texas_nat"
+   ],
+   "grip": "trophy_open_b"
+  },
+  {
+   "id": "trophy_test_suzuka_east",
+   "name": "Test: suzuka_east (country_career_champion_suz_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_suz_a.erp:trophy_country_career_champion_suz_a",
+   "height": "grip",
+   "tracks": [
+    "suzuka_east"
+   ],
+   "grip": "trophy_open_a"
+  },
+  {
+   "id": "trophy_test_bahrain_pad",
+   "name": "Test: bahrain_pad (country_career_champion_bah_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_bah_a.erp:trophy_country_career_champion_bah_a",
+   "height": "grip",
+   "tracks": [
+    "bahrain_pad"
+   ],
+   "grip": "trophy_closed_a"
+  },
+  {
+   "id": "trophy_test_silverstone_int",
+   "name": "Test: silverstone_int (country_career_champion_sil_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_sil_a.erp:trophy_country_career_champion_sil_a",
+   "height": "grip",
+   "tracks": [
+    "silverstone_int"
+   ],
+   "grip": "trophy_closed_b"
+  },
+  {
+   "id": "trophy_test_sochi",
+   "name": "Test: sochi (f2_career_championship_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_f2_career_championship_a.erp:trophy_f2_career_championship_a",
+   "height": "grip",
+   "tracks": [
+    "sochi"
+   ],
+   "grip": "trophy_closed_a"
+  },
+  {
+   "id": "trophy_test_styria",
+   "name": "Test: styria (country_career_champion_aus_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_aus_a.erp:trophy_country_career_champion_aus_a",
+   "height": "grip",
+   "tracks": [
+    "styria"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_hanoi",
+   "name": "Test: hanoi (f2_career_championship_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_f2_career_championship_a.erp:trophy_f2_career_championship_a",
+   "height": "grip",
+   "tracks": [
+    "hanoi"
+   ],
+   "grip": "trophy_closed_b"
+  },
+  {
+   "id": "trophy_test_imola_prototype",
+   "name": "Test: imola_prototype (country_career_champion_imo_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_imo_a.erp:trophy_country_career_champion_imo_a",
+   "height": "grip",
+   "tracks": [
+    "imola_prototype"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_melbourne24",
+   "name": "Test: melbourne24 (country_career_champion_mel_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_mel_a.erp:trophy_country_career_champion_mel_a",
+   "height": "grip",
+   "tracks": [
+    "melbourne24"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_bahrain24",
+   "name": "Test: bahrain24 (country_career_champion_bah_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_bah_a.erp:trophy_country_career_champion_bah_a",
+   "height": "grip",
+   "tracks": [
+    "bahrain24"
+   ],
+   "grip": "trophy_closed_a"
+  },
+  {
+   "id": "trophy_test_suzuka24",
+   "name": "Test: suzuka24 (country_career_champion_suz_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_suz_a.erp:trophy_country_career_champion_suz_a",
+   "height": "grip",
+   "tracks": [
+    "suzuka24"
+   ],
+   "grip": "trophy_open_a"
+  },
+  {
+   "id": "trophy_test_imola24",
+   "name": "Test: imola24 (country_career_champion_imo_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_imo_a.erp:trophy_country_career_champion_imo_a",
+   "height": "grip",
+   "tracks": [
+    "imola24"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_miami24",
+   "name": "Test: miami24 (country_career_champion_mia_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_mia_a.erp:trophy_country_career_champion_mia_a",
+   "height": "grip",
+   "tracks": [
+    "miami24"
+   ],
+   "grip": "trophy_open_c"
+  },
+  {
+   "id": "trophy_test_silverstone_reverse",
+   "name": "Test: silverstone_reverse (country_career_champion_sil_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_sil_a.erp:trophy_country_career_champion_sil_a",
+   "height": "grip",
+   "tracks": [
+    "silverstone_reverse"
+   ],
+   "grip": "trophy_closed_b"
+  },
+  {
+   "id": "trophy_test_austria_reverse",
+   "name": "Test: austria_reverse (country_career_champion_aus_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_aus_a.erp:trophy_country_career_champion_aus_a",
+   "height": "grip",
+   "tracks": [
+    "austria_reverse"
+   ],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_zandvoort_reverse",
+   "name": "Test: zandvoort_reverse (country_career_champion_zan_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_zan_a.erp:trophy_country_career_champion_zan_a",
+   "height": "grip",
+   "tracks": [
+    "zandvoort_reverse"
+   ],
+   "grip": "trophy_open_a"
+  },
+  {
+   "id": "trophy_test_madrid",
+   "name": "Test: madrid (f1_career_championship_a)",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_f1_career_championship_a.erp:trophy_f1_career_championship_a",
+   "height": "grip",
+   "tracks": [
+    "madrid"
+   ],
+   "grip": "trophy_open_e"
+  },
+  {
+   "id": "trophy_test_x_challenge_career_01_a",
+   "name": "Test extra: challenge_career_01_a",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_challenge_career_01_a.erp:trophy_challenge_career_01_a",
+   "height": "grip",
+   "tracks": [],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_x_challenge_career_02_a",
+   "name": "Test extra: challenge_career_02_a",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_challenge_career_02_a.erp:trophy_challenge_career_02_a",
+   "height": "grip",
+   "tracks": [],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_x_challenge_career_03_a",
+   "name": "Test extra: challenge_career_03_a",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_challenge_career_03_a.erp:trophy_challenge_career_03_a",
+   "height": "grip",
+   "tracks": [],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_x_challenge_career_04_a",
+   "name": "Test extra: challenge_career_04_a",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_challenge_career_04_a.erp:trophy_challenge_career_04_a",
+   "height": "grip",
+   "tracks": [],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_x_challenge_career_05_a",
+   "name": "Test extra: challenge_career_05_a",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_challenge_career_05_a.erp:trophy_challenge_career_05_a",
+   "height": "grip",
+   "tracks": [],
+   "grip": "trophy_modern_b"
+  },
+  {
+   "id": "trophy_test_x_challenge_career_06_a",
+   "name": "Test extra: challenge_career_06_a",
+   "donor": "trophy_closed_a",
+   "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_challenge_career_06_a.erp:trophy_challenge_career_06_a",
+   "height": "grip",
+   "tracks": [],
+   "grip": "trophy_modern_b"
+  }
+ ]
+}

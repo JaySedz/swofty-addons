@@ -1,0 +1,18 @@
+[package]
+name = "podium-trophies"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Podium Trophies launcher helper: pairs trophy packs with tracks and builds the podium edits."
+
+[dependencies]
+serde_json = "1"
+flate2 = "1"
+ruzstd = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

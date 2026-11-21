@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <mutex>
 #include <unordered_set>
 #include <cctype>
 #include <cmath>
@@ -29,10 +30,13 @@
 #include <vector>
 
 #include <swofty/events.hpp>
+#include <swofty/hooks.hpp>
 #include <swofty/hud.hpp>
 #include <swofty/live.hpp>
 #include <swofty/mixin.hpp>
+#include <swofty/systems/race_control.hpp>
 #include <swofty/systems/sessions.hpp>
+#include <swofty/systems/tyre_damage.hpp>
 #include <swofty/telemetry.hpp>
 #include <swofty/view.hpp>
 
@@ -768,6 +772,9 @@ double g_pen_left = 0.0, g_chq_left = 0.0;
 // flag); the cell's small amber pop-up of 0.4.6-0.4.36 was hard to read
 // under a safety car / VSC: below the game's SC delta (too fast), and the frame it went below (for SLOW DOWN)
 bool g_sc_slow = false, g_sc_slow_rise = false;
+bool g_quali = false;  // page 0's practice / qualifying layout (moved up in 1.2.0)
+std::string g_lap_text = "-"; // the race page's LAP n/total, for the safety car screen (1.2.0)
+bool g_sc_scr = false; // 1.2.0: the race page's safety car layout is up (page 0, a race layout, SC / VSC out, no flag screen)
 std::string g_warn_title = "WARNING", g_warn_sub;
 double g_warn_left = 0.0;
 void warn(const std::string &sub, const char *title = "WARNING", double secs = 3.0)
@@ -949,6 +956,12 @@ std::string car_code(int idx)
     return idx >= 0 ? "CAR " + std::to_string(idx + 1) : std::string("-");
 }
 
+// fallbacks for a game with its UDP output off (the default, 1.1.8): launcher 1.10's race control events. Only
+// used while the tap gets no lap packets, so a message never shows twice.
+std::mutex g_rc_mu;
+std::vector<int> g_rc_retired; // vehicle ids, from the flow thread's session.car.status
+bool udp_events() { return udp_tap::fresh(udp_tap::g.lap_tick); }
+
 std::string g_msg_title, g_msg_sub;
 int g_msg_tone = 6; // the blue screen: the game's overtake colour
 double g_msg_left = 0.0;
@@ -1025,6 +1038,22 @@ void race_messages(double dt)
             row("RETIRED  " + car_code(G.rtmt_car), 'a');
             swofty::log("[driver-display] event: car %d retired", int(G.rtmt_car));
         }
+    }
+    {
+        std::vector<int> out;
+        {
+            std::lock_guard<std::mutex> l(g_rc_mu);
+            out.swap(g_rc_retired);
+        }
+        int mine = -1;
+        if (auto p = swofty::live::player())
+            mine = int(p->vehicle);
+        if (!udp_events())
+            for (int v : out)
+                if (v != mine) {
+                    row("RETIRED  " + car_code(v), 'a');
+                    swofty::log("[driver-display] race control: car %d retired (no UDP)", v);
+                }
     }
     if (G.coll_seq != scl) {
         scl = G.coll_seq;
@@ -1137,26 +1166,81 @@ void race_extras(const Reading &r)
             rw_said = rw;
         }
     }
-    // tyre wear, per tyre (1.1.6: the user's rule; wear is what punctures a tyre, and a hit adds wear too, so the
-    // damage field isn't used): past 75 % TYRE WEAR (amber), at 100 % PUNCTURE (red); again after new tyres
+    // tyre wear, per tyre: past 75 % TYRE WEAR (amber), the point a puncture becomes possible; again after new tyres
     {
-        static int said[4] = {}; // 0 none, 1 wear, 2 puncture
+        static bool said[4] = {};
         static const char *cn[] = {"FL", "FR", "RL", "RR"};
         for (int i = 0; i < 4; i++) {
             float w = r.wear[i];
             if (w < 0.f)
                 continue;
-            int band = w >= 100.f ? 2 : w > 75.f ? 1 : 0;
-            if (band > said[i]) {
-                if (band == 2)
-                    row(std::string("PUNCTURE  ") + cn[i], 'r', 5.0);
-                else
-                    row(std::string("TYRE WEAR  ") + cn[i] + "  " + std::to_string(int(std::lround(w))) + "%", 'a', 4.0);
-                swofty::log("[driver-display] alert: %s %s %.0f%%", band == 2 ? "puncture" : "tyre wear", cn[i], double(w));
-                said[i] = band;
+            if (w > 75.f && !said[i]) {
+                row(std::string("TYRE WEAR  ") + cn[i] + "  " + std::to_string(int(std::lround(w))) + "%", 'a', 4.0);
+                swofty::log("[driver-display] alert: tyre wear %s %.0f%%", cn[i], double(w));
+                said[i] = true;
             } else if (w < 20.f) {
-                said[i] = 0;
+                said[i] = false;
             }
+        }
+    }
+    // punctures (1.1.8): the game's own puncture state of each wheel (launcher 1.10's tyre damage library, Steam):
+    // FL SLOW PUNCTURE (amber) when the tyre is punctured, FL FULL PUNCTURE (red) when it bursts; again after a
+    // tyre change clears it
+    if (me) {
+        namespace td = swofty::tyre_damage;
+        static td::State said[4] = {};
+        for (unsigned i = 0; i < td::WHEELS; i++) {
+            auto w = td::Wheel(i);
+            auto st = td::state(*me, w);
+            if (!st)
+                break;
+            if (*st == said[i])
+                continue;
+            if (*st == td::State::punctured)
+                row(std::string(td::name(w)) + " SLOW PUNCTURE", 'a', 5.0);
+            else if (*st == td::State::burst)
+                row(std::string(td::name(w)) + " FULL PUNCTURE", 'r', 5.0);
+            swofty::log("[driver-display] alert: %s tyre %s (was %s), deflation %.2f", td::name(w), td::name(*st),
+                        td::name(said[i]), double(td::deflation(*me, w).value_or(0.f)));
+            said[i] = *st;
+        }
+    }
+
+    // 1.2.0, any session: where the yellow is (the launcher's race control flag state): "YELLOW SECTOR 2" in amber as a
+    // sector's yellow comes out, "SECTOR 2 CLEAR" in blue as it ends; quiet under a safety car or red flag, and at the
+    // first read of a session
+    {
+        static int was = -1;
+        static uint32_t gen = 0;
+        auto st = swofty::race_control::now();
+        if (!st || !ses) {
+            was = -1;
+        } else {
+            int now = st->yellow_sectors;
+            if (ses->generation != gen) {
+                gen = ses->generation;
+                was = now;
+            }
+            if (was >= 0 && now != was && r.sc == 0 && !r.red_flag) {
+                auto list = [](int bits) {
+                    std::string out;
+                    int n = 0;
+                    for (int i = 0; i < 8; i++)
+                        if (bits >> i & 1)
+                            out += (n++ ? " + " : " ") + std::to_string(i + 1);
+                    return std::make_pair(out, n);
+                };
+                int added = now & ~was, gone = was & ~now;
+                if (added) {
+                    auto [txt, n] = list(added);
+                    row(std::string(n > 1 ? "YELLOW SECTORS" : "YELLOW SECTOR") + txt, 'a', 4.0);
+                } else if (gone) {
+                    auto [txt, n] = list(gone);
+                    row(std::string(n > 1 ? "SECTORS" : "SECTOR") + txt + " CLEAR", 'b');
+                }
+                swofty::log("[driver-display] yellow sectors 0x%x -> 0x%x", was, now);
+            }
+            was = now;
         }
     }
 }
@@ -1327,7 +1411,40 @@ void popups(const Reading &r, const std::string &mode, double dt)
     // after the flag screen, the background takes a tone for as long as a full course caution is out: dark amber
     // under a safety car / VSC, dark red under a red flag
     put_flag("tint_sc", !full && (kind == 2 || kind == 3));
-    bool bar = !full && (flag_kind == 2 || flag_kind == 3);
+    // 1.2.0: on the race page the safety car layout takes the bar's place (PIT NOW, what is out, the SC delta; the
+    // bottom row stays the race layout's); the car and pit pages keep the bar
+    bool fcy = !full && (flag_kind == 2 || flag_kind == 3);
+    g_sc_scr = fcy && g_page == 0 && !g_quali;
+    put_flag("sc_scr", g_sc_scr);
+    // the yellow safety car screen (1.2.0, the user's mock-up): SC / VSC DELTA (the game's safetyCarDelta: + is
+    // above the delta), the gear and speed, the estimated pit exit position; SAFETY CAR IN THIS LAP / VSC ENDING
+    // across the bottom row as the game says it is ending (SLOW DOWN stays the full screen warning)
+    put_flag("sc_lbl_s", g_sc_scr && flag_kind == 2);
+    put_flag("sc_lbl_v", g_sc_scr && flag_kind == 3);
+    {
+        static bool ending_said = false;
+        if (g_sc_scr && sc_ending && !ending_said)
+            row(flag_kind == 2 ? "SAFETY CAR IN THIS LAP" : "VSC ENDING", 'a', 5.0);
+        ending_said = fcy && sc_ending;
+    }
+    if (g_sc_scr) {
+        auto &G = udp_tap::g;
+        char d[16] = "-";
+        if (udp_tap::fresh(G.lap_tick) && !G.from_launcher)
+            std::snprintf(d, sizeof d, "%+.2f", double(G.sc_delta));
+        put("scd", d);
+        put("sc_lap", "LAP " + g_lap_text);
+        char pn[8] = "-";
+        if (udp_tap::fresh(G.session_tick) && G.pit_rejoin > 0)
+            std::snprintf(pn, sizeof pn, "P%02d", int(G.pit_rejoin)); // as the pit page's REJOIN POSITION
+        put("pitnow", pn);
+        static bool logged = false;
+        if (!logged) {
+            swofty::log("[driver-display] safety car layout up (%s), pit now P%d", flag_kind == 2 ? "SC" : "VSC", int(G.pit_rejoin));
+            logged = true;
+        }
+    }
+    bool bar = fcy && !g_sc_scr;
     put_flag("sc_bar", bar);
     bool flb = !full && !bar && g_fl_left > 0.0;
     put_flag("fl_bar", flb);
@@ -1428,7 +1545,6 @@ void page_input()
 // a value shown only on one page
 inline bool on_page(int p, bool v) { return v && g_page == p; }
 // page 0's layout (1.0.16): the race's, or practice / qualifying / time trial's (sector times, time left)
-bool g_quali = false;
 inline bool on_race0(bool v) { return v && g_page == 0 && !g_quali; }
 inline bool on_quali0(bool v) { return v && g_page == 0 && g_quali; }
 
@@ -1509,10 +1625,23 @@ void car_page(const Reading &r)
     for (int i = 0; i < 4; i++)
         colour(bn[i], dmg, band(udp_tap::g.dmg_brake[i]));
     static const char *cn[] = {"tfl", "tfr", "trl", "trr"};
+    // 1.2.0: a punctured tyre (the game's puncture state) goes amber as it starts to deflate and red from halfway to
+    // the burst (deflation 1 at the puncture, 2 at the burst) or once burst, whatever its wear
+    namespace td = swofty::tyre_damage;
+    static const td::Wheel wh[] = {td::Wheel::front_left, td::Wheel::front_right, td::Wheel::rear_left, td::Wheel::rear_right};
+    auto me = swofty::live::player();
     for (int i = 0; i < 4; i++) {
         float w = r.wear[i];
         int wb = w >= float(int(wear_red)) ? 2 : w >= float(int(wear_amber)) ? 1 : 0;
-        colour(cn[i], w >= 0.f, wb);
+        bool known = w >= 0.f;
+        if (me)
+            if (auto st = td::state(*me, wh[i]); st && *st != td::State::none) {
+                float dfl = td::deflation(*me, wh[i]).value_or(1.f);
+                int pb = *st == td::State::burst || dfl >= 1.5f ? 2 : 1;
+                wb = pb > wb ? pb : wb;
+                known = true;
+            }
+        colour(cn[i], known, wb);
     }
 }
 
@@ -1657,6 +1786,7 @@ void aero(double dt)
     }
     put("badge_text", badge);
     // an empty grey outline before the zone, green fill when ready, purple (the game's colour) when active
+    mid = mid && !g_sc_scr; // 1.2.0: the safety car screen has the lap there
     put_flag("badge_n", mid && colour == 'n');
     put_flag("badge_g", mid && colour == 'g');
     put_flag("badge_p", mid && colour == 'p');
@@ -1768,7 +1898,7 @@ void on_frame(double dt, void *)
                 for (int i = 0; i < int(std::size(kTeamLogoKeys)); i++)
                     if (squash(kTeamLogoKeys[i]) == squash(*key))
                         boot_slice = i;
-                boot_left = boot_slice >= 0 ? 3.0 : 0.0;
+                boot_left = boot_slice >= 0 ? 4.0 : 0.0; // 3 s of logo, then 1 s of black (1.2.0)
                 boot_armed = due = false;
                 swofty::log("[driver-display] boot screen: team %s, logo slice %d (%s)", key->c_str(), boot_slice,
                             due_handed ? "the car handed to the player" : "the car moved");
@@ -1782,11 +1912,13 @@ void on_frame(double dt, void *)
     }
     if (boot_left > 0.0)
         boot_left -= g_step;
+    // 1.2.0: the logo shows for the first 3 s and the black stays 1 s longer: the logo's fade-out showed over the
+    // page after it (a test's screenshot: the Haas logo faint over the qualifying page right after the boot screen)
     put_flag("boot", boot_left > 0.0);
     for (int i = 0; i < int(std::size(kTeamLogoKeys)); i++) {
         char k[12];
         std::snprintf(k, sizeof k, "boot_s%d", i);
-        put_flag(k, boot_left > 0.0 && i == boot_slice);
+        put_flag(k, boot_left > 1.0 && i == boot_slice);
     }
     if (r.src != last_src) {
         last_src = r.src;
@@ -1868,6 +2000,9 @@ void on_frame(double dt, void *)
     // the lap time and the delta where they were (0.4.0 switched to its own clock there, which kept counting).
     game_laps();
     bool udp_laps = udp_tap::fresh(udp_tap::g.lap_tick);
+    if (!udp_tap::fresh(udp_tap::g.session_tick)) // no UDP (1.1.8): the live state's session type, same numbers
+        if (auto ls = swofty::live::session(); ls && swofty::live::has(*ls, SWOFTY_LIVE_SHAVE_TYPE))
+            udp_tap::g.session_type = int(ls->type);
     {
         int st = udp_tap::g.session_type;
         bool q = (st >= 1 && st <= 14) || st == 18;
@@ -1882,7 +2017,7 @@ void on_frame(double dt, void *)
     // under a safety car / VSC the box shows the game's SC delta (lap data safetyCarDelta: positive is above it,
     // green; negative too fast, red), back to the lap delta when it clears (1.0.4)
     bool sc_delta = (r.sc == 1 || r.sc == 2) && udp_laps && !udp_tap::g.from_launcher;
-    put("delta_label", sc_delta ? "SC DELTA" : prev_ref ? "PREV LAP" : "BEST LAP"); // (the font has no delta sign: 0.4.0 drew a box)
+    put("delta_label", sc_delta ? (r.sc == 2 ? "VSC DELTA" : "SC DELTA") : prev_ref ? "PREV LAP" : "BEST LAP"); // (the font has no delta sign: 0.4.0 drew a box)
     bool have_delta = udp_laps ? (prev_ref ? g_game.have_prev : g_game.have) : g_laps.have_delta;
     double delta = udp_laps ? (prev_ref ? g_game.delta_prev : g_game.delta) : g_laps.delta;
     if (sc_delta) {
@@ -1986,6 +2121,7 @@ void on_frame(double dt, void *)
         if (total > 0) std::snprintf(t, sizeof t, "%d/%d", r.lap >= 0 ? r.lap + 1 : 0, total);
         else std::snprintf(t, sizeof t, "%d", r.lap >= 0 ? r.lap + 1 : 0);
         put("lap", t);
+        g_lap_text = t;
     }
 
     int soc = r.soc < 0 ? 0 : r.soc > 100 ? 100 : r.soc;
@@ -2010,8 +2146,8 @@ void on_frame(double dt, void *)
         bool off = std::fmod(phase, 0.5) >= 0.3;
         if (ba_left > 0.0) ba_left -= g_step;
         if (bb_left > 0.0) bb_left -= g_step;
-        put_flag("gap_a_on", on_race0(!(ba_left > 0.0 && off)));
-        put_flag("gap_b_on", on_race0(!(bb_left > 0.0 && off)));
+        put_flag("gap_a_on", on_race0(!(ba_left > 0.0 && off)) && !g_sc_scr);
+        put_flag("gap_b_on", on_race0(!(bb_left > 0.0 && off)) && !g_sc_scr);
     }
     if (r.gap_b_ms > 0) std::snprintf(t, sizeof t, "-%.3f", r.gap_b_ms / 1000.0); else std::snprintf(t, sizeof t, "-");
     put("gap_b", t);
@@ -2055,6 +2191,8 @@ void on_frame(double dt, void *)
     page_input();
     put_flag("p0", g_page == 0);
     put_flag("p0r", g_page == 0 && !g_quali);
+    put_flag("lt_on", g_page == 0 && !g_sc_scr);              // 1.2.0: the lap time, not on the safety car layout
+    put_flag("gaps_lbl", g_page == 0 && !g_quali && !g_sc_scr); // the gaps' driver codes, likewise
     put_flag("p0q", g_page == 0 && g_quali);
     put_flag("p1", g_page == 1);
     put_flag("p2", g_page == 2);
@@ -2183,7 +2321,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.1.7: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.2.0: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -2199,6 +2337,18 @@ SWOFTY_ON_LOAD
                 g_to_human = true;
         });
     swofty::log("[driver-display] player control events: %s", r == swofty::events::Result::ok ? "on" : "not available");
+    // race control (launcher 1.10): retirements while the game's UDP output is off
+    namespace rc = swofty::race_control;
+    auto rr = swofty::events::on<rc::events::CarStatus>().after([](const rc::events::CarStatus &e, const swofty::events::Context &) {
+        if (e.previous == rc::Status::running &&
+            (e.status == rc::Status::retired || e.status == rc::Status::did_not_finish)) {
+            std::lock_guard<std::mutex> l(g_rc_mu);
+            if (g_rc_retired.size() < 32)
+                g_rc_retired.push_back(int(e.car));
+        }
+    });
+    swofty::log("[driver-display] race control events: %s, tyre damage: %s", rr == swofty::events::Result::ok ? "on" : "not available",
+                swofty::hooks::live<swofty::tyre_damage::events::Damage>() ? "live" : "not live");
     try_tap();
     swofty::events::on_frame(tap_frame);
 }

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "sedz.trophy-test-pack",
+  "name": "Trophy Test Pack",
+  "version": "0.0.2",
+  "author": "Sedz",
+  "description": "Test for Podium Trophies: a trophy type for every track (the game's career cabinet trophies) and extras, 48 in all. Not for release.",
+  "license": "MIT",
+  "category": "tracks",
+  "compat": {
+    "game": "f1_25"
+  }
+}

@@ -1,0 +1,6 @@
+# build output: package.bat makes pack/ from the game's own files and bin/ from helper/
+pack/
+bin/
+helper/target/
+reference/game/
+test/addon/

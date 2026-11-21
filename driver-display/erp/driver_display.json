@@ -118,6 +118,120 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyn.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.head",
+        "ui/tex/rd_ovl_scyn.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyn.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyf.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.head",
+        "ui/tex/rd_ovl_scyf.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyf.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsn.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.head",
+        "ui/tex/rd_ovl_scsn.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsn.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsf.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.head",
+        "ui/tex/rd_ovl_scsf.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsf.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvn.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.head",
+        "ui/tex/rd_ovl_scvn.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvn.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvf.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.head",
+        "ui/tex/rd_ovl_scvf.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvf.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
       "resource": "eaid://ui_package/art/textures/rd_ovl_chq0.tif.image",
       "type": "GfxSurfaceRes",
       "sources": [
@@ -132,120 +246,6 @@
       "type": "GfxSRVResource",
       "sources": [
         "ui/tex/rd_ovl_chq0.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_06.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_06.head",
-        "ui/tex/rd_car_p_06.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_06.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_06.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_07.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_07.head",
-        "ui/tex/rd_car_p_07.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_07.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_07.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_08.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_08.head",
-        "ui/tex/rd_car_p_08.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_08.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_08.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_09.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_09.head",
-        "ui/tex/rd_car_p_09.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_09.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_09.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_10.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_10.head",
-        "ui/tex/rd_car_p_10.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_10.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_10.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_11.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_11.head",
-        "ui/tex/rd_car_p_11.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_11.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_11.view"
       ]
     },
     {
@@ -607,6 +607,120 @@
       "type": "GfxSRVResource",
       "sources": [
         "ui/tex/rd_car_p_30.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_31.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_31.head",
+        "ui/tex/rd_car_p_31.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_31.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_31.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_32.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_32.head",
+        "ui/tex/rd_car_p_32.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_32.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_32.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_33.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_33.head",
+        "ui/tex/rd_car_p_33.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_33.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_33.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_34.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_34.head",
+        "ui/tex/rd_car_p_34.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_34.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_34.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_35.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_35.head",
+        "ui/tex/rd_car_p_35.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_35.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_35.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_36.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_36.head",
+        "ui/tex/rd_car_p_36.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_36.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_36.view"
       ]
     },
     {
@@ -1120,6 +1234,60 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scyn.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scyf.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scsn.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scsf.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scvn.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scvf.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
       "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_chq0.material",
       "type": "GfxMaterialRes",
       "sources": [
@@ -1129,172 +1297,10 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_06_f.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_f.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_06_f.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_07_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_07_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_07_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_08_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_08_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_08_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_09_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_09_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_09_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_10_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_10_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_10_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_11_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_11_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_11_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_r.material"
+        "ui/tex/rd_car_p_12_f.material"
       ]
     },
     {
@@ -1435,19 +1441,55 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_f.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_g.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_18_f.material"
+        "ui/tex/rd_car_p_18_g.material"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_f.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_a.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_19_f.material"
+        "ui/tex/rd_car_p_18_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_18_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_r.material"
       ]
     },
     {
@@ -1561,55 +1603,19 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_g.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_f.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_24_g.material"
+        "ui/tex/rd_car_p_24_f.material"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_a.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_f.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_24_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_24_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_r.material"
+        "ui/tex/rd_car_p_25_f.material"
       ]
     },
     {
@@ -1745,6 +1751,168 @@
       "type": "GfxMaterialRes",
       "sources": [
         "ui/tex/rd_car_p_30_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_31_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_31_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_31_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_32_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_32_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_32_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_33_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_33_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_33_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_34_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_34_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_34_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_35_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_35_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_35_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_36_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_36_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_36_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_r.material"
       ]
     },
     {
@@ -2128,6 +2296,60 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scyn.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scyf.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scsn.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scsf.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scvn.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scvf.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
       "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_chq0.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
@@ -2137,172 +2359,10 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_06_f.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_f.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_06_f.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_07_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_07_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_07_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_08_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_08_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_08_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_09_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_09_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_09_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_10_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_10_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_10_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_11_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_11_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_11_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_r.emb"
+        "ui/tex/rd_car_p_12_f.emb"
       ]
     },
     {
@@ -2443,19 +2503,55 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_f.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_g.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_18_f.emb"
+        "ui/tex/rd_car_p_18_g.emb"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_f.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_a.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_19_f.emb"
+        "ui/tex/rd_car_p_18_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_18_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_r.emb"
       ]
     },
     {
@@ -2569,55 +2665,19 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_g.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_f.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_24_g.emb"
+        "ui/tex/rd_car_p_24_f.emb"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_a.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_f.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_24_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_24_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_r.emb"
+        "ui/tex/rd_car_p_25_f.emb"
       ]
     },
     {
@@ -2753,6 +2813,168 @@
       "type": "GfxMatBindRes",
       "sources": [
         "ui/tex/rd_car_p_30_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_31_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_31_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_31_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_32_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_32_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_32_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_33_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_33_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_33_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_34_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_34_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_34_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_35_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_35_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_35_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_36_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_36_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_race_assets_f1.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_36_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_r.emb"
       ]
     },
     {
@@ -3583,6 +3805,120 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyn.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.head",
+        "ui/tex/rd_ovl_scyn.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyn.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyf.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.head",
+        "ui/tex/rd_ovl_scyf.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scyf.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsn.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.head",
+        "ui/tex/rd_ovl_scsn.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsn.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsf.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.head",
+        "ui/tex/rd_ovl_scsf.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scsf.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvn.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.head",
+        "ui/tex/rd_ovl_scvn.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvn.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvf.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.head",
+        "ui/tex/rd_ovl_scvf.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_ovl_scvf.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
       "resource": "eaid://ui_package/art/textures/rd_ovl_chq0.tif.image",
       "type": "GfxSurfaceRes",
       "sources": [
@@ -3597,120 +3933,6 @@
       "type": "GfxSRVResource",
       "sources": [
         "ui/tex/rd_ovl_chq0.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_06.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_06.head",
-        "ui/tex/rd_car_p_06.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_06.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_06.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_07.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_07.head",
-        "ui/tex/rd_car_p_07.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_07.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_07.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_08.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_08.head",
-        "ui/tex/rd_car_p_08.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_08.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_08.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_09.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_09.head",
-        "ui/tex/rd_car_p_09.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_09.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_09.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_10.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_10.head",
-        "ui/tex/rd_car_p_10.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_10.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_10.view"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_11.tif.image",
-      "type": "GfxSurfaceRes",
-      "sources": [
-        "ui/tex/rd_car_p_11.head",
-        "ui/tex/rd_car_p_11.pixels"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/textures/rd_car_p_11.tif",
-      "type": "GfxSRVResource",
-      "sources": [
-        "ui/tex/rd_car_p_11.view"
       ]
     },
     {
@@ -4072,6 +4294,120 @@
       "type": "GfxSRVResource",
       "sources": [
         "ui/tex/rd_car_p_30.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_31.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_31.head",
+        "ui/tex/rd_car_p_31.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_31.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_31.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_32.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_32.head",
+        "ui/tex/rd_car_p_32.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_32.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_32.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_33.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_33.head",
+        "ui/tex/rd_car_p_33.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_33.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_33.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_34.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_34.head",
+        "ui/tex/rd_car_p_34.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_34.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_34.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_35.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_35.head",
+        "ui/tex/rd_car_p_35.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_35.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_35.view"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_36.tif.image",
+      "type": "GfxSurfaceRes",
+      "sources": [
+        "ui/tex/rd_car_p_36.head",
+        "ui/tex/rd_car_p_36.pixels"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/textures/rd_car_p_36.tif",
+      "type": "GfxSRVResource",
+      "sources": [
+        "ui/tex/rd_car_p_36.view"
       ]
     },
     {
@@ -4585,6 +4921,60 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scyn.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scyf.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scsn.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scsf.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scvn.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_scvf.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
       "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_ovl_chq0.material",
       "type": "GfxMaterialRes",
       "sources": [
@@ -4594,172 +4984,10 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_06_f.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_f.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_06_f.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_07_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_07_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_07_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_08_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_08_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_08_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_09_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_09_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_09_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_10_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_10_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_10_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_11_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_11_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_11_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_12_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_r.material"
+        "ui/tex/rd_car_p_12_f.material"
       ]
     },
     {
@@ -4900,19 +5128,55 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_f.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_g.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_18_f.material"
+        "ui/tex/rd_car_p_18_g.material"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_f.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_a.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_19_f.material"
+        "ui/tex/rd_car_p_18_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_18_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_18_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_19_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_r.material"
       ]
     },
     {
@@ -5026,55 +5290,19 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_g.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_f.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_24_g.material"
+        "ui/tex/rd_car_p_24_f.material"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_a.material",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_f.material",
       "type": "GfxMaterialRes",
       "sources": [
-        "ui/tex/rd_car_p_24_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_24_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_24_r.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_g.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_g.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_a.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_a.material"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_25_r.material",
-      "type": "GfxMaterialRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_r.material"
+        "ui/tex/rd_car_p_25_f.material"
       ]
     },
     {
@@ -5210,6 +5438,168 @@
       "type": "GfxMaterialRes",
       "sources": [
         "ui/tex/rd_car_p_30_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_31_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_31_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_31_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_32_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_32_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_32_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_33_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_33_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_33_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_34_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_34_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_34_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_35_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_35_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_35_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_r.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_36_g.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_g.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_36_a.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_a.material"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/materials/steering_lcd_display/rd_car_p_36_r.material",
+      "type": "GfxMaterialRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_r.material"
       ]
     },
     {
@@ -5593,6 +5983,60 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scyn.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyn.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scyf.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scyf.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scsn.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsn.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scsf.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scsf.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scvn.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvn.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_scvf.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_ovl_scvf.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
       "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_ovl_chq0.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
@@ -5602,172 +6046,10 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_06_f.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_f.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_06_f.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_07_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_07_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_07_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_07_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_08_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_08_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_08_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_08_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_09_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_09_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_09_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_09_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_10_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_10_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_10_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_10_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_11_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_11_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_11_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_11_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_12_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_12_r.emb"
+        "ui/tex/rd_car_p_12_f.emb"
       ]
     },
     {
@@ -5908,19 +6190,55 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_f.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_g.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_18_f.emb"
+        "ui/tex/rd_car_p_18_g.emb"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_f.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_a.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_19_f.emb"
+        "ui/tex/rd_car_p_18_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_18_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_18_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_19_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_19_r.emb"
       ]
     },
     {
@@ -6034,55 +6352,19 @@
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_g.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_f.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_24_g.emb"
+        "ui/tex/rd_car_p_24_f.emb"
       ]
     },
     {
       "op": "add-resource",
       "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_a.emb?context=default",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_f.emb?context=default",
       "type": "GfxMatBindRes",
       "sources": [
-        "ui/tex/rd_car_p_24_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_24_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_24_r.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_g.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_g.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_a.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_a.emb"
-      ]
-    },
-    {
-      "op": "add-resource",
-      "erp": "2025_asset_groups/ui_package/flow_options.erp",
-      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_25_r.emb?context=default",
-      "type": "GfxMatBindRes",
-      "sources": [
-        "ui/tex/rd_car_p_25_r.emb"
+        "ui/tex/rd_car_p_25_f.emb"
       ]
     },
     {
@@ -6218,6 +6500,168 @@
       "type": "GfxMatBindRes",
       "sources": [
         "ui/tex/rd_car_p_30_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_31_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_31_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_31_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_31_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_32_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_32_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_32_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_32_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_33_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_33_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_33_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_33_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_34_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_34_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_34_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_34_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_35_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_35_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_35_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_35_r.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_36_g.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_g.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_36_a.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_a.emb"
+      ]
+    },
+    {
+      "op": "add-resource",
+      "erp": "2025_asset_groups/ui_package/flow_options.erp",
+      "resource": "eaid://ui_package/art/osd/components/steering_lcd_display/rd_car_p_36_r.emb?context=default",
+      "type": "GfxMatBindRes",
+      "sources": [
+        "ui/tex/rd_car_p_36_r.emb"
       ]
     },
     {

@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "sedz.podium-trophies",
+  "name": "Podium Trophies",
+  "version": "0.1.5",
+  "author": "Sedz",
+  "description": "A podium trophy for every track. Pair trophies with the tracks in your profile on the Trophies page, base game or modded; a track addon can carry its own trophy, which it gets automatically. Ships Bahrain (career cabinet trophy) and Austria.",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/podium-trophies",
+  "category": "tracks",
+  "compat": {
+    "game": "f1_25",
+    "launcher": ">=1.5.8"
+  },
+  "launcher": {
+    "program": {
+      "windows": "bin/podium-trophies.exe"
+    },
+    "sections": [
+      {
+        "id": "trophies",
+        "title": "Trophies",
+        "icon": "trophy"
+      }
+    ],
+    "build": true
+  },
+  "options": [
+    {
+      "id": "build_all",
+      "type": "toggle",
+      "label": "Build every trophy (test)",
+      "description": "Adds every installed trophy to the podium scene, also the ones no track is paired with. For testing how many trophy types the game takes; leave it off otherwise.",
+      "default": false,
+      "binds": "db"
+    }
+  ]
+}

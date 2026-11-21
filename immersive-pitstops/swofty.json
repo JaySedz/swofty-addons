@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "sedz.immersive-pitstops",
+  "name": "Immersive Pitstops",
+  "version": "0.1.2",
+  "author": "Sedz",
+  "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, small crew mistakes happen more often, and a rare stuck wheel nut costs 30 to 60 s. My Team and Driver Career, for you and the AI teams.",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/immersive-pitstops",
+  "category": "career",
+  "kind": [
+    "database"
+  ],
+  "compat": {
+    "game": "f1_25",
+    "launcher": ">=1.8.36"
+  },
+  "options": [
+    {
+      "id": "big_mistakes",
+      "type": "choice",
+      "label": "Big mistakes",
+      "description": "How often a crew mistake is a stuck wheel nut. Rare: one of the eight wheel mistakes. Often: two of them. Off: every mistake is a small one (up to 3 s).",
+      "values": [
+        { "value": "off", "label": "Off" },
+        { "value": "rare", "label": "Rare" },
+        { "value": "often", "label": "Often" }
+      ],
+      "default": "rare",
+      "binds": "db"
+    },
+    {
+      "id": "big_min",
+      "type": "slider",
+      "label": "Big mistake, shortest (s)",
+      "description": "The least time a stuck wheel nut adds to the stop. Keep it below the longest.",
+      "min": 10,
+      "max": 60,
+      "step": 5,
+      "default": 30,
+      "binds": "db"
+    },
+    {
+      "id": "big_max",
+      "type": "slider",
+      "label": "Big mistake, longest (s)",
+      "description": "The most time a stuck wheel nut adds to the stop.",
+      "min": 20,
+      "max": 120,
+      "step": 5,
+      "default": 60,
+      "binds": "db"
+    },
+    {
+      "id": "team_pit_times",
+      "type": "toggle",
+      "label": "Widen team pit times too",
+      "description": "Also widens each team's own pit time range in the pit lane table. That table is read outside the careers too, so Grand Prix and other modes change as well. Off by default.",
+      "default": false,
+      "binds": "db"
+    },
+    {
+      "id": "test_mode",
+      "type": "choice",
+      "label": "Test mode",
+      "description": "For testing only: forces every pit stop, yours and the AI's. Fast: 1.6 s, no mistakes. Slow: 3.0 s, no mistakes. Big mistake: a stuck wheel nut on every stop, using the big mistake times above. Set it back to Off to race.",
+      "values": [
+        { "value": "off", "label": "Off" },
+        { "value": "fast", "label": "Fast stops (1.6 s)" },
+        { "value": "slow", "label": "Slow stops (3.0 s)" },
+        { "value": "big_mistake", "label": "Big mistake every stop" }
+      ],
+      "default": "off",
+      "binds": "db"
+    }
+  ],
+  "operations": {
+    "database": [
+      "db/pitstops.json"
+    ]
+  }
+}

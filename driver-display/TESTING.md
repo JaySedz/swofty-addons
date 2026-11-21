@@ -80,6 +80,18 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [ ] BACKMARKER (compare with the game's own message), PIT WINDOW OPEN, RAIN IN n MIN, FINAL LAP.
 - [ ] Battle alert blink; fuel per lap under the margin.
 
+## 1.1.8 / 1.2.0 (launcher 1.10)
+
+- [ ] FL SLOW PUNCTURE (amber) and FL FULL PUNCTURE (red) from the game's puncture state; TYRE WEAR past 75 % still.
+- [ ] With UDP off: RETIRED from race control, the practice / qualifying layout from the live session type.
+- [ ] YELLOW SECTOR n and SECTOR n CLEAR; nothing under a safety car or red flag.
+- [ ] Car page: a punctured tyre amber, then red from halfway to the burst.
+- [ ] Safety car screen (yellow, 1.2.0): words and values fit; EST. PIT EXIT POS matches the MFD's rejoin position;
+      VSC DELTA under a VSC; SAFETY CAR IN THIS LAP / VSC ENDING across the bottom row; LAP n/total under ERS SOC;
+      the race layout back at the green flag; the Ferrari wheel's copy lines up.
+- [ ] Sector times (practice / qualifying) fully on the screen.
+- [ ] The boot logo leaves no faint copy on the page after it (3 s logo, then 1 s black).
+
 ## Boot screen
 
 - [x] The team logo shows on black when the game hands over the car (Mercedes 0.4.20, Ferrari 0.4.22).

@@ -1,0 +1,59 @@
+{
+  "_comment": "The engine's own trophies, built into pack/ by package.bat (tools/build_pack.py). A track addon writes the same file for its own trophies and builds them into <its addon>/podium-trophies/. id: the trophy type, \"trophy_\" and a-z, 0-9 or _, unique. name: shown in the launcher. donor: the stock trophy whose model layout it takes (default trophy_closed_a, which holds the most vertices) and, with height \"donor\", its height. grip: the stock trophy whose winner's hand pose it gets (default: the donor; \"none\" for no hand pose, as Monaco's). reference/README.md has the stock sizes. source: an OBJ, or \"<game archive>.erp:<model name part>\". height: metres, or \"grip\" (default): the height of the grip trophy, which its hand pose was made for. materials (OBJ only): usemtl name -> a game material path, or your own textures {\"colour\", \"normal\", \"normal_style\": \"opengl\"|\"directx\", \"surface\": \"metal\"|\"plain\"|[r,g,b]|PNG}; a usemtl whose MTL has map_Kd gets its own material without an entry. tracks: the track codes it goes to unless the player picks another trophy for them. preview: optional picture for the launcher. copy_from: game archives whose materials the OBJ's game materials name.",
+  "trophies": [
+    {
+      "id": "trophy_bahrain",
+      "name": "Bahrain GP (career cabinet trophy)",
+      "donor": "trophy_closed_a",
+      "source": "2025_asset_groups/environment_package/core_assets/objects/gen_trophies_agdescs/trophy_country_career_champion_bah_a.erp:trophy_country_career_champion_bah_a",
+      "height": "grip",
+      "tracks": [
+        "bahrain",
+        "bahrain_pad",
+        "bahrain24"
+      ]
+    },
+    {
+      "id": "trophy_austria",
+      "name": "Austrian GP",
+      "donor": "trophy_closed_a",
+      "source": "models/austria/trophy_austria.obj",
+      "height": "grip",
+      "materials": {
+        "trophy_austria_mat": {
+          "colour": "models/austria/trophy_austria_d.png",
+          "normal": "models/austria/trophy_austria_n.png",
+          "surface": "models/austria/trophy_austria_s.png"
+        }
+      },
+      "tracks": [
+        "austria",
+        "austria_reverse"
+      ],
+      "grip": "trophy_modern_b"
+    }
+  ],
+  "_example": {
+    "id": "trophy_my_track",
+    "name": "My Track GP",
+    "donor": "trophy_closed_a",
+    "source": "models/my_trophy.obj",
+    "height": "grip",
+    "tracks": [
+      "my_track"
+    ],
+    "preview": "models/my_trophy.png",
+    "materials": {
+      "body": {
+        "colour": "models/body_d.png",
+        "normal": "models/body_n.png",
+        "surface": "metal"
+      },
+      "base": {
+        "colour": "models/base_d.png",
+        "surface": "plain"
+      }
+    },
+    "grip": "trophy_modern_b"
+  }
+}

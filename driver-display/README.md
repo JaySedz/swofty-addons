@@ -9,7 +9,7 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.1.7. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+**Status: 1.2.0. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
 telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
@@ -71,8 +71,18 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
 - **Across the bottom row** (blue, amber for incidents): BACKMARKER with the driver's code as you close on a lapped car (races), PIT WINDOW OPEN,
   RAIN IN n MIN when the forecast's chance passes 50 % in the dry, RETIRED with the driver's code when a car
   retires, CONTACT with the driver's code when you touch another car; FRONT WING / REAR WING DAMAGE as the damage rises
-  10 points, TYRE WEAR with the corner as a tyre passes 75 % wear, PUNCTURE in red
-  at 100 %.
+  10 points, TYRE WEAR with the corner as a tyre passes 75 % wear (when a puncture becomes
+  possible); FL SLOW PUNCTURE (amber) when the game punctures a tyre and FL FULL PUNCTURE (red) when it bursts,
+  from the game's own puncture state (launcher 1.10's tyre damage library, no UDP needed). With the game's UDP
+  telemetry off, RETIRED comes from the launcher's race control events instead, and the practice / qualifying
+  layout from the live session type.
+- **New in 1.2** (from launcher 1.10, no UDP needed unless noted): YELLOW SECTOR 2 in amber as a sector's yellow
+  comes out and SECTOR 2 CLEAR in blue as it ends; on the car page a punctured tyre turns amber as it deflates and
+  red from halfway to a burst. Safety car screen: while a safety car or VSC is out (after its flag screen), the race
+  page's top two rows become a yellow panel with SC / VSC DELTA, the gear over the speed and EST. PIT EXIT POS (the
+  delta and pit exit position need UDP); the bottom row keeps the tyres, ERS SOC (with the lap under it) and fuel.
+  SAFETY CAR IN THIS LAP / VSC ENDING shows across the bottom row as it ends. The car and pit pages keep the amber
+  bar.
 - **FINAL LAP** over the screen in white (the white flag) as the last lap starts. The gap to the car ahead or behind blinks for 3 s
   as it comes within a second (from lap 2). Under the fuel margin: the margin per lap left (+ to spend, - to save).
 - **Boot screen:** when the game hands you the car (the end of the intro, skipped or watched; else when the car

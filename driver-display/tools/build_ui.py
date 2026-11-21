@@ -796,8 +796,10 @@ def main():
     line('rd_h_tq1', 1075, 218, 1635, 218, 'q')
     line('rd_h_tq2', 1075, 385, 1635, 385, 'q')
     # lap time (running; the finished lap's for 3 s after the line), delta to the reference lap
-    label('rd_l_lap_time', 181, 95, 'LAP TIME', page=0)
-    text('rd_lap_time', 325, 207, H + 'cur', WHITE, scale=1.39, wpx=560, value='-:--.---', page=0)
+    # (1.2.0: hidden on the safety car layout, which has PIT NOW there)
+    label('rd_l_lap_time', 181, 95, 'LAP TIME', visible=H + 'lt_on')
+    text('rd_lap_time', 325, 207, H + 'cur', WHITE, scale=1.39, wpx=560, value='-:--.---', visible=H + 'lt_on')
+    # (the safety car screen is after the race page: sc_screen())
     text('rd_l_delta', 1245, 95, H + 'delta_label', LABEL, style='OSD_14_regular',
          value='PREV LAP', visible=H + 'p0r', scale=1.0, wpx=326)
     for tag, colour, vis in (('g', GREEN, 'delta_neg'), ('r', RED, 'delta_pos')):  # no delta: "--.--" in green
@@ -817,11 +819,82 @@ def main():
     text('rd_speed', 838, 505, 'speed_str', WHITE, scale=1.5, wpx=330, value='0', page=0)
     # gaps
     text('rd_l_ahead', 1205, 368, H + 'code_a', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='AHEAD',
-         visible=H + 'p0r')
+         visible=H + 'gaps_lbl')
     text('rd_gap_a', 1480, 368, H + 'gap_a', YELLOW, scale=0.95, wpx=330, value='-', visible=H + 'gap_a_on')
     text('rd_l_behind', 1205, 492, H + 'code_b', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='BEHIND',
-         visible=H + 'p0r')
+         visible=H + 'gaps_lbl')
     text('rd_gap_b', 1480, 492, H + 'gap_b', GREEN, scale=0.95, wpx=330, value='-', visible=H + 'gap_b_on')
+
+    # ---- the safety car screen (1.2.0, the user's mock-up): while a safety car / VSC is out (after its flag screen),
+    # on the race page, the top two rows turn into a yellow panel with black writing: SC / VSC DELTA | GEAR over the
+    # speed | EST. PIT EXIT POS; the bottom row stays the race layout's (tyres, ERS SOC with LAP n/total under it
+    # in place of the mode badge, fuel). The panel and its words are drawn into textures (quads tinted by their
+    # material: no colour override, whose ~128 nodes are nearly all taken), the four values are black game texts.
+    # Bahnschrift Bold (Windows) draws the words; the drawn pictures ship, not the font.
+    from PIL import ImageDraw as _ID, ImageFont as _IF
+    SC_TOP = (22, 22, 1648, 584)
+    L_SCY = L_TEXT + 2  # over the race page's texts and lines, under the pop-ups and the full screens
+
+    def sc_font(size):
+        f = _IF.truetype(os.path.join(os.environ.get('WINDIR', 'C:/Windows'), 'Fonts', 'bahnschrift.ttf'), size)
+        f.set_variation_by_name('Bold')
+        return f
+
+    def sc_mask(draw_fn):
+        big = Image.new('L', (1672, 944), 0)
+        draw_fn(_ID.Draw(big))
+        return big.resize((836, 472), Image.LANCZOS)
+
+    def bent_poly(pts, bend):
+        out = []
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+            n = max(2, int(max(abs(x1 - x0), abs(y1 - y0)) / 8))
+            out += [bend(x0 + (x1 - x0) * u / n, y0 + (y1 - y0) * u / n) for u in range(n)]
+        return out
+
+    def sc_panel(bend):
+        x0, y0, x1, y1 = SC_TOP
+        return sc_mask(lambda d: d.polygon(bent_poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], bend), fill=255))
+
+    def sc_words(delta_word, bend):
+        def draw(d):
+            for word, cx, cy, size in ((delta_word, 324, 118, 74), ('GEAR', 835, 92, 64),
+                                       ('EST. PIT EXIT POS', 1346, 118, 66)):
+                bx, by = bend(cx, cy)
+                d.text((bx, by), word, font=sc_font(size), fill=255, anchor='mm')
+            for x0, y0, x1, y1 in ((618, 60, 618, 548), (1053, 60, 1053, 548), (690, 392, 980, 392)):
+                n = max(2, int(max(abs(x1 - x0), abs(y1 - y0)) / 8) + 1)
+                pts = [bend(x0 + (x1 - x0) * u / (n - 1), y0 + (y1 - y0) * u / (n - 1)) for u in range(n)]
+                d.line(pts, fill=255, width=8, joint='curve')
+        return sc_mask(draw)
+
+    def sc_screen():
+        def straight(x, y):
+            return x, y
+        vn, vf = split_leaf(H + 'sc_scr')
+        for v, bend, vis in (('n', straight, vn), ('f', ferrari, vf)):
+            tag = f'rd_ovl_scy{v}'
+            car_quad(tag, overlay_texture(tag, sc_panel(bend)), (0, 0, 1670, 942), (250, 225, 0), vis, L_SCY)
+        for kind, word in (('s', 'SC DELTA'), ('v', 'VSC DELTA')):
+            wn, wf = split_leaf(H + f'sc_lbl_{kind}')
+            for v, bend, vis in (('n', straight, wn), ('f', ferrari, wf)):
+                tag = f'rd_ovl_sc{kind}{v}'
+                car_quad(tag, overlay_texture(tag, sc_words(word, bend)), (0, 0, 1670, 942), (12, 12, 12), vis,
+                         L_SCY + 1)
+        BLACK = (10, 10, 10)
+        vis = H + 'sc_scr'
+        text('rd_scd_v', 324, 352, H + 'scd', BLACK, scale=0.62, style='OSD_80_bold', wpx=560, value='-', visible=vis,
+             layer=L_SCY + 1)
+        text('rd_scd_gear', 835, 252, H + 'gear', BLACK, scale=0.85, style='OSD_80_bold', wpx=330, value='N',
+             visible=vis, layer=L_SCY + 1)
+        text('rd_scd_spd', 838, 488, 'speed_str', BLACK, scale=1.5, wpx=330, value='0', visible=vis, layer=L_SCY + 1)
+        text('rd_scd_pit', 1346, 352, H + 'pitnow', BLACK, scale=0.62, style='OSD_80_bold', wpx=560, value='-',
+             visible=vis, layer=L_SCY + 1)
+        # under the ERS SOC, where the mode badge is: the lap
+        text('rd_sc_lap', 861, 848, H + 'sc_lap', WHITE, scale=1.05, style='OSD_19_bold', wpx=470, value='-',
+             visible=vis, layer=L_TEXT + 1)
+
+    sc_screen()
 
     # practice / qualifying / time trial (1.0.16, the user's mock-up): sector times on the right (purple the best of
     # every car, green the player's best, yellow neither), the delta to the best lap under the lap time where the
@@ -831,7 +904,7 @@ def main():
         text(f'rd_l_s{k}', 1133, sy, H + 'none', WHITE, style='OSD_19_bold', scale=1.4, wpx=200, value=f'S{k}',
              visible=H + 'p0q')
         for tag, colour in (('p', PURPLE), ('g', GREEN), ('y', YELLOW)):
-            text(f'rd_s{k}_{tag}', 1452, sy + 10, H + f's{k}', colour, scale=1.5, wpx=400, value='-',
+            text(f'rd_s{k}_{tag}', 1405, sy + 10, H + f's{k}', colour, scale=1.4, wpx=400, value='-',
                  visible=H + f's{k}_{tag}')
     label('rd_l_qd', 430, 355, 'TO PB', visible=H + 'p0q')
     for tag, colour, vis in (('g', GREEN, 'qd_neg'), ('r', RED, 'qd_pos')):  # no best lap: "--.--" in green

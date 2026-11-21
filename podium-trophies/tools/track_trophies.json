@@ -1,0 +1,624 @@
+{
+ "_comment": "Stock F1 25 database facts (game build 26566308): each track code, its tracks.Track trophyType, and the TrackDataSets whose TrackData row for it sets TrackGeneralData_0.trophyType (the others inherit it). build_addon.py points a track at a new trophy type with one database set a listed place.",
+ "tracks": {
+  "melbourne": {
+   "trophyType": "trophy_open_c",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "suzuka": {
+   "trophyType": "trophy_open_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "shanghai": {
+   "trophyType": "trophy_open_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "bahrain": {
+   "trophyType": "trophy_closed_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "jeddah": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "miami": {
+   "trophyType": "trophy_open_c",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "imola": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "monaco": {
+   "trophyType": "trophy_monaco",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "catalunya": {
+   "trophyType": "trophy_open_e",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "montreal": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "austria": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "silverstone": {
+   "trophyType": "trophy_closed_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "spa_francorchamps": {
+   "trophyType": "trophy_modern_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "hungaroring": {
+   "trophyType": "trophy_open_e",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "zandvoort": {
+   "trophyType": "trophy_open_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "monza": {
+   "trophyType": "trophy_open_e",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "baku": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "singapore": {
+   "trophyType": "trophy_modern_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "texas": {
+   "trophyType": "trophy_open_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "mexico": {
+   "trophyType": "trophy_open_c",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "brazil": {
+   "trophyType": "trophy_open_c",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "las_vegas": {
+   "trophyType": "trophy_open_c",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "losail": {
+   "trophyType": "trophy_open_c",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "abu_dhabi": {
+   "trophyType": "trophy_modern_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "portimao": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "paul_ricard": {
+   "trophyType": "trophy_modern_b",
+   "datasets": []
+  },
+  "texas_nat": {
+   "trophyType": "trophy_open_b",
+   "datasets": [
+    "short"
+   ]
+  },
+  "suzuka_east": {
+   "trophyType": "trophy_open_a",
+   "datasets": [
+    "short"
+   ]
+  },
+  "bahrain_pad": {
+   "trophyType": "trophy_closed_a",
+   "datasets": [
+    "short"
+   ]
+  },
+  "silverstone_int": {
+   "trophyType": "trophy_closed_b",
+   "datasets": [
+    "short"
+   ]
+  },
+  "sochi": {
+   "trophyType": "trophy_closed_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2023",
+    "sprint_f1_2024",
+    "f2_2023",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "styria": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f2_2023",
+    "f2_2024",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "hanoi": {
+   "trophyType": "trophy_closed_b",
+   "datasets": [
+    "f1",
+    "f2"
+   ]
+  },
+  "imola_prototype": {
+   "trophyType": "trophy_modern_b",
+   "datasets": []
+  },
+  "melbourne24": {
+   "trophyType": "trophy_open_c",
+   "datasets": []
+  },
+  "bahrain24": {
+   "trophyType": "trophy_closed_a",
+   "datasets": []
+  },
+  "suzuka24": {
+   "trophyType": "trophy_open_a",
+   "datasets": []
+  },
+  "imola24": {
+   "trophyType": "trophy_modern_b",
+   "datasets": []
+  },
+  "miami24": {
+   "trophyType": "trophy_open_c",
+   "datasets": []
+  },
+  "silverstone_reverse": {
+   "trophyType": "trophy_closed_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "austria_reverse": {
+   "trophyType": "trophy_modern_b",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "zandvoort_reverse": {
+   "trophyType": "trophy_open_a",
+   "datasets": [
+    "f1",
+    "f2",
+    "sprint_f1_2025",
+    "f2_2024",
+    "sprint_multiclass",
+    "f2_2025_sprint",
+    "f2_2025",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  },
+  "madrid": {
+   "trophyType": "trophy_open_e",
+   "datasets": [
+    "f1",
+    "f2",
+    "f1_2026",
+    "sprint_f1_2026",
+    "f2_2026_sprint",
+    "f2_2026"
+   ]
+  }
+ }
+}
