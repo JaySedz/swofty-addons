@@ -66,6 +66,17 @@ for w8 in ("front_left", "front_right", "back_left", "back_right"):
     for kind in ("removal", "attachment"):
         for field, value in RR_ON.items():
             s(M % ("slow_%s_wheel_%s" % (w8, kind)), field, value, when={"test_mode": "big_mistake"})
+# with Random stuck nut times each wheel has its own stuck nut: there, every wheel mistake plays its own wheel's
+# "wheel on" sequence and lines instead (later ops win)
+CORNER = {"front_left": ("FL", "FrontLeft", "flw"), "front_right": ("FR", "FrontRight", "frw"),
+          "back_left": ("RL", "BackLeft", "blw"), "back_right": ("RR", "BackRight", "brw")}
+for w8, (code, vo, node) in CORNER.items():
+    on = {"animation_name": code + "ON", "immersive_vo_name": "PitStopImmersive_%sWheel_Attachment" % vo,
+          "cinematic_vo_name": "PitStopCinematic_%sWheel_Attachment" % vo, "event_node_name": node + "_attach"}
+    for kind in ("removal", "attachment"):
+        for field, value in on.items():
+            s(M % ("slow_%s_wheel_%s" % (w8, kind)), field, value,
+              when={"test_mode": "big_mistake", "stuck_length": "random"})
 
 # The pit lane lets a car go when its in-box timer passes a per-stop limit (Game_PitLane_UpdateMovement case 4:
 # rec+0xe4 += dt vs rec+0xe8, + 5 s with a penalty), whatever the crew are doing (0.1.5-0.1.7 tests: released
@@ -80,14 +91,22 @@ json.dump({"schema_version": 1, "ops": ops}, open(os.path.join(HERE, "db", "pits
 
 # the stuck wheel nut sequence, in every F1 pit stop archive the game has (2024, 2025 and 2026 seasons)
 erp_ops = []
-RES = "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence"
+RES = "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstop%s.sequence"
+FIXED = ("10", "15", "20", "30", "60")                                   # rear right only
+RANDOM = (("flon", 5), ("fron", 15), ("rlon", 30), ("rron", 60))       # each wheel its own length
 for year in (24, 25, 26):
-    for when in ({"big_mistakes": "on"}, {"big_mistakes": "off", "test_mode": "big_mistake"}):
+    erp = "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_%d.erp" % year
+    for on in ({"big_mistakes": "on"}, {"big_mistakes": "off", "test_mode": "big_mistake"}):
         for frag, ext in ((0, "sequence"), (1, "tsmd")):
-            erp_ops.append({"op": "replace-resource",
-                            "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_%d.erp" % year,
-                            "resource": RES, "fragment": frag,
-                            "source": "erp/rron_stuck_{{stuck_length}}s.%s" % ext, "when": when})
+            for fwa in ("", "fwa"):  # the plain stop and its front wing adjust version
+                for length in FIXED:
+                    erp_ops.append({"op": "replace-resource", "erp": erp, "resource": RES % (fwa + "rron"),
+                                    "fragment": frag, "source": "erp/%srron_stuck_%ss.%s" % (fwa, length, ext),
+                                    "when": dict(on, stuck_length=length)})
+                for wheel, seconds in RANDOM:
+                    erp_ops.append({"op": "replace-resource", "erp": erp, "resource": RES % (fwa + wheel),
+                                    "fragment": frag, "source": "erp/%s%s_stuck_%ds.%s" % (fwa, wheel, seconds, ext),
+                                    "when": dict(on, stuck_length="random")})
 json.dump({"schema_version": 1, "ops": erp_ops}, open(os.path.join(HERE, "erp", "stuck_nut.json"), "w", newline="\n"),
           indent=1)
 print(len(ops), "db ops,", len(erp_ops), "erp ops")

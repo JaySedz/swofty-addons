@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "author": "Sedz",
   "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, crew mistakes happen more often, and now and then a stuck rear right wheel nut holds the car in the box while the crew fight it. My Team and Driver Career, for you and the AI teams.",
   "license": "MIT",
@@ -46,15 +46,16 @@
       "id": "stuck_length",
       "type": "choice",
       "label": "Stuck wheel nut time",
-      "description": "About how much longer a stop with a stuck wheel nut takes. The game plays the whole stop faster or slower with the crew's rolled speed, so the real time varies a little around it.",
+      "description": "About how much longer a stop with a stuck wheel nut takes (the game plays the whole stop a little faster or slower with the crew's rolled speed). A set time: the rear right wheel. Random: a stuck nut on any wheel, about 5 s on the front left, 15 s on the front right, 30 s on the rear left or 60 s on the rear right, so stuck nuts also come up four times as often.",
       "values": [
         { "value": "10", "label": "10 s" },
         { "value": "15", "label": "15 s" },
         { "value": "20", "label": "20 s" },
         { "value": "30", "label": "30 s" },
-        { "value": "60", "label": "60 s" }
+        { "value": "60", "label": "60 s" },
+        { "value": "random", "label": "Random (5-60 s)" }
       ],
-      "default": "20",
+      "default": "random",
       "binds": "db"
     },
     {
@@ -80,22 +81,11 @@
       "id": "retire_chance",
       "type": "slider",
       "label": "Retirement chance (%)",
-      "description": "How often a stuck wheel nut ends the car's race: the team gives up and the car is retired in its box. Otherwise the crew get the wheel on and the car goes back out. Yours and the AI's. 0 turns retirements off.",
+      "description": "How often a stuck wheel nut ends the car's race. Each stuck wheel nut plays out in full; then either the car goes back out, or the team retires it in its box. Yours and the AI's. 0 turns retirements off. Applies at once.",
       "min": 0,
       "max": 100,
       "step": 5,
       "default": 25,
-      "binds": "native"
-    },
-    {
-      "id": "retire_after",
-      "type": "slider",
-      "label": "Give up after (s in the box)",
-      "description": "How long the crew fight a stuck wheel nut before the team retires the car. If the stuck wheel nut is shorter, the car is retired as soon as the crew finish.",
-      "min": 10,
-      "max": 60,
-      "step": 5,
-      "default": 15,
       "binds": "native"
     },
     {

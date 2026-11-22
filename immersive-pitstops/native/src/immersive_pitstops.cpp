@@ -9,9 +9,12 @@
 //    box is kept just under its limit, for at most max_hold seconds, so the crew finishing ends the stop. Tested
 //    2026-11-22: held 68 s, then dropped and released normally.
 //
-// 2. Retirement (0.2.1). A stop still in the box after kStuck seconds is a stuck wheel nut (a normal stop, even with
-//    the game's own mistake, is well under it). It rolls retire_chance once; on a hit the team gives up after
-//    retire_after seconds in the box (or as soon as the crew finish, if that comes first): the car is retired with
+// 2. Retirement (0.2.1). A stop that runs past the pit lane's own limit (its failsafe timer reaches rec+0xe8) is a
+//    stuck wheel nut: no stock stop gets there, a penalty stop is allowed 5 s more (0.2.3; 0.2.2 used a flat 8 s,
+//    which the AI's front wing adjust mistakes, ~10 s, also reached). It rolls retire_chance once; on a hit the stuck
+//    wheel nut plays out in
+//    full and, when the crew finish (4 -> 5), the team retires the car instead of releasing it (0.2.2; 0.2.1 had a
+//    "give up after" time, dropped at the user's request): the car is retired with
 //    the game's own MessageVehicleStatusRequest (status 7 retired, as the pause menu's Retire posts it), and kept in
 //    its box (its release timer rec+0xf0 held at 0). An AI car is then put in its garage with
 //    Game_Pitlane_SetVehicleStatus(..., 9), as the game removes retired AI cars; your own car stays in the box and the
@@ -28,6 +31,7 @@
 #include <cstdint>
 #include <cstring>
 #include <random>
+#include <string>
 
 #include <swofty/events.hpp>
 #include <swofty/hud.hpp>
@@ -40,7 +44,6 @@
 SWOFTY_SETTING(bool, hold_box, true);      // keep the failsafe off while a car's crew work
 SWOFTY_SETTING(int, max_hold, 120);        // seconds in the box after which the game's failsafe is let back in
 SWOFTY_SETTING(int, retire_chance, 25);    // % of stuck wheel nuts that end the car's race
-SWOFTY_SETTING(int, retire_after, 15);     // seconds in the box before the team gives up on a car it retires
 SWOFTY_SETTING(bool, pit_log, true);       // log each stop's timer and limit (for testing)
 
 namespace {
@@ -50,7 +53,6 @@ constexpr uintptr_t kVehicles = 0x938, kStride = 0x10; // PittingVehicle pointer
 constexpr uintptr_t kGarage = 0xe0, kTimer = 0xe4, kLimit = 0xe8, kReleaseTimer = 0xf0;
 constexpr uint32_t kInPitBox = 4, kCrewDone = 5, kInGarage = 9;
 constexpr float kMargin = 0.5f;  // how far under its limit the timer is kept
-constexpr float kStuck = 8.0f;   // seconds in the box that mark a stuck wheel nut
 constexpr float kToGarage = 5.0f; // seconds after an AI car's retirement before it is put in its garage
 
 // Game::setLocalPlayersStatuses (the pause menu's Retire) posts MessageVehicleStatusRequest to the game's message
@@ -242,20 +244,18 @@ void update(void *mgr, float dt)
                             st.in_box, status, timer, limit, st.held ? " (held)" : "", st.retired ? " (retired)" : "");
                 st.next_log = st.in_box + 2.0f;
             }
-            // the retirement roll, once per stuck stop
-            if (!st.rolled && st.in_box >= kStuck) {
+            // the retirement roll, once per stuck stop: when the stop runs past the pit lane's own limit
+            if (!st.rolled && timer > limit - kMargin) {
                 st.rolled = true;
                 int chance = int(retire_chance), roll = int(rng()() % 100);
                 bool hit = g_status_vtable && roll < chance;
                 g_wants_retire[car].store(hit);
                 swofty::log("[immersive-pitstops] car %u: stuck wheel nut (%.1f s in the box); retirement roll %d against "
-                            "%d %%: %s", car, st.in_box, roll, chance, hit ? "the car will retire" : "it gets fixed");
+                            "%d %%: %s", car, st.in_box, roll, chance, hit ? "the car retires when the crew finish" : "it gets fixed");
             }
             if (g_wants_retire[car].load() && !st.retired) {
                 if (g_retire_now[car].exchange(false))
-                    retire(car, st, "the crew finished first");
-                else if (status == kInPitBox && st.in_box >= std::fmax(kStuck, float(int(retire_after))))
-                    retire(car, st, "in the box");
+                    retire(car, st, "the crew finished");
             }
             // keep a retired car in its box: no failsafe and no release
             if (st.retired) {
@@ -300,12 +300,48 @@ void update(void *mgr, float dt)
 const swofty::detail::mixin reg_update{"Game_PitLane_UpdateMovement", SWOFTY_MIXIN_WRAP, 0, (void *)&update,
                                        (void **)&orig_update};
 
+// Diagnostic (0.2.4, with pit_log): the name of every crew sequence a pit stop plays, to find which versions the
+// AI's ~10 s mistake stops use (0.2.3 test). PitStopInstance::playSequence (launcher binding
+// Game_PitStopInstance_PlaySequence, address only, 2 arguments per the RE notes; the game itself logs "playSequence
+// %d %s") is passed straight through; its second argument is read, guarded, as a name or a pointer to one.
+uint64_t (*orig_play)(void *, void *, void *, void *) = nullptr;
+std::atomic<int> g_play_logged{0};
+
+std::string seq_name(uintptr_t p)
+{
+    std::string s;
+    if (p && swofty::mem::c_string(p, s, 160) && s.size() >= 4 && swofty::mem::printable_utf8(s))
+        return s;
+    uintptr_t q = 0;
+    for (uintptr_t off : {uintptr_t(0), uintptr_t(8), uintptr_t(0x10)})
+        if (p && swofty::mem::read(p + off, q) && q && swofty::mem::c_string(q, s, 160) && s.size() >= 4 &&
+            swofty::mem::printable_utf8(s))
+            return s + (off ? " (at +" + std::to_string(off) + ")" : " (via pointer)");
+    return {};
+}
+
+uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
+{
+    if (bool(pit_log) && g_play_logged.load() < 400) {
+        g_play_logged.fetch_add(1);
+        std::string n = seq_name(reinterpret_cast<uintptr_t>(a2));
+        if (n.empty())
+            n = seq_name(reinterpret_cast<uintptr_t>(a3));
+        swofty::log("[immersive-pitstops] crew sequence: %s (instance %p, args %p %p)", n.empty() ? "?" : n.c_str(), inst,
+                    a2, a3);
+    }
+    return orig_play(inst, a2, a3, a4);
+}
+
+const swofty::detail::mixin reg_play{"Game_PitStopInstance_PlaySequence", SWOFTY_MIXIN_WRAP, 0, (void *)&play_seq,
+                                     (void **)&orig_play};
+
 } // namespace
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[immersive-pitstops] loaded 0.2.1: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts, "
-                "after %d s; log %s", bool(hold_box) ? "on" : "off", int(max_hold), int(retire_chance), int(retire_after),
+    swofty::log("[immersive-pitstops] loaded 0.2.4: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
+                "(when the crew finish); log %s", bool(hold_box) ? "on" : "off", int(max_hold), int(retire_chance),
                 bool(pit_log) ? "on" : "off");
     find_status_request();
     auto r = swofty::events::on<swofty::sessions::events::Pit>().after(
@@ -317,7 +353,7 @@ SWOFTY_ON_LOAD
                 g_wants_retire[e.car].store(false);
                 g_retire_now[e.car].store(false);
             }
-            // the crew finished before the team gave up: retire now, before the release
+            // the crew finished a stuck wheel nut whose roll landed: retire now, before the release
             if (e.previous == kInPitBox && e.status == kCrewDone && g_wants_retire[e.car].load())
                 g_retire_now[e.car].store(true);
             g_status[e.car].store(e.status);

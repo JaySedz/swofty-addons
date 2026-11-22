@@ -34,12 +34,34 @@ from erp import parse  # noqa: E402
 import zstandard  # noqa: E402
 
 ERP = "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_26.erp"
-RESOURCE = "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence"
-WINDOW = (79, 122)          # the rear right crew's tyre-on error, repeated by LOOP tracks
-PAUSE_AT = 122              # where the extra time goes in
-LOOP = {"RR_TG", "RR_TF", "rearright_wheel_gun_prop", "TyreNew_RR_Car1", "TyreNew_RR_Car2", "rr"}
-LENGTHS = (10, 15, 20, 30, 60)  # extra seconds, one file each; over the pit lane limit only with box_limit raised
+RESOURCE = "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstop%s.sequence"
+# The fixed lengths are the rear right wheel's; Random gives each "wheel on" mistake its own length (0.2.2): the
+# game picks which wheel's mistake happens, so the stuck nut's length comes out random.
+# Each also in its front wing adjust ("fwa") version, which the game plays when the stop changes the wing angle
+# (the AI do that a lot: 0.2.2's test had three AI cars on the unedited fwa version).
+_B = [("rron", s) for s in (10, 15, 20, 30, 60)] + [("flon", 5), ("fron", 15), ("rlon", 30)]
+BUILDS = _B + [("fwa" + w, s) for w, s in _B]
+GUN_PROP = {"FL": "frontleft", "FR": "frontright", "RL": "rearleft", "RR": "rearright"}
 FPS = 30
+
+
+def find_window(root):
+    """The struggle: the tyre-on man's tyre_on_error sound, play to stop (rear right: 79..121), and the corner."""
+    clip, play, stop = None, None, None
+    for n, _ in vtf.walk(root):
+        if n.kind:
+            continue
+        if n.name == b"NeSequenceClip":
+            clip = n.attr(b"name").decode()
+        elif n.name == b"Key" and n.attr(b"play") == b"play_anim_tyre_on_error" and play is None:
+            play, corner = int(n.attr(b"time_f")), clip[:2]
+        elif n.name == b"Key" and n.attr(b"play") == b"stop_anim_tyre_on_error" and stop is None:
+            stop = int(n.attr(b"time_f"))
+    if play is None or stop is None or corner not in GUN_PROP:
+        raise SystemExit("no tyre_on_error window in this sequence")
+    loop = {corner + "_TG", corner + "_TF", GUN_PROP[corner] + "_wheel_gun_prop", "TyreNew_%s_Car1" % corner,
+            "TyreNew_%s_Car2" % corner, corner.lower()}
+    return (play, stop + 1), loop
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -88,11 +110,11 @@ def active_key(keys, frame):
     return best
 
 
-def stretch(root, extra):
-    a, b = WINDOW
+def stretch(root, extra, window, LOOP):
+    a, b = window
     d = b - a
     reps = extra // d
-    p = PAUSE_AT
+    p = b  # the pause goes in where the struggle ends
     clip = None
     for node, _ in vtf.walk(root):
         if node.kind:
@@ -109,6 +131,8 @@ def stretch(root, extra):
         for k in anims:
             t, dur = ival(k, b"time_f"), ival(k, b"duration_f")
             start = ival(k, b"animStartTime_f", 0)
+            if loop and a < t < b and dur:
+                raise SystemExit("%s: an AnimKey starts inside the struggle at %d" % (clip, t))
             if t >= p:
                 new_anims.append(anim_key(k, t + extra, dur, start) if dur else shifted(k, extra))
             elif dur == 0 or t + dur <= p:
@@ -170,16 +194,18 @@ def trim(k, dur):
 
 def main():
     game = sys.argv[1] if len(sys.argv) > 1 else r"E:\Steam\steamapps\common\F1 25"
-    stock = read_fragment(game, ERP, RESOURCE, 0)
     out_dir = os.path.join(HERE, "erp")
     os.makedirs(out_dir, exist_ok=True)
-    d = WINDOW[1] - WINDOW[0]
-    for seconds in LENGTHS:
-        extra = round(seconds * FPS / d) * d  # whole repeats of the struggle
+    for wheel, seconds in BUILDS:
+        stock = read_fragment(game, ERP, RESOURCE % wheel, 0)
+        window, loop = find_window(vtf.parse(stock))
+        d = window[1] - window[0]
+        extra = max(1, round(seconds * FPS / d)) * d  # whole repeats of the struggle
         root = vtf.parse(stock)
-        stretch(root, extra)
+        stretch(root, extra, window, loop)
         data = vtf.write(root)
-        base = os.path.join(out_dir, "rron_stuck_%ds" % seconds)
+        base = os.path.join(out_dir, "%s_stuck_%ds" % (wheel, seconds))
+        print("%s: struggle frames %d-%d, looping %s" % (wheel, window[0], window[1], ", ".join(sorted(loop))))
         open(base + ".sequence", "wb").write(data)
         open(base + ".tsmd", "wb").write(vtf.tsmd(vtf.parse(data)))
         print("%s: +%.1f s, %d frames, %d bytes" % (os.path.basename(base), extra / FPS,

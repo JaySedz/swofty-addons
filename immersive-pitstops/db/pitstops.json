@@ -1332,6 +1332,326 @@
    "when": {
     "test_mode": "big_mistake"
    }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
+   "field": "animation_name",
+   "value": "FLON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_FrontLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_FrontLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
+   "field": "event_node_name",
+   "value": "flw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
+   "field": "animation_name",
+   "value": "FLON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_FrontLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_FrontLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "flw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
+   "field": "animation_name",
+   "value": "FRON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_FrontRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_FrontRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
+   "field": "event_node_name",
+   "value": "frw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
+   "field": "animation_name",
+   "value": "FRON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_FrontRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_FrontRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "frw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
+   "field": "animation_name",
+   "value": "RLON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
+   "field": "event_node_name",
+   "value": "blw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
+   "field": "animation_name",
+   "value": "RLON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackLeftWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "blw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
+   "field": "animation_name",
+   "value": "RRON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
+   "field": "event_node_name",
+   "value": "brw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
+   "field": "animation_name",
+   "value": "RRON",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "brw_attach",
+   "when": {
+    "test_mode": "big_mistake",
+    "stuck_length": "random"
+   }
   }
  ]
 }

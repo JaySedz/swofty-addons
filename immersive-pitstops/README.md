@@ -30,11 +30,14 @@ pit crew training level, for your team and for the AI teams:
 | equal performance | 2.24 s | 1.80-2.85 s | 0 % | 8-10 % |
 
 Stuck wheel nut: the game's crew mistakes are pre-made animation sequences, and the car leaves the box when
-its sequence ends; the time loss values in the database don't change that. The rear right "wheel on"
-mistake (`pitstopstartjobdostandardstoprron.sequence` in `pitstops/f1/pitstop_24/25/26.erp`) is rebuilt
-with a pause: the rear right gun man and tyre-on man repeat their struggle while the rest of the crew, the
-jacks and the car hold still, until the stop is 10 to 60 s longer. The game's 5 s and 10 s penalty
-stops hold the car the same way. `tools/make_stuck_nut.py` builds the sequences from the game's own file.
+its sequence ends; the time loss values in the database don't change that. A "wheel on" mistake
+(`pitstopstartjobdostandardstoprron.sequence` and the other three wheels' in `pitstops/f1/pitstop_24/25/26.erp`)
+is rebuilt with a pause: that wheel's gun man and tyre-on man repeat their struggle while the rest of the
+crew, the jacks and the car hold still. With a set time it's the rear right wheel, 10 to 60 s longer; with
+Random all four wheels get one, of different lengths (front left ~5 s, front right ~15 s, rear left ~30 s,
+rear right ~60 s), and since the game picks which wheel's mistake happens, the length comes out random. The
+game's 5 s and 10 s penalty stops hold the car the same way. `tools/make_stuck_nut.py` builds the sequences
+from the game's own files.
 
 The pit lane's failsafe: while a car is in its box the pit lane counts a timer, and when it passes the
 stop's limit (about 20 s) it marks the crew as done and lets the car go, even mid-animation: no "go", no
@@ -46,11 +49,13 @@ The plugin checks the record against the garage the launcher reports before it w
 itself off for the session (logged) if they don't match. No network access, no files written, no
 processes started.
 
-Retirement: a stop still in the box after 8 s is a stuck wheel nut (a normal stop, even with the game's own
-mistake, is well under it), and it rolls the **Retirement chance** once. If it lands, the team gives up
-after **Give up after** seconds in the box (or as soon as the crew finish, if that comes first): the plugin
-sends the game's own "retired" status for the car, the one the pause menu's Retire sends, and keeps the car
-in its box. An AI car is put in its garage 5 s later, as the game does with retired AI cars. Your own car
+Retirement: a stop that runs past the pit lane's own limit for it (about 15.8 s in the box, the failsafe
+above) is a stuck wheel nut: no stock stop gets there, and penalty stops are allowed 5 s more. It rolls the
+**Retirement chance** once. Short stuck nuts (Random's ~5 s front left) finish under the limit, so they never
+end a race. Either way the stuck wheel nut
+plays out in full. If the roll missed, the car goes back out. If it landed, the team retires the car when
+the crew finish: the plugin sends the game's own "retired" status for the car, the one the pause menu's
+Retire sends, and keeps the car in its box. An AI car is put in its garage 5 s later, as the game does with retired AI cars. Your own car
 stays in its box and the game's retirement takes over (the race ends for you). The crew pushing your car
 into the garage, as Terminal Damage does it, isn't in this version.
 
@@ -58,14 +63,14 @@ The F2 bands are unchanged. Mistakes stay switched on only in My Team and Driver
 
 ## Settings
 
-- **Stuck wheel nut**: On (default) or Off. It's one of the eight wheel mistakes, so about one mistake in
-  eight.
-- **Stuck wheel nut time**: about 10, 15, 20 (default), 30 or 60 s. The game plays the whole stop at the
-  crew's rolled speed, so the real time varies a little around the setting.
+- **Stuck wheel nut**: On (default) or Off. With a set time it's one of the eight wheel mistakes (the rear
+  right wheel going on), so about one mistake in eight; with Random four of the eight, one per wheel.
+- **Stuck wheel nut time**: **Random** (default, 5-60 s, see above), or about 10, 15, 20, 30 or 60 s on the
+  rear right. The game plays the whole stop at the crew's rolled speed, so the real time varies a little.
+  Each also comes in the front wing adjust version of the stop (the AI use it often).
 - **Hold the car until the crew finish**: On (default). Off gives the game's own ~20 s limit back.
 - **Longest hold (s)**: 120 by default; the safety cap above.
 - **Retirement chance (%)**: 25 by default; how many stuck wheel nuts end the car's race. 0 turns it off.
-- **Give up after (s in the box)**: 15 by default.
 - **Log pit stops (testing)**: writes each stop's box time and the pit lane's limit to the launcher log.
 - **Widen team pit times too**: also widens each team's range in `pit_lane.pit_times`. That table is read
   outside the careers too, so Grand Prix changes as well. Off by default.
