@@ -9,7 +9,7 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.2.0. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+**Status: 1.2.8. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
 telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
@@ -83,6 +83,25 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   delta and pit exit position need UDP); the bottom row keeps the tyres, ERS SOC (with the lap under it) and fuel.
   SAFETY CAR IN THIS LAP / VSC ENDING shows across the bottom row as it ends. The car and pit pages keep the amber
   bar.
+- **Undercut calls** (1.2.6; races from lap 2, not under a safety car): only around your own pit window (the
+  game's, from 2 laps before its ideal lap to its latest: needs the game's UDP output) and against a car on the same
+  number of stops as you. UNDERCUT CHANCE with the code of the car ahead (blue) as your window comes, when it has
+  been within the gap (3 s by default, setting "Undercut gap") for 8 s: pit to undercut it. UNDERCUT THREAT with the
+  code of the car behind (amber) when it pits from within the gap: pit to cover it. Then NOR OUT  P9  2.1s BEHIND
+  as it leaves the pit lane. No overcut calls: whether staying out pays can't be judged from this data. The pit page
+  shows the cars you'd rejoin between under REJOIN POSITION. Setting "Undercut alerts" turns them off.
+- **Engineer radio tags** (1.2.3, launcher 1.10.20 or later, Steam): the race engineer's important calls as a
+  short tag across the bottom row while he talks: BOX THIS LAP, NEW STRATEGY  DAMAGE, RAIN SOON, MGU FAULT,
+  FLOOR DAMAGE  BOX and so on (blue strategy and weather, amber damage and faults, red a failure). The tag comes
+  from the name of the game's voice line; what the dash already shows itself (punctures, flags, penalties, the
+  pit window, wing damage) gets none. Setting "Engineer radio tags". A full radio page waits until the launcher
+  lets an addon use the MFD's radio.
+- **Catch / hold lap times** (1.2.7, races from lap 3, not under a safety car): once a lap as you cross the line,
+  CATCH LEC  1:31.5 (blue: the lap time that catches the car ahead by the flag) or LEC IN 5 LAPS when you're
+  already catching it, and HOLD NOR  1:32.1 (amber, first) when a quicker car behind would catch you before the
+  flag. Cars within 10 s only. Every car's laps are timed from the live state, its pace the average of its last 3
+  clean laps; the laps left come from the game's total laps (UDP). Stops still to come and tyre wear aren't in it.
+  Setting "Catch / hold lap times".
 - **FINAL LAP** over the screen in white (the white flag) as the last lap starts. The gap to the car ahead or behind blinks for 3 s
   as it comes within a second (from lap 2). Under the fuel margin: the margin per lap left (+ to spend, - to save).
 - **Boot screen:** when the game hands you the car (the end of the intro, skipped or watched; else when the car
@@ -92,8 +111,7 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
 - **2026 Ferrari wheel:** that car's steering wheel bends its screen (the game's own display bends too). On it the
   HUD's text and lines are drawn from copies placed against the measured bend so they show straight ("Ferrari
   wheel correction" setting, on by default; tools/ferrari_2026_warp.json). Other cars are not affected.
-- Tyre temperatures and the fuel margin are white for now: the game's own tyre windows aren't readable yet (a
-  table of compound windows is in the code, `tyre_window`, for when the launcher exposes them).
+- Tyre temperatures and the fuel margin are white: the launcher (1.10) doesn't expose the game's own tyre windows.
 - Lap time and delta hold still while the game pauses its lap packets (replays, flashbacks).
 - The page button is a "UDP Action" bound in the game's Controls menu, on any device (wheel, controller,
   keyboard); UDP Action 1 by default, changeable in the addon's settings.

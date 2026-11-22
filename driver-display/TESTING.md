@@ -90,7 +90,24 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
       VSC DELTA under a VSC; SAFETY CAR IN THIS LAP / VSC ENDING across the bottom row; LAP n/total under ERS SOC;
       the race layout back at the green flag; the Ferrari wheel's copy lines up.
 - [ ] Sector times (practice / qualifying) fully on the screen.
+- [ ] 1.2.6 undercut calls: only near your pit window and against a car on your stop count; UNDERCUT CHANCE for a
+      car steady within the gap ahead as the window comes; UNDERCUT THREAT when the car steady behind pits; nothing
+      for a leader dropping through your place in the pit lane (1.2.5's Leclerc call); no "P0" OUT lines.
+- [ ] Pit page: BETWEEN shows the two cars around the rejoin position (compare with the MFD).
+- [ ] 1.2.3 radio tags: "radio tags: on" at load; a tag on the bottom row for box calls, strategy changes,
+      weather and faults; "radio: eng_... -> TAG / (no tag)" for every engineer line in the log, to tune the list.
+- [x] 1.2.4's held numbers: still blurred and no longer smooth; taken out in 1.2.5 (the game's own wheel screen blurs
+      too: anti-aliasing / upscaling on the scene).
+- [ ] 1.2.7 catch / hold: one call a lap from lap 3; CATCH with a sensible target or "IN n LAPS" when catching;
+      HOLD only when the car behind is quicker; nothing under a safety car, for cars over 10 s away or with UDP off;
+      "pace: lap n of N, mine ...: ..." in the log.
+- [ ] 1.2.8: the game starts on launcher 1.10.23+ (1.2.1-1.2.7 removed wheel elements the F1 / F2 HUD dial
+      templates of flow_options.erp also name: the launcher refused the build). The build keeps them (mod_1..4,
+      ers_null, ignore_null: 465 of 512 nodes); check the options menu's HUD dial preview too.
 - [ ] The boot logo leaves no faint copy on the page after it (3 s logo, then 1 s black).
+- [ ] 1.2.1: the game's own wheel screen is out of the layout (378 of 512 nodes, colour to node 102). Check every
+      page, the boot screen, the flag screens and the safety car screen still draw, and the log has no new errors
+      from the wheel display when it switches on or off (the game's display_enabled / disabled signals).
 
 ## Boot screen
 
@@ -114,6 +131,5 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 
 ## After the launcher's 1.10
 
-- [ ] Tyre temperature colours from the game's own optimum temperatures, if the launcher exposes them (the
-      compound table in `tyre_window` is a setup guide's guess and is off for 1.0).
+- [x] Tyre temperature colours: launcher 1.10 has no optimum temperatures; they stay white (the user's choice).
 - [ ] Review the new bindings for anything the dash can use (the MFD's pit plan, team colours).

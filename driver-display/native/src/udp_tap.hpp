@@ -124,7 +124,6 @@ inline void decode(const uint8_t *d, size_t n)
         g.session_uid = uid;
         g.session_type = -1;
         g.session_left = -1;
-        g.session_uid_seq++;
     }
     g.player = me;
     uint64_t now = GetTickCount64();
@@ -175,7 +174,6 @@ inline void decode(const uint8_t *d, size_t n)
         g.lap_num = c[33];                    // currentLapNum
         g.lap_invalid = c[37] != 0;           // currentLapInvalid
         if (per >= 51) {
-            g.pit_status = c[34];             // pitStatus: 0 none, 1 pitting, 2 in the pit area
             g.stops = c[35];                  // numPitStops
             g.pen_s = c[38];                  // penalties (seconds)
             g.warns = c[39];                  // totalWarnings
@@ -183,8 +181,6 @@ inline void decode(const uint8_t *d, size_t n)
             g.unserved_dt = c[41];            // numUnservedDriveThroughPens
             g.unserved_sg = c[42];            // numUnservedStopGoPens
             g.result = c[45];                 // resultStatus: 2 active, 3 finished, ...
-            g.lane_active = c[46];            // pitLaneTimerActive
-            g.lane_ms = rd<uint16_t>(c + 47); // pitLaneTimeInLaneInMS
             g.stop_ms = rd<uint16_t>(c + 49); // pitStopTimerInMS
         }
         if (per >= 38)
@@ -308,13 +304,6 @@ inline void decode(const uint8_t *d, size_t n)
         g.ot_available = c[4];
         g.ot_active = c[5];
         g.regs2026 = c[8];
-        uint64_t lo = 0, hi = 0;
-        std::memcpy(&lo, c, per >= 8 ? 8 : per);
-        if (per > 8)
-            std::memcpy(&hi, c + 8, per >= 16 ? 8 : per - 8);
-        g.t2_raw[0] = lo;
-        g.t2_raw[1] = hi;
-        g.t2_size = int(per);
         g.t2_tick = now;
         break;
     }
@@ -331,7 +320,6 @@ inline void decode(const uint8_t *d, size_t n)
         g.drs_allowed = c[22];              // drsAllowed: 0 not allowed, 1 allowed
         g.drs_distance = rd<uint16_t>(c + 23); // drsActivationDistance: metres to the next zone, 0 none
         g.fia_flag = int8_t(c[28]);         // vehicleFiaFlags
-        g.tyre_actual = c[25];              // actualTyreCompound (C1..C6, inter, wet)
         g.tyre_visual = c[26];              // visualTyreCompound
         g.tyre_age = c[27];                 // tyresAgeLaps
         g.status_tick = now;
@@ -348,10 +336,6 @@ inline void decode(const uint8_t *d, size_t n)
         g.wear[3] = rd<float>(c + 4);
         g.wear[0] = rd<float>(c + 8);
         g.wear[1] = rd<float>(c + 12);
-        g.dmg_tyre[2] = c[16]; // tyresDamage RL RR FL FR @16
-        g.dmg_tyre[3] = c[17];
-        g.dmg_tyre[0] = c[18];
-        g.dmg_tyre[1] = c[19];
         g.dmg_brake[2] = c[20]; // brakesDamage RL RR FL FR @20
         g.dmg_brake[3] = c[21];
         g.dmg_brake[0] = c[22];
@@ -363,11 +347,8 @@ inline void decode(const uint8_t *d, size_t n)
         g.dmg_floor = c[w + 3];
         g.dmg_diffuser = c[w + 4];
         g.dmg_sidepod = c[w + 5];
-        if (per >= w + 14) { // drsFault, ersFault, gearBoxDamage, engineDamage, then the power unit's wear
+        if (per >= w + 9) // drsFault, ersFault, gearBoxDamage
             g.dmg_gearbox = c[w + 8];
-            g.dmg_engine = c[w + 9];
-            g.wear_ice = c[w + 13];
-        }
         g.damage_tick = now;
         break;
     }

@@ -1,27 +1,17 @@
-// Driver Display: a steering wheel LCD for F1 25, fed from the launcher's car state (no UDP socket of its own).
+// Driver Display: a steering wheel LCD for F1 25. Its layout and template (ui/, built by tools/build_ui.py) bind to
+// HUD leaves under ui_menu_data.hud_rdash_ that this plugin writes every frame (put / put_flag), plus the game's
+// own speed_str and laps_of_fuel_format.
 //
-// The layout and template in ui/ (built by tools/build_ui.py) show the game's own LCD values where it has
-// them (the gear) and these HUD leaves, written here (tyre temperatures t_fl..t_rr from the telemetry too):
-//   ui_menu_data.hud_rdash_last      last lap time "1:31.402"
-//   ui_menu_data.hud_rdash_rpm       engine rpm
-//   ui_menu_data.hud_rdash_delta     live delta to the best lap "-0.21"; with delta_neg / delta_pos /
-//                                    delta_none choosing its green / red / grey copy
-//   ui_menu_data.hud_rdash_speed     km/h
-//   ui_menu_data.hud_rdash_lap       laps completed
-//   ui_menu_data.hud_rdash_soc       ERS store %; soc_ok / soc_low choose its green / red copy
-//   ui_menu_data.hud_rdash_soc01..20 the SOC bar's segments (5 % each)
-//   ui_menu_data.hud_rdash_pos       race position "P3"
-//   ui_menu_data.hud_rdash_gap       gap to the car ahead "+1.234"
-//
-// Data: the launcher's live state (game memory); the launcher's telemetry (decoded from the game's own UDP
-// packets inside the game, so the game's UDP output must be on, but nothing here listens on the port) only
-// when the live state is not there. Lap times are timed here from the lap counter and the frame clock (paused
-// time excluded); with telemetry the game's own last lap time replaces the timed one.
+// Data: the launcher's live state and race control / tyre damage libraries first; the game's UDP packets (read
+// from the game's own sendto calls by udp_tap.hpp, nothing listens on the port) for what only they carry, and the
+// launcher's telemetry when the tap has no packets.
 #include <windows.h>
 
 #include <algorithm>
 #include <atomic>
 #include <mutex>
+#include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <cctype>
 #include <cmath>
@@ -36,6 +26,7 @@
 #include <swofty/mixin.hpp>
 #include <swofty/systems/race_control.hpp>
 #include <swofty/systems/sessions.hpp>
+#include <swofty/systems/speech.hpp>
 #include <swofty/systems/tyre_damage.hpp>
 #include <swofty/telemetry.hpp>
 #include <swofty/view.hpp>
@@ -47,12 +38,14 @@
 
 SWOFTY_SETTING(bool, verbose, false);
 SWOFTY_SETTING(bool, ferrari_fix, true); // the 2026 Ferrari wheel: text and lines placed against its bend
-SWOFTY_SETTING(bool, calibration, false); // a straight grid over the whole display (measuring a wheel's bend);
-// hidden since 1.0.2 (no entry in swofty.json, so it stays off): add the toggle back to measure a new wheel
 SWOFTY_SETTING(int, wear_amber, 40);
 SWOFTY_SETTING(int, wear_red, 70);
 SWOFTY_SETTING(std::string_view, delta_ref, "previous"); // the delta against the previous lap or the best one
 SWOFTY_SETTING(std::string_view, flag_screen, "brief"); // flags over the whole screen: "brief" (4 s) or "full"
+SWOFTY_SETTING(bool, undercut, true);    // 1.2.2: undercut / overcut calls
+SWOFTY_SETTING(int, undercut_window, 3); // seconds: the gap within which a stop next to you counts
+SWOFTY_SETTING(bool, radio_tags, true); // 1.2.3: the engineer's important calls as tags across the bottom row
+SWOFTY_SETTING(bool, pace_targets, true); // 1.2.7: CATCH / HOLD lap time calls
 SWOFTY_SETTING(int, page_action, 1); // "UDP Action" number from the game's controls (any device), 0 = off
 
 namespace {
@@ -65,6 +58,13 @@ struct Leaf {
     int last_b = -1; // 0 / 1 a bool written, 2 a text written
     double age = 99.0;
     int logged = 0;
+    int split = -1;                  // put_flag: -1 not looked up yet, 0 a plain switch, 1 with _n / _f copies
+    Leaf *n = nullptr, *f = nullptr; // its copies when split
+};
+
+struct NameHash {
+    using is_transparent = void;
+    size_t operator()(std::string_view v) const noexcept { return std::hash<std::string_view>{}(v); }
 };
 
 double g_step = 0.0;
@@ -73,22 +73,24 @@ std::atomic<bool> g_to_human{false};
 std::atomic<int64_t> g_player_vehicle{-1}; // the player's vehicle id (live state), for the control event
 int g_page = 0; // the dash page shown: 0 race, 1 car
 bool g_pop_on = false; // a pop-up box covers the info panel
-int g_last_speed = 0;   // km/h, for the packet 16 log
 bool g_overtake = false;
 bool g_held_have = false;
 double g_held_delta = 0.0; // overtake available or active (2026): ERS SOC shows blue
 
-Leaf &leaf(const char *name)
+// the leaf by its name (1.2.1: a hash lookup; 1.2.0 and before built its path and searched every leaf, ~450 times
+// a frame). Leaves live for the whole game.
+Leaf &leaf(std::string_view name)
 {
-    static std::vector<Leaf *> all;
-    std::string path = std::string("ui_menu_data.hud_rdash_") + name;
-    for (Leaf *l : all)
-        if (l->path == path)
-            return *l;
-    all.push_back(new Leaf{path});
-    return *all.back();
+    static std::unordered_map<std::string, Leaf *, NameHash, std::equal_to<>> all;
+    if (auto it = all.find(name); it != all.end())
+        return *it->second;
+    Leaf *l = new Leaf{"ui_menu_data.hud_rdash_" + std::string(name)};
+    all.emplace(std::string(name), l);
+    return *l;
 }
 
+// (1.2.4 held fast numbers for 0.2 s against the blur of the game's anti-aliasing / upscaling on the wheel
+// screen: still blurred and no longer smooth, so 1.2.5 took it out; the game's own wheel screen blurs the same)
 void put(const char *name, const std::string &v)
 {
     Leaf &l = leaf(name);
@@ -115,9 +117,8 @@ void put(const char *, bool) = delete; // a bool goes through put_flag
 // the 2026 Ferrari is the player's car (and its correction is on): the switches in kSplitLeaves show their _f copies
 bool g_fer = false;
 
-void put_flag_one(const char *name, bool v)
+void put_flag_one(Leaf &l, bool v)
 {
-    Leaf &l = leaf(name);
     l.age += g_step;
     if (l.last_b == int(v) && l.age < 2.0)
         return;
@@ -131,12 +132,19 @@ void put_flag_one(const char *name, bool v)
 // 2026 Ferrari wheel's bend) is written as <name>_n (any other car) and <name>_f (the Ferrari) too.
 void put_flag(const char *name, bool v) // a separate name: a char buffer would otherwise pick a bool overload over std::string (0.1.x wrote every text as true)
 {
-    put_flag_one(name, v);
-    static const std::unordered_set<std::string> split(std::begin(kSplitLeaves), std::end(kSplitLeaves));
-    if (split.count(name)) {
-        std::string n = std::string(name) + "_n", f = std::string(name) + "_f";
-        put_flag_one(n.c_str(), v && !g_fer);
-        put_flag_one(f.c_str(), v && g_fer);
+    Leaf &l = leaf(name);
+    put_flag_one(l, v);
+    if (l.split < 0) {
+        static const std::unordered_set<std::string_view> split(std::begin(kSplitLeaves), std::end(kSplitLeaves));
+        l.split = split.count(name) ? 1 : 0;
+        if (l.split) {
+            l.n = &leaf(std::string(name) + "_n");
+            l.f = &leaf(std::string(name) + "_f");
+        }
+    }
+    if (l.split) {
+        put_flag_one(*l.n, v && !g_fer);
+        put_flag_one(*l.f, v && g_fer);
     }
 }
 
@@ -962,6 +970,79 @@ std::mutex g_rc_mu;
 std::vector<int> g_rc_retired; // vehicle ids, from the flow thread's session.car.status
 bool udp_events() { return udp_tap::fresh(udp_tap::g.lap_tick); }
 
+// ------------------------------------------------------------------ radio tags (1.2.3)
+// The race engineer's important radio calls as a short tag across the bottom row (the user's design: the row
+// holds three or four words, and the engineer says the rest in your ear). Launcher 1.10.20's speech.line events
+// give each line's name (its subtitle key's stem, "eng_stratchange_box_02"); the game names its lines by subject,
+// so the tag comes from the name, the first prefix that matches. What the dash already shows from its own data
+// (punctures, the safety car / VSC / red flag, penalties, the pit window, wing damage) has no tag here. Every
+// engineer line is logged with its tag (or none), to tune this list from a race's log.
+struct RadioTag {
+    const char *prefix;
+    const char *tag; // nullptr: not shown
+    char colour;     // 'b' blue (strategy, weather), 'a' amber (damage, faults), 'r' red (failure)
+    bool box_if_pit; // damage: "  BOX" when the line's name says to pit for it (_pit / repair)
+};
+const RadioTag kRadioTags[] = {
+    // strategy and pit calls
+    {"eng_stratchange_box", "BOX THIS LAP", 'b', false},
+    {"eng_vc_fl_box", "BOX THIS LAP", 'b', false},
+    {"eng_pit_conf", "BOX CONFIRMED", 'b', false},
+    {"eng_newstrat_damage", "NEW STRATEGY  DAMAGE", 'a', false},
+    {"eng_newstrat_weather", "NEW STRATEGY  WEATHER", 'b', false},
+    {"eng_newstrat_lowtyrewear", "NEW STRATEGY  TYRES", 'b', false},
+    {"eng_newstrat_wear", "NEW STRATEGY  TYRES", 'b', false},
+    {"eng_strat_lowwear", "NEW STRATEGY  TYRES", 'b', false},
+    {"eng_sc_pitstrat_good", "BOX UNDER THE SC", 'b', false},
+    {"eng_sc_pitstrat_bad", "STAY OUT UNDER THE SC", 'b', false},
+    {"eng_sc_pitstrat", "SC PIT STRATEGY", 'b', false},
+    {"eng_tyre_weather_strat", "TYRES FOR THE WEATHER", 'b', false},
+    {"eng_red_flag_entered_strat", "RED FLAG STRATEGY", 'b', false},
+    // weather
+    {"eng_rainsoon", "RAIN SOON", 'b', false},
+    {"eng_dry_rain", "RAIN STARTING", 'b', false},
+    {"eng_drysoon", "DRYING SOON", 'b', false},
+    {"eng_rain_dry", "TRACK DRYING", 'b', false},
+    {"eng_poorweather", "POOR WEATHER", 'b', false},
+    {"eng_wetness_", "TRACK CONDITIONS CHANGING", 'b', false},
+    // failures and faults
+    {"eng_mechfailure", "MECHANICAL FAILURE", 'r', false},
+    {"eng_pu_fault_mgu", "MGU FAULT", 'a', false},
+    {"eng_pu_fault_turbo", "TURBO FAULT", 'a', false},
+    {"eng_pu_fault_energystore", "ENERGY STORE FAULT", 'a', false},
+    {"eng_pu_fault_controlelectronics", "ELECTRONICS FAULT", 'a', false},
+    {"eng_pu_fault_gb", "GEARBOX FAULT", 'a', false},
+    {"eng_pu_fault", "POWER UNIT FAULT", 'a', false},
+    {"eng_enginefault", "ENGINE FAULT", 'a', false},
+    {"eng_gearbox_jam", "GEARBOX FAULT", 'a', false},
+    {"eng_dam_gb", "GEARBOX DAMAGE", 'a', false},
+    {"eng_randomfault_brakes", "BRAKE FAULT", 'a', false},
+    {"eng_randomfault_cooling", "COOLING FAULT", 'a', false},
+    {"eng_randomfault", "CAR FAULT", 'a', false},
+    {"eng_drs_faultahd", nullptr, 0, false}, // the car ahead's DRS
+    {"eng_drs_fault", "DRS FAULT", 'a', false},
+    {"eng_faultfixed", "FAULT FIXED", 'b', false},
+    // damage the dash has no own alert for
+    {"eng_pldf_dam", "DIFFUSER DAMAGE", 'a', true},
+    {"eng_plub_dam", "FLOOR DAMAGE", 'a', true},
+    {"eng_plbw_dam", "BODYWORK DAMAGE", 'a', true},
+    {"eng_pl_sus_dam", "SUSPENSION DAMAGE", 'a', true},
+    // wing damage: only the calls to pit for it (the dash shows the damage itself)
+    {"eng_plrw_dam", "REAR WING", 'a', true},
+    {"eng_plfw_dam", "FRONT WING", 'a', true},
+};
+
+// the tag of an engineer line's name; nullptr when it has none
+const RadioTag *radio_tag(std::string_view stem)
+{
+    for (const RadioTag &t : kRadioTags)
+        if (stem.rfind(t.prefix, 0) == 0)
+            return t.tag ? &t : nullptr;
+    return nullptr;
+}
+
+std::vector<std::string> g_radio_stems; // engineer lines posted, from the flow thread (g_rc_mu)
+
 std::string g_msg_title, g_msg_sub;
 int g_msg_tone = 6; // the blue screen: the game's overtake colour
 double g_msg_left = 0.0;
@@ -1054,6 +1135,31 @@ void race_messages(double dt)
                     row("RETIRED  " + car_code(v), 'a');
                     swofty::log("[driver-display] race control: car %d retired (no UDP)", v);
                 }
+    }
+    // the engineer's important calls (1.2.3)
+    {
+        std::vector<std::string> stems;
+        {
+            std::lock_guard<std::mutex> l(g_rc_mu);
+            stems.swap(g_radio_stems);
+        }
+        for (const std::string &stem : stems) {
+            const RadioTag *t = radio_tag(stem);
+            std::string tag;
+            if (t) {
+                tag = t->tag;
+                if (t->box_if_pit) {
+                    bool pit = stem.find("_pit") != std::string::npos || stem.find("repair") != std::string::npos;
+                    if (pit)
+                        tag += "  BOX";
+                    else if (tag == "REAR WING" || tag == "FRONT WING")
+                        tag.clear(); // wing damage without a call to pit: the dash's own alert has it
+                }
+            }
+            if (!tag.empty() && bool(radio_tags))
+                row(tag, t->colour, 4.0);
+            swofty::log("[driver-display] radio: %s -> %s", stem.c_str(), tag.empty() ? "(no tag)" : tag.c_str());
+        }
     }
     if (G.coll_seq != scl) {
         scl = G.coll_seq;
@@ -1241,6 +1347,247 @@ void race_extras(const Reading &r)
                 swofty::log("[driver-display] yellow sectors 0x%x -> 0x%x", was, now);
             }
             was = now;
+        }
+    }
+
+    // Undercut calls (1.2.6, the user's rules; 1.2.2-1.2.5 called every stop of the car ahead or behind). Races from
+    // lap 2, no safety car or red flag, and only around your own pit window (the game's, from its UDP session
+    // packet: from 2 laps before its ideal lap to its latest), against a car on the same stop count as you:
+    //   the car ahead, within the window gap, as your window opens   UNDERCUT CHANCE  LEC   (blue: pit to undercut)
+    //   the car behind, within the window gap, pits                   UNDERCUT THREAT  NOR   (amber: pit to cover)
+    //   and that car leaving the pit lane                             NOR OUT  P9  2.1s BEHIND
+    // A neighbour counts only after 8 s next to you within the gap (1.2.2-1.2.5 took the last frame's: a leader
+    // dropping through your place in the pit lane read as the car ahead). Overcut calls are out: whether staying out
+    // pays can't be told from this data, and a wrong call costs the race.
+    if (bool(undercut)) {
+        namespace lv = swofty::live;
+        constexpr double kSettle = 8.0, kRecent = 6.0;
+        static double clock = 0.0;
+        clock += g_step;
+        struct Near {
+            double since = -1.0, last = -1e9; // next to you within the gap: since when, and last seen so
+        };
+        static Near near_ah[SWOFTY_LIVE_MAX_CARS], near_bh[SWOFTY_LIVE_MAX_CARS];
+        static bool was_in[SWOFTY_LIVE_MAX_CARS] = {};
+        static bool threat[SWOFTY_LIVE_MAX_CARS] = {}; // an UNDERCUT THREAT out, its OUT line to come
+        static int chance_said[SWOFTY_LIVE_MAX_CARS];  // your stop count when its UNDERCUT CHANCE was said (-1 none)
+        static uint32_t gen = ~0u;
+        if (ses && ses->generation != gen) {
+            gen = ses->generation;
+            for (int i = 0; i < SWOFTY_LIVE_MAX_CARS; i++) {
+                near_ah[i] = near_bh[i] = Near{};
+                was_in[i] = threat[i] = false;
+                chance_said[i] = -1;
+            }
+        }
+        int window_ms = int(undercut_window) * 1000;
+        auto &G = udp_tap::g;
+        // your pit window: the game's ideal and latest laps (0 when it has none)
+        int ideal = sess ? int(G.pit_ideal) : 0, latest = sess ? int(G.pit_latest) : 0;
+        int lap_now = r.lap + 1;
+        bool window = ideal > 0 && latest >= ideal && lap_now >= ideal - 2 && lap_now <= latest;
+        {
+            static bool told = false;
+            if (race && !told && !(ideal > 0)) {
+                swofty::log("[driver-display] undercut calls: no pit window from the game yet (they need its UDP output)");
+                told = true;
+            }
+        }
+        bool on = race && me && r.sc == 0 && !r.red_flag && r.lap >= 1;
+        auto o = lv::order();
+        int mk = me ? o.rank_of(me->vehicle) : -1;
+        auto gap_of = [](const lv::Car &c) {
+            return lv::has(c, SWOFTY_LIVE_HAVE_GAP_AHEAD) && c.gap_ahead_ms != SWOFTY_LIVE_NO_GAP ? c.gap_ahead_ms : -1;
+        };
+        auto stops_of = [](const lv::Car &c) { return int(lv::pit_stops(c).value_or(0)); };
+        int my_stops = me ? stops_of(*me) : 0;
+        // who is next to you now, within the gap
+        int ah = -1, bh = -1;
+        if (mk > 0) {
+            int g = gap_of(*me);
+            if (g >= 0 && g <= window_ms)
+                ah = int(o.ids[size_t(mk) - 1]);
+        }
+        if (mk >= 0 && size_t(mk) + 1 < o.ids.size())
+            if (auto b = lv::car(o.ids[size_t(mk) + 1]); b && gap_of(*b) >= 0 && gap_of(*b) <= window_ms)
+                bh = int(o.ids[size_t(mk) + 1]);
+        auto settle = [&](Near *list, int id) {
+            for (int i = 0; i < SWOFTY_LIVE_MAX_CARS; i++) {
+                bool now = i == id;
+                if (now && (list[i].since < 0.0 || clock - list[i].last > 1.0))
+                    list[i].since = clock; // newly next to you (or again after a break)
+                if (now)
+                    list[i].last = clock;
+            }
+        };
+        settle(near_ah, ah);
+        settle(near_bh, bh);
+        auto steady = [&](const Near &n) { return n.since >= 0.0 && clock - n.last <= kRecent && n.last - n.since >= kSettle; };
+        auto against_me = [&](const lv::Car &c) {
+            int rk = o.rank_of(c.vehicle);
+            char g[24];
+            if (rk == mk + 1 && gap_of(c) > 0)
+                std::snprintf(g, sizeof g, "%.1fs BEHIND", gap_of(c) / 1000.0);
+            else if (rk == mk - 1 && gap_of(*me) > 0)
+                std::snprintf(g, sizeof g, "%.1fs AHEAD", gap_of(*me) / 1000.0);
+            else
+                std::snprintf(g, sizeof g, "%s", rk > mk ? "BEHIND" : "AHEAD");
+            return std::string(g);
+        };
+        // the car ahead: an undercut chance once your window is near, once per car and stint
+        if (on && window && ah >= 0 && steady(near_ah[ah]) && chance_said[ah] != my_stops && !lv::in_pit(*me))
+            if (auto c = lv::car(uint32_t(ah)); c && !lv::in_pit(*c) && stops_of(*c) == my_stops) {
+                row("UNDERCUT CHANCE  " + car_code(ah), 'b', 5.0);
+                chance_said[ah] = my_stops;
+                swofty::log("[driver-display] undercut chance: car %d %.1f s ahead, lap %d (window %d-%d)", ah,
+                            gap_of(*me) / 1000.0, lap_now, ideal, latest);
+            }
+        for (uint32_t v = 0; v < SWOFTY_LIVE_MAX_CARS; v++) {
+            auto c = lv::car(v);
+            bool in = c && lv::in_pit(*c);
+            bool entered = in && !was_in[v], left = c && !in && was_in[v];
+            was_in[v] = in;
+            if (!on || !c || v == me->vehicle)
+                continue;
+            // the car behind pits: a threat while your window is near and it was on your stop count
+            if (entered && window && steady(near_bh[v]) && (stops_of(*c) == my_stops || stops_of(*c) == my_stops + 1) &&
+                !lv::in_pit(*me)) {
+                // (its count may already include this stop)
+                row("UNDERCUT THREAT  " + car_code(int(v)), 'a', 5.0);
+                threat[v] = true;
+                swofty::log("[driver-display] undercut threat: car %u pitted behind, lap %d (window %d-%d)", v, lap_now,
+                            ideal, latest);
+            }
+            if (left && threat[v]) {
+                threat[v] = false;
+                if (c->position > 0) {
+                    std::string where = against_me(*c);
+                    row(car_code(int(v)) + " OUT  P" + std::to_string(c->position) + "  " + where, 'a', 5.0);
+                    swofty::log("[driver-display] car %u out of the pit lane: P%d, %s", v, c->position, where.c_str());
+                }
+            }
+        }
+    }
+
+    // CATCH / HOLD (1.2.7, the user's request): once a lap, as you cross the line, the lap time you need to catch the
+    // car ahead by the flag (CATCH LEC  1:31.5, or LEC IN 5 LAPS when you're already catching it), or to stay ahead
+    // of a quicker car behind to the flag (HOLD NOR  1:32.1; it goes first). Every car's laps are timed here from the
+    // live state's lap counter (no UDP needed for that); its pace is the average of its last 3 clean laps (no pit
+    // stop, safety car, VSC or red flag, no flashback). The laps left come from the game's total laps (UDP). It
+    // assumes everyone keeps their pace: stops still to come and tyre wear can move the target from lap to lap.
+    if (bool(pace_targets)) {
+        namespace lv = swofty::live;
+        static double clock = 0.0;
+        clock += g_step;
+        struct Laps {
+            int lap = -1;
+            double start = -1.0; // when the lap now being driven started (-1: not timed: it didn't start at the line)
+            bool dirty = false;  // a stop, a caution or a flashback in it
+            float lm = 0.f;      // its lap distance, to see a flashback
+            double t[3] = {};    // the last clean laps, newest first
+            int n = 0;
+        };
+        static Laps laps[SWOFTY_LIVE_MAX_CARS];
+        static uint32_t gen = ~0u;
+        static bool hold_first = true;
+        if (ses && ses->generation != gen) {
+            gen = ses->generation;
+            for (Laps &l : laps)
+                l = Laps{};
+        }
+        bool caution = r.sc != 0 || r.red_flag;
+        int my_new_lap = -1;
+        for (uint32_t v = 0; v < SWOFTY_LIVE_MAX_CARS; v++) {
+            auto c = lv::car(v);
+            Laps &l = laps[v];
+            if (!c || !lv::has(*c, SWOFTY_LIVE_HAVE_PROGRESS)) {
+                l = Laps{};
+                continue;
+            }
+            if (c->lap != l.lap) {
+                if (c->lap == l.lap + 1 && l.start >= 0.0 && !l.dirty) {
+                    for (int k = 2; k > 0; k--)
+                        l.t[k] = l.t[k - 1];
+                    l.t[0] = clock - l.start;
+                    l.n = l.n < 3 ? l.n + 1 : 3;
+                }
+                bool timed = c->lap == l.lap + 1;
+                l.lap = c->lap;
+                l.start = timed ? clock : -1.0; // a jump that isn't one lap (a flashback, the start): not timed
+                l.dirty = false;
+                l.lm = c->lap_m; // (the distance starts again at the line: no flashback)
+                if (me && v == me->vehicle && timed)
+                    my_new_lap = c->lap;
+            }
+            if (lv::in_pit(*c) || caution || c->lap_m + 50.f < l.lm)
+                l.dirty = true; // (the lap distance going back within a lap: a flashback)
+            l.lm = c->lap_m;
+        }
+        auto pace = [&](uint32_t v) {
+            const Laps &l = laps[v];
+            if (l.n < 2)
+                return -1.0;
+            double sum = 0.0;
+            for (int k = 0; k < l.n; k++)
+                sum += l.t[k];
+            return sum / l.n;
+        };
+        auto fmt = [](double secs) {
+            char b[16];
+            int ms = int(std::lround(secs * 10.0)); // tenths
+            std::snprintf(b, sizeof b, "%d:%02d.%d", ms / 600, ms / 10 % 60, ms % 10);
+            return std::string(b);
+        };
+        auto &G = udp_tap::g;
+        int total = sess ? int(G.total_laps) : 0;
+        if (race && me && my_new_lap >= 2 && !caution && total > 0) {
+            int left = total - my_new_lap; // laps still to drive, the one just started included
+            auto o = lv::order();
+            int mk = o.rank_of(me->vehicle);
+            auto gap_of = [](const lv::Car &c) {
+                return lv::has(c, SWOFTY_LIVE_HAVE_GAP_AHEAD) && c.gap_ahead_ms != SWOFTY_LIVE_NO_GAP ? c.gap_ahead_ms : -1;
+            };
+            double mine = pace(me->vehicle);
+            std::string hold, catch_;
+            if (left >= 1 && mk >= 0 && size_t(mk) + 1 < o.ids.size()) {
+                uint32_t b = o.ids[size_t(mk) + 1];
+                auto bc = lv::car(b);
+                double pb = pace(b);
+                int g = bc ? gap_of(*bc) : -1;
+                if (bc && !lv::in_pit(*bc) && g > 0 && g <= 10000 && pb > 0.0 && mine > 0.0 && pb < mine &&
+                    (g / 1000.0) / (mine - pb) < left) // quicker, and it would catch you before the flag
+                    hold = "HOLD " + car_code(int(b)) + "  " + fmt(pb + g / 1000.0 / left);
+            }
+            if (left >= 1 && mk > 0) {
+                uint32_t a = o.ids[size_t(mk) - 1];
+                auto ac = lv::car(a);
+                double pa = pace(a);
+                int g = gap_of(*me);
+                if (ac && !lv::in_pit(*ac) && g > 0 && g <= 10000 && pa > 0.0) {
+                    double gs = g / 1000.0;
+                    if (mine > 0.0 && mine < pa && std::ceil(gs / (pa - mine)) <= left) {
+                        int n = int(std::ceil(gs / (pa - mine)));
+                        catch_ = car_code(int(a)) + " IN " + std::to_string(n) + (n == 1 ? " LAP" : " LAPS");
+                    } else {
+                        catch_ = "CATCH " + car_code(int(a)) + "  " + fmt(pa - gs / left);
+                    }
+                }
+            }
+            // one a lap: the threat from behind first, the catch on the next lap when both apply
+            std::string said;
+            char colour = 'b';
+            if (!hold.empty() && (catch_.empty() || hold_first)) {
+                said = hold;
+                colour = 'a';
+                hold_first = false;
+            } else if (!catch_.empty()) {
+                said = catch_;
+                hold_first = true;
+            }
+            if (!said.empty()) {
+                row(said, colour, 5.0);
+                swofty::log("[driver-display] pace: lap %d of %d, mine %.3f: %s", my_new_lap, total, mine, said.c_str());
+            }
         }
     }
 }
@@ -1472,10 +1819,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
     put_flag("pop_red", on && g_pop_colour == 'r');
     put_flag("pop_dark", on && g_pop_colour == 'a');  // black text on amber
     put_flag("pop_light", on && g_pop_colour != 'a'); // white on blue and red
-    put_flag("pop_on", on);
     g_pop_on = on;
-    put_flag("ers_show", !on && g_page == 0);
-    put_flag("p1_panel", !on && g_page == 1);
 
     // the flag strip across the top of the screen, blinking: yellow for a yellow (also under SC / VSC), blue for
     // a blue flag, red for a red flag
@@ -1493,29 +1837,6 @@ void popups(const Reading &r, const std::string &mode, double dt)
                     : r.sc == 3 ? "formation" : yellow ? "yellow" : blue_flag ? "blue flag" : "green",
                     yellow && fia != 3 ? " (sector, live state)" : "");
         last_flag = flag;
-    }
-}
-
-// ------------------------------------------------------------------ tyre windows
-// The tyre temperature window of each actual compound, as the MFD colours it: blue below the min, red above the
-// max. Starting values from an F1 25 setup guide (min / max per compound; to check against the MFD, one line each).
-struct TyreWindow {
-    const char *name;
-    int min, max;
-};
-TyreWindow tyre_window(int actual)
-{
-    switch (actual) {
-    case 21: return {"C0", 90, 115}; // (not in the guide: as C1)
-    case 20: return {"C1", 90, 115};
-    case 19: return {"C2", 85, 115};
-    case 18: return {"C3", 80, 105};
-    case 17: return {"C4", 75, 100};
-    case 16: return {"C5", 70, 90};
-    case 22: return {"C6", 65, 85};
-    case 7: return {"inter", 60, 80};
-    case 8: return {"wet", 50, 70};
-    default: return {"unknown", 80, 105}; // the compound not known yet: the HUD's old defaults
     }
 }
 
@@ -1681,6 +2002,22 @@ void pit_page(const Reading &r)
     if (sess && G.pit_rejoin > 0) std::snprintf(t, sizeof t, "P%02d", int(G.pit_rejoin));
     else std::snprintf(t, sizeof t, "-");
     put("rejoin", t);
+    // 1.2.2: the cars you'd come out between (the order without you: the rejoin place's car ahead and behind)
+    {
+        std::string between = "-";
+        auto me = swofty::live::player();
+        int j = sess ? int(G.pit_rejoin) : 0;
+        if (me && j > 0) {
+            std::vector<uint32_t> others;
+            for (uint32_t id : swofty::live::order().ids)
+                if (id != me->vehicle)
+                    others.push_back(id);
+            std::string a = j >= 2 && size_t(j - 2) < others.size() ? car_code(int(others[size_t(j - 2)])) : "-";
+            std::string b = size_t(j - 1) < others.size() ? car_code(int(others[size_t(j - 1)])) : "-";
+            between = a + " / " + b;
+        }
+        put("rejoin_cars", between);
+    }
     // the tyre on the car, in its compound's colour, and its age
     char ty = 'h'; // unknown or another compound: the hard's copy (white; 1.0.17 dropped the grey one)
     std::string name = "-";
@@ -1794,23 +2131,6 @@ void aero(double dt)
     put_flag("badge_light", mid && (colour == 'n' || colour == 'p'));
     (void)panel;
 
-    // packet 16's bytes for the player's car, logged on every change (at most 400 lines a session), to map
-    // straight mode: drive through a straight-mode zone and use overtake with the Debug log on
-    static uint64_t last_lo = ~0ull, last_hi = ~0ull;
-    static int lines = 0;
-    if (t2) {
-        uint64_t lo = udp_tap::g.t2_raw[0], hi = udp_tap::g.t2_raw[1];
-        if ((lo != last_lo || hi != last_hi) && lines < 400) {
-            lines++;
-            last_lo = lo;
-            last_hi = hi;
-            char hex[64];
-            for (int i = 0; i < 16; i++)
-                std::snprintf(hex + i * 3, 4, "%02x ", unsigned((i < 8 ? lo >> (8 * i) : hi >> (8 * (i - 8))) & 0xff));
-            swofty::log("[driver-display] packet 16 (%d bytes a car): %s| speed %d drs-allowed %d", int(udp_tap::g.t2_size), hex,
-                        g_last_speed, int(udp_tap::g.drs_allowed));
-        }
-    }
     (void)dt;
 }
 
@@ -1959,7 +2279,6 @@ void on_frame(double dt, void *)
     if (udp_tap::fresh(udp_tap::g.lap_tick) && udp_tap::g.last_lap_ms > 0)
         game_last = udp_tap::g.last_lap_ms / 1000.f;
     float last = game_last > 0.f ? game_last : g_laps.last_s;
-    put("last", laptime(last));
     {
         static int lap_seen = -99;
         static double hold = 0.0;
@@ -2112,9 +2431,6 @@ void on_frame(double dt, void *)
         swofty::log("[driver-display] delta: %s", udp_laps ? "the game's lap clock (lap packets)" : "the addon's own lap timing");
     }
 
-    std::snprintf(t, sizeof t, "%d", r.speed_kmh < 0 ? 0 : r.speed_kmh);
-    put("speed", t);
-    g_last_speed = r.speed_kmh;
     // the lap you're on, as the game's HUD counts it (live gives laps completed)
     {
         int total = udp_tap::g.total_laps;
@@ -2146,8 +2462,8 @@ void on_frame(double dt, void *)
         bool off = std::fmod(phase, 0.5) >= 0.3;
         if (ba_left > 0.0) ba_left -= g_step;
         if (bb_left > 0.0) bb_left -= g_step;
-        put_flag("gap_a_on", on_race0(!(ba_left > 0.0 && off)) && !g_sc_scr);
-        put_flag("gap_b_on", on_race0(!(bb_left > 0.0 && off)) && !g_sc_scr);
+        put_flag("gap_a_on", on_race0(!(ba_left > 0.0 && off)));
+        put_flag("gap_b_on", on_race0(!(bb_left > 0.0 && off)));
     }
     if (r.gap_b_ms > 0) std::snprintf(t, sizeof t, "-%.3f", r.gap_b_ms / 1000.0); else std::snprintf(t, sizeof t, "-");
     put("gap_b", t);
@@ -2178,7 +2494,6 @@ void on_frame(double dt, void *)
                        : r.ers_mode >= 0 && r.ers_mode < 4 ? modes[r.ers_mode]
                        : r.ers_mode >= 0                   ? "MODE " + std::to_string(r.ers_mode)
                                                            : std::string("-");
-    put("ers_mode", mode);
     // brake bias and fuel mix (UDP only)
     bool status = udp_tap::fresh(udp_tap::g.status_tick);
     put("bbal", status && udp_tap::g.bbal >= 0 ? std::to_string(int(udp_tap::g.bbal)) + "%" : std::string("-"));
@@ -2191,12 +2506,9 @@ void on_frame(double dt, void *)
     page_input();
     put_flag("p0", g_page == 0);
     put_flag("p0r", g_page == 0 && !g_quali);
-    put_flag("lt_on", g_page == 0 && !g_sc_scr);              // 1.2.0: the lap time, not on the safety car layout
-    put_flag("gaps_lbl", g_page == 0 && !g_quali && !g_sc_scr); // the gaps' driver codes, likewise
     put_flag("p0q", g_page == 0 && g_quali);
     put_flag("p1", g_page == 1);
     put_flag("p2", g_page == 2);
-    // put_flag("calib", bool(calibration)); // the grid is out of the build since 1.0.15 (tools/build_ui.py, CALIBRATION)
     penalties(r, g_step);
     chequered(r, g_step);
     race_messages(g_step);
@@ -2209,21 +2521,9 @@ void on_frame(double dt, void *)
     put_flag("soc_low", !g_pop_on && !g_overtake && r.soc >= 0 && soc < 15);
     put_flag("soc_ok", !g_pop_on && !g_overtake && r.soc >= 0 && soc >= 15);
     put_flag("soc_b", !g_pop_on && g_overtake && r.soc >= 0);
-    // tyres, colour coded: temperature blue below the cold limit, green in the window, red above the hot limit
-    // (the numbers from the game's packets; without them the game's own formatted temperature shows, uncoloured);
-    // wear green, amber from the first limit, red from the second
+    // tyre temperatures (the game's packets), white: the launcher exposes no optimum windows (1.10)
     static const char *cn[] = {"fl", "fr", "rl", "rr"};
     bool temps = udp_tap::fresh(udp_tap::g.tel_tick);
-    // the window of the compound on the car (the game's status packet)
-    int actual = udp_tap::fresh(udp_tap::g.status_tick) && !udp_tap::g.from_launcher ? int(udp_tap::g.tyre_actual) : -1;
-    TyreWindow tw = tyre_window(actual);
-    {
-        static int logged = -2;
-        if (actual != logged) {
-            swofty::log("[driver-display] tyre compound %s (%d): window %d-%d", tw.name, actual, tw.min, tw.max);
-            logged = actual;
-        }
-    }
     char k[24];
     for (int i = 0; i < 4; i++) {
         int c = temps ? int(udp_tap::g.tyre_inner[i]) : -1;
@@ -2233,12 +2533,9 @@ void on_frame(double dt, void *)
         std::snprintf(t, sizeof t, known ? "%d\xC2\xB0" : "--", c);
         std::snprintf(k, sizeof k, "t_%s", cn[i]);
         put(k, t);
-        // (white since 1.0: the colour by the compound's window, tw, comes back once the launcher exposes the
-        // game's own optimum temperatures; the table is a setup guide's guess)
     }
 
-    // fuel margin, colour coded from the game's packets: green with fuel to spare, red when it needs saving;
-    // without them the game's own value shows, uncoloured
+    // fuel margin from the game's packets, white (1.0); without them the game's own value
     bool fuel_known = udp_tap::fresh(udp_tap::g.status_tick) && udp_tap::g.fuel_laps > -900.f;
     float fl = udp_tap::g.fuel_laps;
     std::snprintf(t, sizeof t, "%+.2f", double(fl));
@@ -2321,7 +2618,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.2.0: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.2.8: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -2347,6 +2644,23 @@ SWOFTY_ON_LOAD
                 g_rc_retired.push_back(int(e.car));
         }
     });
+    // the engineer's radio lines (launcher 1.10.20): their names, for the tags
+    if (swofty::speech::live()) {
+        auto sr = swofty::events::on<swofty::speech::events::Line>().after(
+            [](const swofty::speech::events::Line &l, const swofty::events::Context &) {
+                if (!swofty::speech::radio(l) || !swofty::speech::engineer(l))
+                    return;
+                std::string_view stem = swofty::speech::stem(l);
+                if (stem.empty())
+                    return;
+                std::lock_guard<std::mutex> lk(g_rc_mu);
+                if (g_radio_stems.size() < 16)
+                    g_radio_stems.emplace_back(stem);
+            });
+        swofty::log("[driver-display] radio tags: %s", sr == swofty::events::Result::ok ? "on" : "not available");
+    } else {
+        swofty::log("[driver-display] radio tags: no voice line events on this core or game build");
+    }
     swofty::log("[driver-display] race control events: %s, tyre damage: %s", rr == swofty::events::Result::ok ? "on" : "not available",
                 swofty::hooks::live<swofty::tyre_damage::events::Damage>() ? "live" : "not live");
     try_tap();

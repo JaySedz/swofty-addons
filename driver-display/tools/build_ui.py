@@ -301,6 +301,138 @@ def stock_frags(resource, rtype):
     raise SystemExit(f'{resource} not found under {GAME}')
 
 
+def shared_stock_elements(lcd):
+    """1.2.8: the game's wheel screen elements that other templates in the dash's archives lay out too. The F1 / F2
+    HUD dials of flow_options.erp's hud_dynamic_templates.ui name nodes of the wheel screen (mod_1..mod_4,
+    ers_null, ignore_null), and launcher 1.10.23 refuses a build whose archive loses a node a stock layout step
+    names ("layout step ... was in the stock scenes of this archive and is in no edited scene's nodeidlookup"; a
+    player's report: the game didn't start). Read from the game's own templates, so a game patch is followed."""
+    top = list(lcd.scene.get('children'))
+    owner = {}
+    for k in top:
+        for n in lcd.nodes(k):
+            owner[djb2(n.get('name').v)] = k.get('name').v
+    keep = set()
+
+    def walk(x):
+        if isinstance(x, D):
+            nid = x.get('nodeId')
+            if nid is not None and getattr(nid, 't', None) == 'ui32' and nid.v in owner:
+                keep.add(owner[nid.v])
+            for _, v in x:
+                if isinstance(v, (D, L)):
+                    walk(v)
+        elif isinstance(x, L):
+            for v in x:
+                if isinstance(v, (D, L)):
+                    walk(v)
+    for pkg in PKGS:
+        path = os.path.join(GAME, 'Original_GameData', pkg)
+        if not os.path.exists(path):
+            path = os.path.join(GAME, pkg)
+        f = open(path, 'rb').read()
+        for name, t, frags in erp.entries(f):
+            if t != 'UIDF':
+                continue
+            root = pkgfmt.read(erp.fragment(f, frags[0]))
+            for tplt in root.get('Templates') or []:
+                tname = tplt[0].get('name').v if tplt[0].get('name') is not None else ''
+                if name == TPL and tname == 'lcd_modern':
+                    continue  # the dash's own template
+                walk(tplt)
+    return keep
+
+
+def strip_stock(lcd, tpl, keep=()):
+    """1.2.1: the game's own wheel screen out of the layout. Its 24 elements (133 nodes with their children) sat
+    under the dash's backdrop, drawing nothing anyone saw, and took a quarter of the 512 nodes and the first places
+    of the colour order. The dash's elements were cloned from some of them, which happens before this. The game's
+    15 widgets stay (the template's enabled / disabled signals name two of them), with no nodes to drive: a widget
+    with no node is one the game ships (animations, fuel, mods)."""
+    kids = list(lcd.scene.get('children'))
+    gone = [k for k in kids if not k.get('name').v.startswith('rd_') and k.get('name').v not in keep]
+    hashes = set()
+    for k in gone:
+        hashes |= {djb2(n.get('name').v) for n in lcd.nodes(k)}
+    lcd.scene.set('children', L([k for k in kids if not any(k is g for g in gone)]))
+    lcd.scene0.set('nodeidlookup', L(V('ui32', v) for v in sorted({djb2(n.get('name').v) for n in lcd.nodes()})))
+    dropped = 0
+
+    def walk(c):
+        nonlocal dropped
+        items = list(c) if isinstance(c, L) else [v for _, v in c]
+        if isinstance(c, L) and items and all(isinstance(x, L) for x in items) and \
+                any(isinstance(d, D) and d.get('nodeId') is not None for x in items for d in x):
+            keep = [x for x in items if not any(isinstance(d, D) and d.get('nodeId') is not None and
+                                                d.get('nodeId').v in hashes for d in x)]
+            dropped += len(items) - len(keep)
+            c[:] = keep
+            return
+        for x in items:
+            if isinstance(x, (D, L)):
+                walk(x)
+    for w in tpl.lcd[1]:
+        if w[0].get('name') is None or not w[0].get('name').v.startswith('rd_'):
+            walk(w)
+    print(f'the game\'s wheel screen: {len(gone)} elements ({len(hashes)} nodes) out, {dropped} widget node path(s) '
+          f'with them; kept for other templates: {", ".join(sorted(keep)) or "none"}')
+
+
+def archive_check(lcd_data, tpl_data):
+    """1.2.8: the launcher's rule for an edited archive (packages/core/src/games/f1_25/ui/check/archives.rs, from
+    launcher 1.10.21): every node a template's layout step names that some scene of the archive had before the edit
+    must still be in some scene's nodeidlookup after it, or the launcher refuses to start the game ("UI edit(s)
+    break rules the game's UI loader enforces"). Checked here for both archives the dash edits, with every one of
+    their templates (ours as built), so a layout that breaks it never ships (1.2.1-1.2.7 did: a player's report)."""
+    def lookup(data):
+        try:
+            root = pkgfmt.read(data)
+        except Exception:
+            return set()
+        return {x.v for sc in (root.get('scenelist') or []) for x in (sc.get('nodeidlookup') or [])}
+
+    def node_ids(x, out):
+        if isinstance(x, D):
+            nid = x.get('nodeId')
+            if nid is not None and getattr(nid, 't', None) == 'ui32':
+                dn = x.get('debugName')
+                out[nid.v] = dn.v if dn is not None else '?'
+            for _, v in x:
+                if isinstance(v, (D, L)):
+                    node_ids(v, out)
+        elif isinstance(x, L):
+            for v in x:
+                if isinstance(v, (D, L)):
+                    node_ids(v, out)
+
+    ours = lookup(lcd_data)
+    problems = []
+    for pkg in PKGS:
+        path = os.path.join(GAME, 'Original_GameData', pkg)
+        if not os.path.exists(path):
+            path = os.path.join(GAME, pkg)
+        f = open(path, 'rb').read()
+        before, after, templates = set(), set(), []
+        for name, t, frags in erp.entries(f):
+            if t == 'UILayout':
+                ids = lookup(erp.fragment(f, frags[0]))
+                before |= ids
+                after |= ours if name == LCD else ids
+            elif t == 'UIDF':
+                templates.append((name, tpl_data if name == TPL else erp.fragment(f, frags[0])))
+        for name, data in templates:
+            refs = {}
+            node_ids(pkgfmt.read(data), refs)
+            lost = sorted({refs[i] for i in refs if i in before and i not in after})
+            if lost:
+                problems.append(f'{pkg.rsplit("/", 1)[-1]}: {name.rsplit("/", 1)[-1]} names {", ".join(lost)}, which no '
+                                f'scene of its archive has any more')
+    if problems:
+        raise SystemExit('the launcher would refuse this layout (a template names a node the build removed):\n  ' +
+                         '\n  '.join(problems))
+    print(f'archive check: every template of {len(PKGS)} archive(s) finds its nodes (the launcher\'s rule)')
+
+
 def order_widgets(tpl):
     """The game applies colourOverride to the first ~128 widgets of the template only (0.4.33: the BEHIND gap at
     widget 122 coloured, the tyre temperatures from 126 on and everything after white). The game's own widgets
@@ -318,8 +450,9 @@ def order_widgets(tpl):
     col = [w for w in ours if coloured(w) and not ferrari_copy(w)]
     col_f = [w for w in ours if coloured(w) and ferrari_copy(w)]
     rest = [w for w in ours if not coloured(w)]
-    tpl.lcd[1][:] = stock + col + col_f + rest
-    last = len(stock) + len(col) - 1
+    # 1.2.1: the game's widgets last (strip_stock left them no nodes), so ours take the first places
+    tpl.lcd[1][:] = col + col_f + rest + stock
+    last = len(col) - 1
     last_f = last + len(col_f)
     print(f'colour widgets: every car\'s up to widget {last}, the Ferrari copies up to {last_f} (colour reaches ~128)')
     if last >= 120:
@@ -796,10 +929,8 @@ def main():
     line('rd_h_tq1', 1075, 218, 1635, 218, 'q')
     line('rd_h_tq2', 1075, 385, 1635, 385, 'q')
     # lap time (running; the finished lap's for 3 s after the line), delta to the reference lap
-    # (1.2.0: hidden on the safety car layout, which has PIT NOW there)
-    label('rd_l_lap_time', 181, 95, 'LAP TIME', visible=H + 'lt_on')
-    text('rd_lap_time', 325, 207, H + 'cur', WHITE, scale=1.39, wpx=560, value='-:--.---', visible=H + 'lt_on')
-    # (the safety car screen is after the race page: sc_screen())
+    label('rd_l_lap_time', 181, 95, 'LAP TIME', page=0)
+    text('rd_lap_time', 325, 207, H + 'cur', WHITE, scale=1.39, wpx=560, value='-:--.---', page=0)
     text('rd_l_delta', 1245, 95, H + 'delta_label', LABEL, style='OSD_14_regular',
          value='PREV LAP', visible=H + 'p0r', scale=1.0, wpx=326)
     for tag, colour, vis in (('g', GREEN, 'delta_neg'), ('r', RED, 'delta_pos')):  # no delta: "--.--" in green
@@ -819,10 +950,10 @@ def main():
     text('rd_speed', 838, 505, 'speed_str', WHITE, scale=1.5, wpx=330, value='0', page=0)
     # gaps
     text('rd_l_ahead', 1205, 368, H + 'code_a', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='AHEAD',
-         visible=H + 'gaps_lbl')
+         visible=H + 'p0r')
     text('rd_gap_a', 1480, 368, H + 'gap_a', YELLOW, scale=0.95, wpx=330, value='-', visible=H + 'gap_a_on')
     text('rd_l_behind', 1205, 492, H + 'code_b', LABEL, style='OSD_19_bold', scale=0.9, wpx=240, value='BEHIND',
-         visible=H + 'gaps_lbl')
+         visible=H + 'p0r')
     text('rd_gap_b', 1480, 492, H + 'gap_b', GREEN, scale=0.95, wpx=330, value='-', visible=H + 'gap_b_on')
 
     # ---- the safety car screen (1.2.0, the user's mock-up): while a safety car / VSC is out (after its flag screen),
@@ -885,7 +1016,7 @@ def main():
         vis = H + 'sc_scr'
         text('rd_scd_v', 324, 352, H + 'scd', BLACK, scale=0.62, style='OSD_80_bold', wpx=560, value='-', visible=vis,
              layer=L_SCY + 1)
-        text('rd_scd_gear', 835, 252, H + 'gear', BLACK, scale=0.85, style='OSD_80_bold', wpx=330, value='N',
+        text('rd_scd_gear', 835, 290, H + 'gear', BLACK, scale=0.85, style='OSD_80_bold', wpx=330, value='N',
              visible=vis, layer=L_SCY + 1)
         text('rd_scd_spd', 838, 488, 'speed_str', BLACK, scale=1.5, wpx=330, value='0', visible=vis, layer=L_SCY + 1)
         text('rd_scd_pit', 1346, 352, H + 'pitnow', BLACK, scale=0.62, style='OSD_80_bold', wpx=560, value='-',
@@ -1011,7 +1142,11 @@ def main():
         text(f'rd_tyre_{tag}', 1240, 190, H + 'tyre', colour, scale=1.6, wpx=760, value='-', visible=H + f'ty_{tag}')
     text('rd_tyre_age', 1240, 282, H + 'tyre_age', WHITE, style='OSD_19_bold', wpx=600, value='-', page=2)
     label('rd_l_rejoin', 290, 368, 'REJOIN POSITION', page=2)
-    text('rd_rejoin', 440, 475, H + 'rejoin', WHITE, scale=1.8, wpx=400, value='-', page=2)
+    text('rd_rejoin', 290, 475, H + 'rejoin', WHITE, scale=1.8, wpx=400, value='-', page=2)
+    # the cars you'd come out between (1.2.2): the one ahead / the one behind
+    label('rd_l_rejoin_b', 640, 420, 'BETWEEN', page=2)
+    text('rd_rejoin_cars', 640, 490, H + 'rejoin_cars', WHITE, scale=1.15, style='OSD_19_bold', wpx=360, value='-',
+         page=2)
     label('rd_l_wing', 1110, 368, 'FRONT WING DAMAGE', page=2)
     label('rd_l_wing_lr', 1240, 418, 'LEFT / RIGHT', page=2, colour=GREY)
     for tag, colour in (('g', GREEN), ('a', AMBER), ('r', RED)):  # unknown: "-" in green
@@ -1064,24 +1199,6 @@ def main():
 
     # (two textures since 0.4.23: 0.4.22's 35 rectangles took the display past 512 nodes and it drew nothing; a
     # Ferrari copy of each since 0.4.24, bent the other way: on that wheel it should show straight)
-    # Out of the build since 1.0.15 (it took 5 of the display's 512 nodes; the setting was hidden in 1.0.2). To measure
-    # a new wheel: CALIBRATION = True here, the "calibration" toggle back in swofty.json and the plugin's
-    # put_flag("calib", ...) back.
-    CALIBRATION = False
-    if CALIBRATION:
-        L_CALIB = L_FULL + 9
-        box('rd_cal_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'calib', L_CALIB - 1)
-        grid_segs = [(i * 83.5, 0, i * 83.5, 942, 6) for i in range(21) if i != 10] + \
-                    [(0, j * 78.5, 1670, j * 78.5, 6) for j in range(13) if j != 6]
-        cross_segs = [(835, 0, 835, 942, 6), (0, 471, 1670, 471, 6)]
-        cal_n, cal_f = split_leaf(H + 'calib')
-        for v, bend, vv in (('0', straight, cal_n), ('2', ferrari, cal_f)):
-            car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(grid_segs, bend)), (0, 0, 1670, 942),
-                     (255, 255, 255), vv, L_CALIB)
-        for v, bend, vv in (('1', straight, cal_n), ('3', ferrari, cal_f)):
-            car_quad(f'rd_ovl_grd{v}', overlay_texture(f'rd_ovl_grd{v}', draw_lines(cross_segs, bend)),
-                     (0, 0, 1670, 942), (255, 40, 40), vv, L_CALIB + 1)
-
     # the switches the plugin splits (names after ui_menu_data.hud_rdash_)
     hdr = ['// Written by tools/build_ui.py: the switches drawn as two copies, <name>_n on any other car and',
            '// <name>_f on the 2026 Ferrari (its wheel bends the display; the _f copies are placed against the bend).',
@@ -1091,8 +1208,10 @@ def main():
 
     os.makedirs(os.path.join(ROOT, 'ui', 'clips'), exist_ok=True)
     os.makedirs(os.path.join(ROOT, 'ui', 'tex'), exist_ok=True)
+    strip_stock(lcd, tpl, shared_stock_elements(lcd))
     order_widgets(tpl)
     order_nodes(lcd, tpl)
+    archive_check(lcd.encode(), tpl.encode())  # before anything is written: a refused layout never reaches ui/
     # written after order_nodes (1.0.19): until 1.0.18 it was written before, so the coloured nodes never came first
     # in the game's file and every colour past about node 113 of the creation order showed white (the gaps, the
     # sector times, the pit page's)

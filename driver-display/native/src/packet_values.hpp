@@ -21,9 +21,8 @@ struct Values {
     std::atomic<int> brake_temp[4] = {{-1}, {-1}, {-1}, {-1}};      // FL FR RL RR deg C
     std::atomic<int> engine_temp{-1};                                // deg C (car telemetry engineTemperature)
     std::atomic<int> dmg_fwl{0}, dmg_fwr{0}, dmg_rw{0}, dmg_floor{0}, dmg_diffuser{0}, dmg_sidepod{0};
-    std::atomic<int> dmg_gearbox{0}, dmg_engine{0}, wear_ice{0}; // %
+    std::atomic<int> dmg_gearbox{0}; // %
     std::atomic<int> dmg_brake[4] = {{0}, {0}, {0}, {0}}; // FL FR RL RR %
-    std::atomic<int> dmg_tyre[4] = {{0}, {0}, {0}, {0}};  // FL FR RL RR % (tyresDamage, 1.1.4)
     // presses of "UDP Action 1".."12" (the game's controls; any device): counted when a button goes down
     std::atomic<uint32_t> action_presses[12] = {};
     std::atomic<uint32_t> last_lap_ms{0};
@@ -47,7 +46,6 @@ struct Values {
     // the session type until the new session's own session packet comes (1.0.18: the game sends that only once the
     // race starts, so the grid kept practice's layout)
     std::atomic<uint64_t> session_uid{0};
-    std::atomic<uint32_t> session_uid_seq{0};
     // the player's latest time in each sector (ms, -1 none yet this session) and its colour: 0 yellow (neither best),
     // 1 green (the player's best), 2 purple (the best of every car this session); valid laps only set the bests
     std::atomic<int> sector_ms[3] = {{-1}, {-1}, {-1}};
@@ -56,10 +54,9 @@ struct Values {
     // lap data: pit stops, penalty seconds, warnings, track limit warnings, unserved drive throughs / stop-gos, the
     // result status (2 running, 3 finished), the pit lane timers (the last stop's time in the lane and stationary)
     std::atomic<int> stops{-1}, pen_s{-1}, warns{-1}, tl_warns{-1}, unserved_dt{-1}, unserved_sg{-1};
-    std::atomic<int> result{-1}, pit_status{-1}, lane_active{0}, lane_ms{0}, stop_ms{0};
+    std::atomic<int> result{-1}, stop_ms{0};
     // car status: the tyre on the car (visual compound: 16 soft, 17 medium, 18 hard, 7 inter, 8 wet) and its age
     std::atomic<int> tyre_visual{-1}, tyre_age{-1};
-    std::atomic<int> tyre_actual{-1}; // actualTyreCompound: 16 C5, 17 C4, 18 C3, 19 C2, 20 C1, 21 C0, 22 C6, 7 inter, 8 wet
     // events for the player's car: a penalty (type, infringement, seconds or places), and the chequered flag
     std::atomic<uint32_t> pen_seq{0}, chqf_seq{0};
     // DRS (overtake in the 2026 season) enabled / disabled for the race ("DRSE" / "DRSD"; disabled with a reason:
@@ -86,8 +83,6 @@ struct Values {
     std::atomic<int> ot_available{-1}, ot_active{-1}, regs2026{-1};
     // straight mode (2026), mapped from a 0.4.0 log: active @0, available @1, metres to the next zone u16 @2
     std::atomic<int> st_active{-1}, st_available{-1}, st_distance{-1};
-    std::atomic<uint64_t> t2_raw[2] = {}; // bytes 0..15, little-endian
-    std::atomic<int> t2_size{0};
     std::atomic<bool> from_launcher{false}; // the values stand in from the launcher's telemetry (no part damage)
 };
 inline Values g;
