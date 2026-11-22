@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "0.2.4",
+  "version": "0.2.14",
   "author": "Sedz",
   "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, crew mistakes happen more often, and now and then a stuck rear right wheel nut holds the car in the box while the crew fight it. My Team and Driver Career, for you and the AI teams.",
   "license": "MIT",
@@ -36,8 +36,14 @@
       "label": "Stuck wheel nut",
       "description": "On: the crew mistake on the rear right wheel going on becomes a stuck wheel nut, with the crew fighting the wheel while the car waits on its jacks. It's one of the eight wheel mistakes, so about one mistake in eight. Off: the game's own short mistake.",
       "values": [
-        { "value": "off", "label": "Off" },
-        { "value": "on", "label": "On" }
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "on",
+          "label": "On"
+        }
       ],
       "default": "on",
       "binds": "db"
@@ -48,12 +54,30 @@
       "label": "Stuck wheel nut time",
       "description": "About how much longer a stop with a stuck wheel nut takes (the game plays the whole stop a little faster or slower with the crew's rolled speed). A set time: the rear right wheel. Random: a stuck nut on any wheel, about 5 s on the front left, 15 s on the front right, 30 s on the rear left or 60 s on the rear right, so stuck nuts also come up four times as often.",
       "values": [
-        { "value": "10", "label": "10 s" },
-        { "value": "15", "label": "15 s" },
-        { "value": "20", "label": "20 s" },
-        { "value": "30", "label": "30 s" },
-        { "value": "60", "label": "60 s" },
-        { "value": "random", "label": "Random (5-60 s)" }
+        {
+          "value": "10",
+          "label": "10 s"
+        },
+        {
+          "value": "15",
+          "label": "15 s"
+        },
+        {
+          "value": "20",
+          "label": "20 s"
+        },
+        {
+          "value": "30",
+          "label": "30 s"
+        },
+        {
+          "value": "60",
+          "label": "60 s"
+        },
+        {
+          "value": "random",
+          "label": "Random (5-60 s)"
+        }
       ],
       "default": "random",
       "binds": "db"
@@ -89,6 +113,28 @@
       "binds": "native"
     },
     {
+      "id": "loose_chance",
+      "type": "slider",
+      "label": "Loose wheel chance (%)",
+      "description": "Your car only. How often a normal stop sends you out with a wheel that isn't on properly: you're told to box this lap. Pit and it's fixed; stay out past the line and the wheel comes off and your race is over. 0 turns it off. Applies at once.",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 3,
+      "binds": "native"
+    },
+    {
+      "id": "ai_loose_chance",
+      "type": "slider",
+      "label": "AI loose wheel chance (%)",
+      "description": "How often an AI car's normal stop leaves a wheel loose: it comes off on the car's out-lap and its race is over. Very rare by default. 0 turns it off. Applies at once.",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 1,
+      "binds": "native"
+    },
+    {
       "id": "pit_log",
       "type": "toggle",
       "label": "Log pit stops (testing)",
@@ -110,10 +156,22 @@
       "label": "Test mode",
       "description": "For testing only: forces every pit stop, yours and the AI's. Fast: 1.6 s, no mistakes. Slow: 3.0 s, no mistakes. Stuck wheel nut: a mistake on every stop, and every wheel mistake plays the stuck wheel nut (with the time above). Set it back to Off to race.",
       "values": [
-        { "value": "off", "label": "Off" },
-        { "value": "fast", "label": "Fast stops (1.6 s)" },
-        { "value": "slow", "label": "Slow stops (3.0 s)" },
-        { "value": "big_mistake", "label": "Stuck wheel nut every stop" }
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "fast",
+          "label": "Fast stops (1.6 s)"
+        },
+        {
+          "value": "slow",
+          "label": "Slow stops (3.0 s)"
+        },
+        {
+          "value": "big_mistake",
+          "label": "Stuck wheel nut every stop"
+        }
       ],
       "default": "off",
       "binds": "db"

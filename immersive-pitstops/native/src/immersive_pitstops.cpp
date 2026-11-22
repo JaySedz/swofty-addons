@@ -21,6 +21,14 @@
 //    game's retirement takes over. The message's type and the bus it goes on are found with the byte pattern Terminal
 //    Damage uses (uses work from Terminal Damage by nyannoying, https://github.com/nyannoying1337/f1-25-terminal-damage).
 //
+// 3. Loose wheel (0.2.8; tear-off 0.2.11). After a normal stop (not a stuck wheel nut) loose_chance rolls once for
+//    your car when the crew finish: once released you get "LOOSE WHEEL - BOX THIS LAP". Entering the pit lane gives
+//    a normal stop that fixes it. Crossing the line on track without pitting tears the wheel off (Terminal Damage's
+//    method, below), and the game's own wheel loss ends your race; kFallback seconds later a car still running is
+//    retired. AI cars: ai_loose_chance (very rare) after a normal stop, and the wheel comes off 5-25 s into the
+//    out-lap. (0.2.8-0.2.10 lowered the live suspension damage fields instead: no wheel came off, as kerbs never
+//    count as hits and the car's suspension damage scales are 0.)
+//
 // Offsets and the pattern are our own (from the launcher's notes and Terminal Damage), so this may stop working after
 // a game update: every read is guarded, the plugin checks the pit lane record's garage (+0xe0) against the garage the
 // launcher's live state reports before it writes anything, and a mismatch turns it off for the session (logged).
@@ -30,6 +38,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <random>
 #include <string>
 
@@ -38,12 +47,16 @@
 #include <swofty/live.hpp>
 #include <swofty/mem.hpp>
 #include <swofty/mixin.hpp>
+#include <swofty/systems/cars.hpp>
 #include <swofty/systems/pitlane.hpp>
+#include <swofty/systems/race_control.hpp>
 #include <swofty/systems/sessions.hpp>
 
 SWOFTY_SETTING(bool, hold_box, true);      // keep the failsafe off while a car's crew work
 SWOFTY_SETTING(int, max_hold, 120);        // seconds in the box after which the game's failsafe is let back in
 SWOFTY_SETTING(int, retire_chance, 25);    // % of stuck wheel nuts that end the car's race
+SWOFTY_SETTING(int, loose_chance, 3);      // % of your normal race stops that leave a loose wheel
+SWOFTY_SETTING(float, ai_loose_chance, 1.0f);  // % of AI stops whose loose wheel comes off on the out-lap
 SWOFTY_SETTING(bool, pit_log, true);       // log each stop's timer and limit (for testing)
 
 namespace {
@@ -89,10 +102,13 @@ struct Stop {
 };
 Stop g_stops[kCars]; // only touched on the game thread, inside the wrap
 
-std::mt19937 &rng()
+// random numbers for the rolls, from the game thread and the flow thread
+uint32_t rnd()
 {
     static std::mt19937 r{std::random_device{}()};
-    return r;
+    static std::mutex mu;
+    std::lock_guard<std::mutex> lk(mu);
+    return r();
 }
 
 void off(const char *why, uint32_t car)
@@ -202,11 +218,14 @@ void retire(uint32_t car, Stop &st, const char *when)
         swofty::hud::toast("RETIRED", "Stuck wheel nut: the team retires the car", 6.0f);
 }
 
+namespace loose { void game_tick(); }
+
 void (*orig_update)(void *, float) = nullptr;
 
 void update(void *mgr, float dt)
 {
     uintptr_t m = reinterpret_cast<uintptr_t>(mgr);
+    loose::game_tick(); // wheel tear-offs asked for on the flow thread
     if (m && !g_off.load()) {
         int64_t player = -1;
         if (auto me = swofty::live::player())
@@ -247,7 +266,7 @@ void update(void *mgr, float dt)
             // the retirement roll, once per stuck stop: when the stop runs past the pit lane's own limit
             if (!st.rolled && timer > limit - kMargin) {
                 st.rolled = true;
-                int chance = int(retire_chance), roll = int(rng()() % 100);
+                int chance = int(retire_chance), roll = int(rnd() % 100);
                 bool hit = g_status_vtable && roll < chance;
                 g_wants_retire[car].store(hit);
                 swofty::log("[immersive-pitstops] car %u: stuck wheel nut (%.1f s in the box); retirement roll %d against "
@@ -336,11 +355,218 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
 const swofty::detail::mixin reg_play{"Game_PitStopInstance_PlaySequence", SWOFTY_MIXIN_WRAP, 0, (void *)&play_seq,
                                      (void **)&orig_play};
 
+// --- 3. Loose wheel ---------------------------------------------------------------------------------------------
+// The wheel comes off the way Terminal Damage tears one off (its susp::tear_off, 0.76): the car's suspension damage
+// component is [car + 0x5d0] (it points back at the car at +8); the game's damage of corner i (RL, RR, FL, FR) is the
+// float at +0x130 + 4i and its wheel detach limit the XOR pair +0x58 ^ +0x60. Writing the damage just past the limit
+// makes the game's own check tear the wheel off on its next update, and the game rates the car terminal about 1 s
+// later. Game thread. The car object is the launcher's live car handle (cars::live::cars()).
+namespace loose {
+enum State { none, pending, loose, pitting, fixed, missed, done };
+std::atomic<int> g_state{none};
+std::atomic<int> g_car{-1};          // your car with the loose wheel
+std::atomic<int> g_corner{0};        // which wheel (0 RL, 1 RR, 2 FL, 3 FR)
+std::atomic<bool> g_crossed{false};  // the car crossed the line on track while loose
+std::atomic<int> g_tear[kCars];      // tear-off requests for the game thread: corner + 1
+constexpr float kFallback = 20.0f;   // seconds after the tear-off before the car is retired if still running
+constexpr const char *kCorner[] = {"rear left", "rear right", "front left", "front right"};
+double g_missed_for = 0;
+double g_crossed_for = 0;           // a crossing counts only if no red flag follows within kCrossWait
+constexpr double kCrossWait = 1.5;  // a red flag moves cars into the pit lane, which reads as a line crossing
+std::atomic<bool> g_rebuilt[kCars]; // the car was built again (a restart): forget its loose wheel
+// flashbacks after the wheel came off: your car's progress (lap, metres) going backwards means one
+int g_tear_lap = 0;                 // the lap your car was on when its wheel came off (past the line)
+int g_prev_lap = -1;
+float g_prev_m = 0;
+double g_fb_quiet = -1;             // >= 0: a flashback was seen; seconds since the last backward step
+
+// AI cars: a wheel left loose comes off on the out-lap
+struct Ai {
+    int state = 0;   // 0 none, 1 rolled (waiting to be on track), 2 on track (counting down), 3 torn off, 4 done
+    int corner = 0;
+    double t = 0, delay = 0;
+};
+Ai g_ai[kCars];                       // flow thread only
+std::atomic<bool> g_ai_reset{false};  // a new session: clear g_ai on the flow thread
+std::atomic<int> g_ai_rolled[kCars]; // set by the pit event (game thread): corner + 1
+
+int random_corner() { return int(rnd() % 4); }
+
+// Game thread: tear the wheel off.
+bool tear_off(uint32_t car, int corner)
+{
+    uintptr_t h = 0;
+    for (auto &c : swofty::cars::live::cars())
+        if (c.index() == car)
+            h = reinterpret_cast<uintptr_t>(c.handle());
+    uintptr_t comp = 0, back = 0;
+    uint32_t a = 0, b = 0;
+    if (!h || !swofty::mem::read(h + 0x5d0, comp) || !comp || !swofty::mem::read(comp + 8, back) || back != h ||
+        !swofty::mem::read(comp + 0x58, a) || !swofty::mem::read(comp + 0x60, b)) {
+        swofty::log("[immersive-pitstops] loose wheel: car %u's suspension damage isn't where expected (car %p); no wheel "
+                    "off", car, reinterpret_cast<void *>(h));
+        return false;
+    }
+    uint32_t bits = a ^ b;
+    float w = 0, d = 0;
+    std::memcpy(&w, &bits, 4);
+    if (!(w >= 0.2f && w <= 20.0f) || !swofty::mem::read(comp + 0x130 + 4 * corner, d)) {
+        swofty::log("[immersive-pitstops] loose wheel: car %u's wheel detach limit reads %.3f; no wheel off", car, w);
+        return false;
+    }
+    if (!write_float(comp + 0x130 + 4 * corner, std::fmax(d, 1.02f * w)))
+        return false;
+    swofty::log("[immersive-pitstops] loose wheel: car %u's %s wheel comes off (damage %.2f -> %.2f, detach limit %.2f)",
+                car, kCorner[corner], d, std::fmax(d, 1.02f * w), w);
+    return true;
+}
+
+// Game thread, from the pit lane update: carry out the tear-off requests.
+void game_tick()
+{
+    for (uint32_t car = 0; car < kCars; ++car)
+        if (int r = g_tear[car].exchange(0))
+            tear_off(car, r - 1);
+}
+
+// Flow thread, every frame: your car, then the AI cars.
+void frame(double dt, void *)
+{
+    // a red flag: tyres may be changed, so every loose wheel still on its car is fixed
+    auto rc = swofty::race_control::now();
+    bool red = rc && (rc->red_flag == swofty::race_control::RedFlag::deployed ||
+                      rc->red_flag == swofty::race_control::RedFlag::suspended);
+    if (red) {
+        int ps = g_state.load();
+        if (ps == pending || ps == loose || ps == pitting) {
+            g_state.store(none);
+            swofty::hud::toast("RED FLAG", "The crew fix the loose wheel", 5.0f);
+            swofty::log("[immersive-pitstops] loose wheel: red flag; car %d's wheel is fixed", g_car.load());
+        }
+        for (uint32_t i = 0; i < kCars; ++i)
+            if (g_ai[i].state == 1 || g_ai[i].state == 2) {
+                g_ai[i] = Ai{};
+                swofty::log("[immersive-pitstops] loose wheel: red flag; AI car %u's wheel is fixed", i);
+            }
+    }
+    // a restart builds the cars again
+    for (uint32_t i = 0; i < kCars; ++i)
+        if (g_rebuilt[i].exchange(false)) {
+            g_ai[i] = Ai{};
+            if (int(i) == g_car.load() && g_state.load() != none) {
+                g_state.store(none);
+                swofty::log("[immersive-pitstops] loose wheel: car %u was rebuilt (a restart); forgotten", i);
+            }
+        }
+    int st = g_state.load(), car = g_car.load();
+    if (st != none && car >= 0) {
+        uint32_t pit = g_status[car].load();
+        if (st == fixed) {
+            g_state.store(none);
+            swofty::log("[immersive-pitstops] loose wheel: car %u pitted; the wheel is on properly now", car);
+        } else if (st == pending && (pit == 6 || pit == 7 || pit == 14 || pit == 1)) {
+            g_state.store(loose);
+            g_crossed.store(false);
+            g_crossed_for = 0;
+            swofty::hud::toast("LOOSE WHEEL", "The wheel isn't on properly. Box this lap!", 8.0f);
+            swofty::log("[immersive-pitstops] loose wheel: car %u released with a loose %s wheel; box this lap", car,
+                        kCorner[g_corner.load()]);
+        } else if (st == loose && (pit == 2 || pit == 3 || pit == 4)) {
+            g_state.store(pitting);
+            swofty::log("[immersive-pitstops] loose wheel: car %u is in the pit lane", car);
+        } else if (st == loose && g_crossed.load() && (g_crossed_for += dt) < kCrossWait) {
+            // wait: a red flag right after the crossing means the crossing was the red flag moving the car
+        } else if (st == loose && g_crossed.load()) {
+            g_state.store(missed);
+            g_missed_for = 0;
+            g_tear[car].store(g_corner.load() + 1);
+            g_tear_lap = -1;
+            g_prev_lap = -1;
+            g_fb_quiet = -1;
+            if (auto pc = swofty::live::car(uint32_t(car)); pc && swofty::live::has(*pc, SWOFTY_LIVE_HAVE_PROGRESS))
+                g_tear_lap = pc->lap;
+            swofty::hud::toast("LOOSE WHEEL", "You didn't box: the wheel has come off", 6.0f);
+            swofty::log("[immersive-pitstops] loose wheel: car %u stayed out; its wheel comes off", car);
+        } else if (st == missed) {
+            g_missed_for += dt;
+            auto c = swofty::live::car(uint32_t(car));
+            // a flashback brings the wheel back: watch the car's progress for a backward jump, wait until the
+            // rewind settles, then make it loose again (back before the line) or take it off again (still past it)
+            if (c && swofty::live::has(*c, SWOFTY_LIVE_HAVE_PROGRESS)) {
+                int lap = c->lap;
+                float m = c->lap_m;
+                bool back = g_prev_lap >= 0 && (lap < g_prev_lap || (lap == g_prev_lap && m < g_prev_m - 20.0f));
+                g_prev_lap = lap, g_prev_m = m;
+                if (back) {
+                    g_fb_quiet = 0;
+                    g_missed_for = 0; // the fallback starts again after a flashback
+                }
+                else if (g_fb_quiet >= 0 && (g_fb_quiet += dt) >= 1.0) {
+                    g_fb_quiet = -1;
+                    if (g_tear_lap >= 0 && lap < g_tear_lap) {
+                        g_state.store(loose);
+                        g_crossed.store(false);
+                        g_crossed_for = 0;
+                        swofty::hud::toast("LOOSE WHEEL", "The wheel still isn't on properly. Box this lap!", 6.0f);
+                        swofty::log("[immersive-pitstops] loose wheel: car %d flashed back before the line (lap %d, the "
+                                    "wheel came off on %d): loose again", car, lap, g_tear_lap);
+                        return;
+                    }
+                    g_missed_for = 0;
+                    g_tear[car].store(g_corner.load() + 1);
+                    swofty::log("[immersive-pitstops] loose wheel: car %d flashed back past the line (lap %d): the "
+                                "wheel comes off again", car, lap);
+                }
+            }
+            auto status = c ? swofty::race_control::status(*c) : std::nullopt;
+            if (status && *status != swofty::race_control::Status::running) {
+                g_state.store(done);
+                swofty::log("[immersive-pitstops] loose wheel: car %u is out of the race (status %s)", car,
+                            swofty::race_control::name(*status));
+            } else if (g_missed_for > kFallback && g_fb_quiet < 0) {
+                g_state.store(done);
+                swofty::log("[immersive-pitstops] loose wheel: car %u still running %.0f s after its wheel came off; "
+                            "retiring it", car, g_missed_for);
+                if (post_retired(uint32_t(car)))
+                    swofty::hud::toast("RETIRED", "Loose wheel: the team retires the car", 6.0f);
+            }
+        }
+    }
+    if (g_ai_reset.exchange(false))
+        for (auto &a : g_ai)
+            a = Ai{};
+    for (uint32_t i = 0; i < kCars; ++i) {
+        Ai &a = g_ai[i];
+        if (int r = g_ai_rolled[i].exchange(0)) {
+            a = Ai{1, r - 1, 0, 5.0 + double(rnd() % 21)};  // off 5-25 s into the out-lap
+            continue;
+        }
+        if (a.state == 1 && g_status[i].load() == 1) {
+            a.state = 2;
+            a.t = 0;
+        } else if (a.state == 2 && (a.t += dt) >= a.delay) {
+            a.state = 3;
+            a.t = 0;
+            g_tear[i].store(a.corner + 1);
+        } else if (a.state == 3 && (a.t += dt) >= 30.0) {
+            a.state = 4;
+            auto c = swofty::live::car(i);
+            auto status = c ? swofty::race_control::status(*c) : std::nullopt;
+            if (!status || *status == swofty::race_control::Status::running) {
+                swofty::log("[immersive-pitstops] loose wheel: AI car %u still running 30 s after its wheel came off; "
+                            "retiring it", i);
+                post_retired(i);
+            }
+        }
+    }
+}
+} // namespace loose
+
 } // namespace
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[immersive-pitstops] loaded 0.2.4: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
+    swofty::log("[immersive-pitstops] loaded 0.2.14: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
                 "(when the crew finish); log %s", bool(hold_box) ? "on" : "off", int(max_hold), int(retire_chance),
                 bool(pit_log) ? "on" : "off");
     find_status_request();
@@ -356,6 +582,37 @@ SWOFTY_ON_LOAD
             // the crew finished a stuck wheel nut whose roll landed: retire now, before the release
             if (e.previous == kInPitBox && e.status == kCrewDone && g_wants_retire[e.car].load())
                 g_retire_now[e.car].store(true);
+            // the loose wheel (your car, races): the stop that fixes it, or the roll after a normal stop
+            // (only races have box stops: in practice and qualifying the car is wheeled into its garage)
+            if (e.previous == kInPitBox && e.status == kCrewDone) {
+                auto me = swofty::live::player();
+                if (me && me->vehicle == e.car) {
+                    int ls = loose::g_state.load();
+                    if (ls == loose::pitting) {
+                        loose::g_state.store(loose::fixed);
+                    } else if (ls == loose::none && !g_stops[e.car].rolled && !g_wants_retire[e.car].load()) {
+                        int chance = int(loose_chance), roll = int(rnd() % 100);
+                        bool hit = roll < chance;
+                        swofty::log("[immersive-pitstops] car %u: loose wheel roll %d against %d %%%s", e.car, roll, chance,
+                                    hit ? ": the wheel isn't on properly" : "");
+                        if (hit) {
+                            loose::g_car.store(int(e.car));
+                            loose::g_corner.store(loose::random_corner());
+                            loose::g_state.store(loose::pending);
+                        }
+                    }
+                } else if (!g_stops[e.car].rolled && !g_wants_retire[e.car].load() &&
+                           ![&] { auto c = swofty::live::car(e.car); return c && swofty::pitlane::safety_car(*c); }()) {
+                    // an AI car: a very rare wheel left loose comes off on its out-lap
+                    float chance = float(ai_loose_chance), roll = float(rnd() % 10000) / 100.0f;
+                    if (roll < chance) {
+                        int corner = loose::random_corner();
+                        loose::g_ai_rolled[e.car].store(corner + 1);
+                        swofty::log("[immersive-pitstops] AI car %u: loose wheel roll %.2f against %.2f %%: its %s wheel "
+                                    "will come off on the out-lap", e.car, roll, chance, loose::kCorner[corner]);
+                    }
+                }
+            }
             g_status[e.car].store(e.status);
             if (bool(pit_log) && (e.status == kInPitBox || e.previous == kInPitBox || e.previous == kCrewDone))
                 swofty::log("[immersive-pitstops] car %u pit status %u -> %u", e.car, e.previous, e.status);
@@ -367,7 +624,32 @@ SWOFTY_ON_LOAD
             g_retire_now[i].store(false);
         }
         g_off.store(false);
+        // a new session builds the cars again, so the loose wheel's settings are gone with it
+        loose::g_state.store(loose::none);
+        loose::g_car.store(-1);
+        for (uint32_t i = 0; i < kCars; ++i) {
+            loose::g_tear[i].store(0);
+            loose::g_ai_rolled[i].store(0);
+        }
+        loose::g_ai_reset.store(true);
     });
+    // crossing the line on track with the wheel still loose: the stop was missed
+    auto lp = swofty::events::on<swofty::sessions::events::Lap>().after(
+        [](const swofty::sessions::events::Lap &e, const swofty::events::Context &) {
+            int car = loose::g_car.load();
+            if (loose::g_state.load() == loose::loose && car >= 0 && int(e.car.index()) == car &&
+                g_status[car].load() == 1)
+                loose::g_crossed.store(true);
+        });
+    // a restart builds the cars again (no session.start): forget their loose wheels
+    swofty::events::on<swofty::cars::events::Built>().after(
+        [](const swofty::cars::events::Built &e, const swofty::events::Context &) {
+            if (e.car.index() < kCars)
+                loose::g_rebuilt[e.car.index()].store(true);
+        });
+    swofty::events::on_frame(loose::frame);
+    swofty::log("[immersive-pitstops] loose wheel %d %% of your stops; lap events %s", int(loose_chance),
+                lp == swofty::events::Result::ok ? "on" : "NOT AVAILABLE");
     swofty::log("[immersive-pitstops] session.pit %s, session start %s, pit lane update %s, pit status %s",
                 r == swofty::events::Result::ok ? "on" : "NOT AVAILABLE", s == swofty::events::Result::ok ? "on" : "not available",
                 swofty::api && swofty::api->resolve && swofty::api->resolve("Game_PitLane_UpdateMovement") ? "found" : "NOT FOUND",

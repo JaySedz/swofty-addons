@@ -1,4 +1,4 @@
-# Immersive Pitstops 0.2.4: what to test
+# Immersive Pitstops 0.2.14: what to test
 
 Install `dist\sedz.immersive-pitstops.swoftyaddon` and send the launcher log after each test.
 
@@ -19,6 +19,54 @@ Install `dist\sedz.immersive-pitstops.swoftyaddon` and send the launcher log aft
   is for another build), so 0.2.4 logs the name of every crew sequence itself (`crew sequence: ...` lines,
   with **Log pit stops** on). One test with AI cars pitting names the version.
 - The "go" radio call after a long stop is parked (not needed).
+- 0.2.5-0.2.6 (stuck front wing) were dropped; 0.2.7 is the pre-wing code again.
+
+## Test 0a: loose wheel and flashbacks (0.2.14)
+
+0.2.13 result: with Terminal Damage off, the wheel came off when you stayed out [x] ("very aggressively").
+A flashback right after took you back over the line and brought the wheel back; crossing again didn't take it
+off, but the 20 s fallback still retired you. 0.2.14 watches your car's progress after the wheel came off:
+
+- [ ] Flash back to before the line: "LOOSE WHEEL - The wheel still isn't on properly. Box this lap!", log
+      `flashed back before the line ... loose again`. Cross the line again: the wheel comes off again. Pit
+      instead: it's fixed.
+- [ ] Flash back but stay past the line: log `flashed back past the line ...: the wheel comes off again`.
+- [ ] The 20 s fallback starts again after a flashback, so time in the flashback screen doesn't retire you.
+
+## Test 0b: loose wheel fixes (0.2.13)
+
+0.2.12 result: the AI wheels came off [x] (cars 14, 16, 18, 5, 15, 2 on their out-laps; a red flag followed).
+The red flag then moved cars into the pit lane, which read as your car crossing the line 30 ms later: your
+wheel was torn off by the red flag, not by a missed stop. After Restart Session no popup came: the restart
+fires no session start, so the loose wheel stayed "done". The safety car also got AI rolls. 0.2.13:
+
+- [ ] A red flag fixes every loose wheel still on its car ("RED FLAG - The crew fix the loose wheel", log
+      `red flag; car N's wheel is fixed`), AI ones too.
+- [ ] A line crossing only counts if no red flag follows within 1.5 s.
+- [ ] After Restart Session the loose wheel rolls again at your next stop (log `was rebuilt (a restart)`).
+- [ ] No `AI car 22` (the safety car) loose wheel lines.
+- [ ] Your own wheel coming off when you really miss the stop (AI chance at 1 %).
+
+## Test 0: loose wheel, the wheel coming off (0.2.11)
+
+0.2.10 result: the message, the fix when you pit and the 20 s retirement all worked [x], but no wheel came
+off. The game never counted a hit (kerbs aren't hits; Terminal Damage's suspension log: "hits 0"), and your
+car's suspension damage scales are 0. 0.2.11 tears the wheel off the way Terminal Damage does: the game's own
+damage for that corner set just past its detach limit.
+
+Settings: **Test mode: Off**, **Loose wheel chance: 100 %**, **AI loose wheel chance: 100 %**, **Log
+pit stops: On**. A race; do a normal stop and stay out.
+
+- [ ] Crossing the line: "You didn't box: the wheel has come off", and a wheel really comes off (the rear
+      left, rear right, front left or front right, picked at the stop). The game should end your race
+      itself within a second or two. Log: `stayed out; its wheel comes off`, `car N's <corner> wheel comes off
+      (damage ... -> ..., detach limit ...)`, then `is out of the race (status ...)`.
+- [ ] If instead the log says `suspension damage isn't where expected` or `detach limit reads ...`, the lookup
+      failed on this build: you're retired after 20 s as before.
+- [ ] AI cars: `AI car N: loose wheel roll ... will come off on the out-lap`, and a little later that car loses
+      its wheel on track (the log's `car N's ... wheel comes off`). At 5 % a race with many stops should show
+      one; it may take a couple.
+- [ ] With Terminal Damage's suspension damage on, note whether it reacts (it may log the wheel loss too).
 
 ## Test 1: a retirement (0.2.3 recheck)
 

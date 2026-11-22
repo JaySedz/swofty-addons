@@ -12,8 +12,9 @@ its crew are still working, and retires the car when the team gives up.
 
 Uses work from Terminal Damage by nyannoying:
 [https://github.com/nyannoying1337/f1-25-terminal-damage](https://github.com/nyannoying1337/f1-25-terminal-damage)
-(the way a car is retired: the game's own retirement message and the byte pattern that finds it). Not
-endorsed by Terminal Damage's author.
+(the way a car is retired: the game's own retirement message and the byte pattern that finds it; and the way a
+wheel is torn off: the game's own corner damage set just past its detach limit). Not endorsed by Terminal
+Damage's author.
 
 ## What it changes
 
@@ -59,6 +60,17 @@ Retire sends, and keeps the car in its box. An AI car is put in its garage 5 s l
 stays in its box and the game's retirement takes over (the race ends for you). The crew pushing your car
 into the garage, as Terminal Damage does it, isn't in this version.
 
+Loose wheel: now and then a normal stop sends you out with a wheel that isn't on properly (**Loose wheel
+chance**). As you leave the box you're told "LOOSE WHEEL - box this lap". Come into the pit lane and you get
+a normal stop that fixes it. Cross the line on track without pitting and the wheel comes off: the plugin sets
+the game's own damage for that corner just past its detach limit (Terminal Damage's method: the car's
+suspension damage component, found from the launcher's live car), the game tears the wheel off and its wheel
+loss ends your race. If the car is somehow still running 20 s later, the team retires it. A flashback that
+takes you back before the line leaves the wheel loose again (box this lap, or it comes off at the line); one
+that leaves you past the line takes it off again. AI cars can't be told
+to pit, so for them it's a very rare incident (**AI loose wheel chance**): the wheel comes off 5-25 s into
+the car's out-lap. A red flag fixes any loose wheel still on its car (tyres may be changed under a red flag).
+
 The F2 bands are unchanged. Mistakes stay switched on only in My Team and Driver Career, as in the stock game.
 
 ## Settings
@@ -71,6 +83,9 @@ The F2 bands are unchanged. Mistakes stay switched on only in My Team and Driver
 - **Hold the car until the crew finish**: On (default). Off gives the game's own ~20 s limit back.
 - **Longest hold (s)**: 120 by default; the safety cap above.
 - **Retirement chance (%)**: 25 by default; how many stuck wheel nuts end the car's race. 0 turns it off.
+- **Loose wheel chance (%)**: 3 by default; how many of your normal race stops leave a loose wheel. 0 turns
+  it off.
+- **AI loose wheel chance (%)**: 1 by default (up to 100 for testing); how many AI stops lose a wheel on the out-lap. 0 turns it off.
 - **Log pit stops (testing)**: writes each stop's box time and the pit lane's limit to the launcher log.
 - **Widen team pit times too**: also widens each team's range in `pit_lane.pit_times`. That table is read
   outside the careers too, so Grand Prix changes as well. Off by default.
