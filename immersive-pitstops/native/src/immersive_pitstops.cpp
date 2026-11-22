@@ -29,12 +29,19 @@
 //    out-lap. (0.2.8-0.2.10 lowered the live suspension damage fields instead: no wheel came off, as kerbs never
 //    count as hits and the car's suspension damage scales are 0.)
 //
+// 4. Terminal Damage (0.2.15, optional). When your own car's stuck-nut retirement roll landed and Terminal Damage is
+//    running, the stuck wheel (from the crew sequence's name) is torn off instead of the retirement message being
+//    sent; Terminal Damage rates the car broken (its public API, read only, reports it), and the car is put back in its
+//    box state, where Terminal Damage's crew push a broken car into the garage. If Terminal Damage isn't there or
+//    doesn't react within a few seconds, the game's own retirement is used as before.
+//
 // Offsets and the pattern are our own (from the launcher's notes and Terminal Damage), so this may stop working after
 // a game update: every read is guarded, the plugin checks the pit lane record's garage (+0xe0) against the garage the
 // launcher's live state reports before it writes anything, and a mismatch turns it off for the session (logged).
 #include <windows.h>
 
 #include <atomic>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -153,11 +160,65 @@ bool check(uint32_t car, uintptr_t rec, float timer, float limit)
     return true;
 }
 
+int32_t rel32(uintptr_t at)
+{
+    int32_t r = 0;
+    swofty::mem::read(at, r);
+    return r;
+}
+
+// From the launcher's bindings (0.2.17): Game_Game_RetireLocalPlayer (the pause menu's Retire) calls
+// Game::setLocalPlayersStatuses, which loads the message bus holder (`mov rcx, [rip+g_Game_MessageBus]`) and then the
+// message's type (`lea rdx, [rip+vtable]`) a few instructions later. Both anchors are the launcher's, kept up to date
+// with the game; only the shape of those two instructions is assumed. Checked on the 2026-11-16 build: the same bus
+// and vtable as Terminal Damage's pattern.
+bool find_by_bindings()
+{
+    uintptr_t retire = uintptr_t(swofty::api->resolve("Game_Game_RetireLocalPlayer"));
+    uintptr_t holder = uintptr_t(swofty::api->resolve("g_Game_MessageBus"));
+    if (!retire || !holder) {
+        swofty::log("[immersive-pitstops] retirement: launcher bindings %s%s missing (an older launcher)",
+                    retire ? "" : "Game_Game_RetireLocalPlayer ", holder ? "" : "g_Game_MessageBus");
+        return false;
+    }
+    uint8_t op = 0;
+    for (uintptr_t c = retire; c < retire + 0x100; ++c) {
+        if (!swofty::mem::read(c, op) || op != 0xE8)
+            continue;
+        uintptr_t fn = c + 5 + int64_t(rel32(c + 1));
+        uint8_t b[3];
+        for (uintptr_t i = fn; i < fn + 0x600; ++i) {
+            if (!swofty::mem::read(i, b) || b[0] != 0x48 || b[1] != 0x8B || b[2] != 0x0D || // mov rcx, [rip+x]
+                i + 7 + int64_t(rel32(i + 3)) != holder)
+                continue;
+            for (uintptr_t j = i + 7; j < i + 0x30; ++j) {
+                if (!swofty::mem::read(j, b) || b[0] != 0x48 || b[1] != 0x8D || b[2] != 0x15) // lea rdx, [rip+x]
+                    continue;
+                uintptr_t vt = j + 7 + int64_t(rel32(j + 3)), first = 0;
+                if (!swofty::mem::read(vt, first) || !first)
+                    break;
+                g_bus_holder = holder;
+                g_status_vtable = reinterpret_cast<const void *>(vt);
+                return true;
+            }
+        }
+    }
+    swofty::log("[immersive-pitstops] retirement: the status request isn't where the launcher's bindings lead on this "
+                "build");
+    return false;
+}
+
 void find_status_request()
 {
     if (!swofty::api || !swofty::api->scan || !swofty::api->resolve)
         return;
     g_post = reinterpret_cast<uint64_t (*)(void *, void *)>(swofty::api->resolve("Ne_Post_BusMessage"));
+    if (find_by_bindings()) {
+        swofty::log("[immersive-pitstops] retirement: status request found from the launcher's bindings (bus post %s)",
+                    g_post ? "bound" : "NOT BOUND");
+        return;
+    }
+    // fallback for launchers without those bindings: Terminal Damage's byte pattern
     uintptr_t site = 0;
     int n = swofty::api->scan(".xtls", kStatusRequestSite, &site);
     if (n != 1 || !site) {
@@ -169,7 +230,8 @@ void find_status_request()
     g_bus_holder = site + 7 + int64_t(rel);
     std::memcpy(&rel, reinterpret_cast<const void *>(site + 0x16), 4);
     g_status_vtable = reinterpret_cast<const void *>(site + 0x1a + int64_t(rel));
-    swofty::log("[immersive-pitstops] retirement: status request found (bus post %s)", g_post ? "bound" : "NOT BOUND");
+    swofty::log("[immersive-pitstops] retirement: status request found by the byte pattern (bus post %s)",
+                g_post ? "bound" : "NOT BOUND");
 }
 
 // MessageVehicleStatusRequest for one car, on the game thread.
@@ -191,6 +253,91 @@ bool post_retired(uint32_t car)
     return true;
 }
 
+// Terminal Damage's public API (its terminal_damage_api.h, version 1; Terminal Damage by nyannoying). Only read: it
+// reports your car's state. Optional: without Terminal Damage the game's own retirement is used.
+struct TdPlayerState {
+    uint32_t size, state;
+    int32_t vehicle_id;
+    uint32_t damage_mask, player_out, reserved;
+};
+struct TdApi {
+    uint32_t version, size;
+    int (*get_state)(TdPlayerState *out, uint32_t out_size);
+    uint64_t (*subscribe)(void (*)(const TdPlayerState *, void *), void *);
+    void (*unsubscribe)(uint64_t);
+};
+static_assert(sizeof(TdPlayerState) == 24 && sizeof(TdApi) == 32, "Terminal Damage API v1 layout");
+enum { TD_UNAVAILABLE, TD_RUNNING, TD_LIMPING, TD_RETIRING, TD_IN_GARAGE, TD_RETIRED };
+
+const TdApi *td_api()
+{
+    HMODULE m = GetModuleHandleW(L"terminal_damage_probe.dll");
+    if (!m)
+        return nullptr;
+    auto get = reinterpret_cast<const TdApi *(*)(uint32_t)>(GetProcAddress(m, "TerminalDamageGetApi"));
+    const TdApi *api = get ? get(1) : nullptr;
+    return api && api->version == 1 && api->size >= sizeof(TdApi) && api->get_state ? api : nullptr;
+}
+
+// Terminal Damage's player state, or TD_UNAVAILABLE.
+uint32_t td_state()
+{
+    const TdApi *api = td_api();
+    TdPlayerState s{};
+    s.size = sizeof s;
+    if (!api || !api->get_state(&s, sizeof s))
+        return TD_UNAVAILABLE;
+    return s.state;
+}
+
+// Which wheel a stop's crew sequence is about: the "wheel on" mistakes are ...stopflon/fron/rlon/rron (and the fwa
+// versions). Corner as the tear-off counts them: 0 RL, 1 RR, 2 FL, 3 FR; -1 none.
+int seq_corner(const std::string &name)
+{
+    std::string s = name;
+    for (char &c : s)
+        c = char(std::tolower(static_cast<unsigned char>(c)));
+    if (s.find("rlon") != std::string::npos) return 0;
+    if (s.find("rron") != std::string::npos) return 1;
+    if (s.find("flon") != std::string::npos) return 2;
+    if (s.find("fron") != std::string::npos) return 3;
+    return -1;
+}
+// the last "wheel on" crew sequences: when they started and which wheel
+struct SeqSeen {
+    std::atomic<uint64_t> at{0};
+    std::atomic<int> corner{-1};
+};
+SeqSeen g_seq[8];
+std::atomic<uint32_t> g_seq_next{0};
+std::atomic<uint64_t> g_box_at[kCars]; // when each car last reached its box
+
+// The stuck wheel of a car's stop: a "wheel on" sequence started within 3 s of the car reaching its box.
+// The rear right (the fixed-length stuck nut's wheel) if none is found.
+int stuck_corner(uint32_t car)
+{
+    uint64_t box = g_box_at[car].load(), best = ~0ull;
+    int corner = 1;
+    for (auto &s : g_seq) {
+        uint64_t at = s.at.load();
+        if (!at || at + 1000 < box || at > box + 3000)
+            continue;
+        uint64_t d = at > box ? at - box : box - at;
+        if (d < best)
+            best = d, corner = s.corner.load();
+    }
+    return corner;
+}
+
+// Your stuck-nut retirement with Terminal Damage (0.2.15): the stuck wheel is torn off (Terminal Damage's method,
+// below), Terminal Damage rates the car broken, then the car is put back in its box state (4), which is where
+// Terminal Damage's crew push into the garage starts. Phases per car, game thread.
+enum { td_none, td_waiting, td_handed, td_fallback };
+std::atomic<int> g_td[kCars];
+double g_td_t[kCars];
+std::atomic<uint32_t> g_td_seen[kCars];
+constexpr double kTdBroken = 6.0, kTdPush = 5.0;
+
 void (*orig_set_status)(void *, uint8_t, uint32_t) = nullptr;
 
 void set_status(void *self, uint8_t car, uint32_t status)
@@ -202,8 +349,31 @@ void set_status(void *self, uint8_t car, uint32_t status)
 const swofty::detail::mixin reg_status{"Game_Pitlane_SetVehicleStatus", SWOFTY_MIXIN_WRAP, 0, (void *)&set_status,
                                        (void **)&orig_set_status};
 
+namespace loose { void game_tick(); bool tear_off(uint32_t car, int corner); }
+
+constexpr bool kTdHandOff = false; // the Terminal Damage garage push hand-off (0.2.15), see retire()
+
 void retire(uint32_t car, Stop &st, const char *when)
 {
+    // your car with Terminal Damage running: its crew push the car into the garage. Off since 0.2.16: on the
+    // 2026-11-16 game build Terminal Damage 0.76.4's pit state and setController hooks find nothing, so the push never
+    // starts (0.2.15 test: the torn-off wheel flailed on its tethers, then the game's retirement teleported the car).
+    // Turn back on once Terminal Damage is updated for that build.
+    if (kTdHandOff && st.player && td_state() == TD_RUNNING && g_pit_system.load() && orig_set_status) {
+        int corner = stuck_corner(car);
+        if (loose::tear_off(car, corner)) {
+            st.retired = true; // held in the box as before while Terminal Damage takes over
+            st.since_retire = 0;
+            g_td_t[car] = 0;
+            g_td[car].store(td_waiting);
+            swofty::log("[immersive-pitstops] car %u: the team gives up on the stuck wheel nut (%s, %.1f s in the box); "
+                        "the wheel is taken off for Terminal Damage's push into the garage", car, when, st.in_box);
+            swofty::hud::toast("RETIRED", "Stuck wheel nut: the team retires the car", 6.0f);
+            return;
+        }
+        swofty::log("[immersive-pitstops] car %u: Terminal Damage is running but the wheel couldn't be taken off; the "
+                    "game's own retirement instead", car);
+    }
     if (!post_retired(car)) {
         swofty::log("[immersive-pitstops] car %u: retirement message could not be sent; the stop ends normally", car);
         st.retired = false;
@@ -218,9 +388,57 @@ void retire(uint32_t car, Stop &st, const char *when)
         swofty::hud::toast("RETIRED", "Stuck wheel nut: the team retires the car", 6.0f);
 }
 
-namespace loose { void game_tick(); }
-
 void (*orig_update)(void *, float) = nullptr;
+
+// A car handed to Terminal Damage: hold it in its box until Terminal Damage's push takes it, or retire it the game's
+// way if Terminal Damage doesn't react. Game thread.
+void td_tick(uintptr_t m, uint32_t car, float dt)
+{
+    int ph = g_td[car].load();
+    uint32_t status = g_status[car].load();
+    uintptr_t rec = 0;
+    float timer = 0, limit = 0;
+    if (swofty::mem::read(m + kVehicles + car * kStride, rec) && rec && swofty::mem::read(rec + kTimer, timer) &&
+        swofty::mem::read(rec + kLimit, limit)) {
+        if ((status == kInPitBox || status == kCrewDone) && timer > limit - kMargin)
+            write_float(rec + kTimer, std::fmax(0.0f, limit - kMargin));
+        if (status == kCrewDone)
+            write_float(rec + kReleaseTimer, 0.0f);
+    }
+    if (ph == td_fallback)
+        return;
+    g_td_t[car] += dt;
+    uint32_t td = td_state();
+    if (ph == td_waiting) {
+        if (td == TD_LIMPING || td == TD_RETIRING) {
+            g_td[car].store(td_handed);
+            g_td_t[car] = 0;
+            void *sys = g_pit_system.load();
+            swofty::log("[immersive-pitstops] car %u: Terminal Damage rates the car broken (state %u); back to its box "
+                        "state for the push into the garage", car, td);
+            if (td == TD_LIMPING && sys && orig_set_status)
+                orig_set_status(sys, uint8_t(car), kInPitBox);
+            return;
+        }
+        if (g_td_t[car] < kTdBroken)
+            return;
+        swofty::log("[immersive-pitstops] car %u: Terminal Damage didn't rate the car broken in %.0f s (state %u); the "
+                    "game's own retirement", car, kTdBroken, td);
+    } else { // td_handed
+        if (td == TD_RETIRING || td == TD_IN_GARAGE || td == TD_RETIRED) {
+            if (td != g_td_seen[car].exchange(td))
+                swofty::log("[immersive-pitstops] car %u: Terminal Damage state %u", car, td);
+            return;
+        }
+        if (g_td_t[car] < kTdPush)
+            return;
+        swofty::log("[immersive-pitstops] car %u: Terminal Damage didn't start its push in %.0f s (state %u); the game's "
+                    "own retirement", car, kTdPush, td);
+    }
+    g_td[car].store(td_fallback);
+    if (!post_retired(car))
+        swofty::log("[immersive-pitstops] car %u: retirement message could not be sent", car);
+}
 
 void update(void *mgr, float dt)
 {
@@ -231,6 +449,10 @@ void update(void *mgr, float dt)
         if (auto me = swofty::live::player())
             player = int64_t(me->vehicle);
         for (uint32_t car = 0; car < kCars; ++car) {
+            if (g_td[car].load() != td_none) {
+                td_tick(m, car, dt);
+                continue;
+            }
             Stop &st = g_stops[car];
             uint32_t stop = g_stop[car].load();
             if (st.seen != stop)
@@ -341,11 +563,16 @@ std::string seq_name(uintptr_t p)
 
 uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
 {
+    std::string n = seq_name(reinterpret_cast<uintptr_t>(a2));
+    if (n.empty())
+        n = seq_name(reinterpret_cast<uintptr_t>(a3));
+    if (int corner = seq_corner(n); corner >= 0) { // a "wheel on" mistake: remember its wheel (0.2.15)
+        SeqSeen &s = g_seq[g_seq_next.fetch_add(1) % 8];
+        s.corner.store(corner);
+        s.at.store(GetTickCount64());
+    }
     if (bool(pit_log) && g_play_logged.load() < 400) {
         g_play_logged.fetch_add(1);
-        std::string n = seq_name(reinterpret_cast<uintptr_t>(a2));
-        if (n.empty())
-            n = seq_name(reinterpret_cast<uintptr_t>(a3));
         swofty::log("[immersive-pitstops] crew sequence: %s (instance %p, args %p %p)", n.empty() ? "?" : n.c_str(), inst,
                     a2, a3);
     }
@@ -566,15 +793,23 @@ void frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[immersive-pitstops] loaded 0.2.14: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
-                "(when the crew finish); log %s", bool(hold_box) ? "on" : "off", int(max_hold), int(retire_chance),
-                bool(pit_log) ? "on" : "off");
+    swofty::log("[immersive-pitstops] loaded 0.2.17: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
+                "(when the crew finish, the game's retirement); log %s", bool(hold_box) ? "on" : "off", int(max_hold),
+                int(retire_chance), bool(pit_log) ? "on" : "off");
     find_status_request();
     auto r = swofty::events::on<swofty::sessions::events::Pit>().after(
         [](const swofty::sessions::events::Pit &e, const swofty::events::Context &) {
             if (e.car >= kCars)
                 return;
+            if (g_td[e.car].load() != td_none) { // handed to Terminal Damage: only follow its status
+                g_status[e.car].store(e.status);
+                if (bool(pit_log))
+                    swofty::log("[immersive-pitstops] car %u pit status %u -> %u (Terminal Damage's retirement)", e.car,
+                                e.previous, e.status);
+                return;
+            }
             if (e.status == kInPitBox && e.previous != kInPitBox) {
+                g_box_at[e.car].store(GetTickCount64());
                 g_stop[e.car].fetch_add(1);
                 g_wants_retire[e.car].store(false);
                 g_retire_now[e.car].store(false);
@@ -622,6 +857,8 @@ SWOFTY_ON_LOAD
             g_status[i].store(0);
             g_wants_retire[i].store(false);
             g_retire_now[i].store(false);
+            g_td[i].store(td_none);
+            g_td_seen[i].store(0);
         }
         g_off.store(false);
         // a new session builds the cars again, so the loose wheel's settings are gone with it
@@ -644,8 +881,11 @@ SWOFTY_ON_LOAD
     // a restart builds the cars again (no session.start): forget their loose wheels
     swofty::events::on<swofty::cars::events::Built>().after(
         [](const swofty::cars::events::Built &e, const swofty::events::Context &) {
-            if (e.car.index() < kCars)
+            if (e.car.index() < kCars) {
                 loose::g_rebuilt[e.car.index()].store(true);
+                g_td[e.car.index()].store(td_none); // a restart: the car is racing again
+                g_td_seen[e.car.index()].store(0);
+            }
         });
     swofty::events::on_frame(loose::frame);
     swofty::log("[immersive-pitstops] loose wheel %d %% of your stops; lap events %s", int(loose_chance),

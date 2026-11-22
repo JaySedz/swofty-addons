@@ -10,6 +10,11 @@ It changes game database values and one pit stop animation sequence, and has a s
 (`native/src/immersive_pitstops.cpp`, source included) that keeps the pit lane from releasing a car while
 its crew are still working, and retires the car when the team gives up.
 
+How the retirement message is found (0.2.17): the launcher's bindings `Game_Game_RetireLocalPlayer` (the pause
+menu's Retire) and `g_Game_MessageBus` lead to the game's own code that sends it, so a game update is covered when
+the launcher updates those bindings. With an older launcher that lacks them, Terminal Damage's byte pattern is used
+instead.
+
 Uses work from Terminal Damage by nyannoying:
 [https://github.com/nyannoying1337/f1-25-terminal-damage](https://github.com/nyannoying1337/f1-25-terminal-damage)
 (the way a car is retired: the game's own retirement message and the byte pattern that finds it; and the way a
@@ -57,8 +62,11 @@ end a race. Either way the stuck wheel nut
 plays out in full. If the roll missed, the car goes back out. If it landed, the team retires the car when
 the crew finish: the plugin sends the game's own "retired" status for the car, the one the pause menu's
 Retire sends, and keeps the car in its box. An AI car is put in its garage 5 s later, as the game does with retired AI cars. Your own car
-stays in its box and the game's retirement takes over (the race ends for you). The crew pushing your car
-into the garage, as Terminal Damage does it, isn't in this version.
+stays in its box and the game's retirement takes over (the race ends for you).
+
+Planned: with Terminal Damage installed (optional), its crew push your retired car into the garage. The code
+is in the plugin but switched off (`kTdHandOff`): on the current game build Terminal Damage's push doesn't
+start, so it waits for a Terminal Damage update.
 
 Loose wheel: now and then a normal stop sends you out with a wheel that isn't on properly (**Loose wheel
 chance**). As you leave the box you're told "LOOSE WHEEL - box this lap". Come into the pit lane and you get

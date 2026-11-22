@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "0.2.14",
+  "version": "0.2.17",
   "author": "Sedz",
   "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, crew mistakes happen more often, and now and then a stuck rear right wheel nut holds the car in the box while the crew fight it. My Team and Driver Career, for you and the AI teams.",
   "license": "MIT",

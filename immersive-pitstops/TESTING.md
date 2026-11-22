@@ -1,6 +1,42 @@
-# Immersive Pitstops 0.2.14: what to test
+# Immersive Pitstops 0.2.17: what to test
 
 Install `dist\sedz.immersive-pitstops.swoftyaddon` and send the launcher log after each test.
+
+0.2.16: your stuck-nut retirement is the game's own again (as 0.2.14). The 0.2.15 hand-off below is switched
+off: in its test the push never started, because Terminal Damage 0.76.4's `Ai MessagePitStateChanged handler`
+and `VehicleControllerSystem::setController` patterns find nothing on the 2026-11-16 game build (every log since
+2026-11-20). The torn-off wheel then flailed on its tethers when the jacks dropped, Terminal Damage showed
+SUSPENSION FAILURE, and the game's retirement teleported the car into the garage. Test A comes back once
+Terminal Damage is updated for this build.
+
+- [ ] Stuck-nut retirement (Test 1 settings): no wheel comes off, no SUSPENSION FAILURE, RETIRED as in 0.2.14.
+
+## Test R: retirement found from the launcher's bindings (0.2.17)
+
+Needs launcher 1.10.26 (it has `Game_Game_RetireLocalPlayer` and `g_Game_MessageBus`). Test 1 settings.
+
+- [ ] At load: `retirement: status request found from the launcher's bindings (bus post bound)`. On an older
+      launcher: `launcher bindings ... missing`, then `found by the byte pattern` (as before).
+- [ ] Your stuck-nut retirement and the AI's work as in 0.2.16 (RETIRED, the game's retirement; AI cars to
+      their garages).
+
+## Test A (parked): stuck-nut retirement with Terminal Damage's garage push (0.2.15)
+
+Settings: **Test mode: Stuck wheel nut every stop**, **Stuck wheel nut time: Random** (or 20 s),
+**Retirement chance: 100 %**, **Log pit stops: On**. Terminal Damage on, with its keep control / retire in
+the pit box / garage push options on. A race; pit.
+
+- [ ] At load: `Terminal Damage found (your retirements use its push into the garage)`.
+- [ ] The stuck nut plays out, then the stuck wheel comes off on the jacks: log `the wheel is taken off for
+      Terminal Damage's push into the garage` and `car N's <corner> wheel comes off`. The corner should be the
+      one the engineer named.
+- [ ] Log `Terminal Damage rates the car broken (state 2); back to its box state for the push`, then Terminal
+      Damage's own lines (`[td-probe] garage: car in the box, spawning your crew to push it in`), and
+      `Terminal Damage state 3`.
+- [ ] The crew push your car into the garage and Terminal Damage retires it.
+- [ ] If instead the log says `Terminal Damage didn't rate the car broken` or `didn't start its push`, the
+      game's own retirement follows (as in 0.2.14). Send the log: the hand-over needs another way in.
+- [ ] Terminal Damage off: the game's own retirement as before.
 
 ## Where things stand
 
@@ -113,7 +149,7 @@ In this mode every wheel mistake plays its own wheel's stuck nut, so a few stops
 
 ## Not in this version
 
-- The crew pushing your retired car into the garage (Terminal Damage's way): your car stays in its box.
+- Without Terminal Damage, your retired car stays in its box (the game's own retirement).
 
 ## Earlier results
 
