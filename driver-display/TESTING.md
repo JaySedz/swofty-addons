@@ -104,6 +104,13 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [ ] 1.2.8: the game starts on launcher 1.10.23+ (1.2.1-1.2.7 removed wheel elements the F1 / F2 HUD dial
       templates of flow_options.erp also name: the launcher refused the build). The build keeps them (mod_1..4,
       ers_null, ignore_null: 465 of 512 nodes); check the options menu's HUD dial preview too.
+- [ ] 1.2.9 rev lights: "rev lights: the LED update is wrapped" at load; in a career with a created driver the wheel
+      LEDs match the team-mate's style (first five as mode lights, one green in a straight-mode zone);
+      "rev lights: player car N 2/2/2 -> a/b/c (car M's, the team-mate)" in the log; the setting off brings the
+      game's bar back; nothing changes for a real driver; no "left to the game" line.
+- [ ] 1.2.10 rev lights: a created driver with a created team-mate (My Team) gets the real style from most cars
+      ("cars with the player's own style skipped"); a real driver logs "keeps the game's lights (... the same as most
+      cars)"; the style comes back after a restart / the next session.
 - [ ] The boot logo leaves no faint copy on the page after it (3 s logo, then 1 s black).
 - [ ] 1.2.1: the game's own wheel screen is out of the layout (378 of 512 nodes, colour to node 102). Check every
       page, the boot screen, the flag screens and the safety car screen still draw, and the log has no new errors

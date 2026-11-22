@@ -1,0 +1,131 @@
+{
+ "schema_version": 1,
+ "ops": [
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_24.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 0,
+   "source": "erp/rron_stuck_{{stuck_length}}s.sequence",
+   "when": {
+    "big_mistakes": "on"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_24.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 1,
+   "source": "erp/rron_stuck_{{stuck_length}}s.tsmd",
+   "when": {
+    "big_mistakes": "on"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_24.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 0,
+   "source": "erp/rron_stuck_{{stuck_length}}s.sequence",
+   "when": {
+    "big_mistakes": "off",
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_24.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 1,
+   "source": "erp/rron_stuck_{{stuck_length}}s.tsmd",
+   "when": {
+    "big_mistakes": "off",
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_25.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 0,
+   "source": "erp/rron_stuck_{{stuck_length}}s.sequence",
+   "when": {
+    "big_mistakes": "on"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_25.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 1,
+   "source": "erp/rron_stuck_{{stuck_length}}s.tsmd",
+   "when": {
+    "big_mistakes": "on"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_25.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 0,
+   "source": "erp/rron_stuck_{{stuck_length}}s.sequence",
+   "when": {
+    "big_mistakes": "off",
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_25.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 1,
+   "source": "erp/rron_stuck_{{stuck_length}}s.tsmd",
+   "when": {
+    "big_mistakes": "off",
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_26.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 0,
+   "source": "erp/rron_stuck_{{stuck_length}}s.sequence",
+   "when": {
+    "big_mistakes": "on"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_26.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 1,
+   "source": "erp/rron_stuck_{{stuck_length}}s.tsmd",
+   "when": {
+    "big_mistakes": "on"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_26.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 0,
+   "source": "erp/rron_stuck_{{stuck_length}}s.sequence",
+   "when": {
+    "big_mistakes": "off",
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "replace-resource",
+   "erp": "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_26.erp",
+   "resource": "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstoprron.sequence",
+   "fragment": 1,
+   "source": "erp/rron_stuck_{{stuck_length}}s.tsmd",
+   "when": {
+    "big_mistakes": "off",
+    "test_mode": "big_mistake"
+   }
+  }
+ ]
+}

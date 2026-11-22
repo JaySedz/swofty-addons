@@ -1,6 +1,36 @@
 # Immersive Pitstops: native plugin plan
 
-Status: research only, nothing built. On hold until Swofty launcher 1.10, then check what it exposes
+Status: research only, nothing built.
+
+**Pit box time limit (2026-11-22).** The pit lane releases a car early when its in-box timer passes the
+stop's limit: `Game_PitLane_UpdateMovement(void *mgr, float dt)` (launcher fn binding, L2), case 4
+InPitBox: `rec+0xe4 += dt`, compared with `rec+0xe8` (+5 s, global 0x145f9677c, when serving a penalty);
+over it, it calls 0x1434bdd60 and sets status 5 CrewCompleted, then the release (status 6) follows after
+`rec+0xf0` passes [mgr+0xbb8] or a random 0.2-0.6 s. The crew's own "done" message
+(`Game_PitLane_OnGarageCrewMessage`, type 0 SendToTrack while status 4) is the normal way to status 5.
+0.1.8 tests raising the 10 or the 7.5 of the 12 hashed pit_lane settings (`put-record` by key). If neither
+is the limit, the plugin does it per stop:
+
+- wrap `Game_PitLane_UpdateMovement`; for a car in status 4 whose stop is a stuck nut (or every car, as a
+  first test), keep `rec+0xe4` under `rec+0xe8` until our own hold time has passed, so only the crew's
+  "done" message ends the stop;
+- `rec` is the car's PittingVehicle: [mgr + 0x938 + car*16] per Terminal Damage (its crew-ready byte is
+  +0x104); confirm that +0xe4/+0xe8 are in the same object before relying on it;
+- own offsets: update-unsafe, accepted for this addon.
+
+Which stops are stuck nuts: the game picks the mistake when it pre-rolls the schedule; until that's
+readable, a stop whose pit status stays 4 longer than ~4 s is one.
+
+**Agreed 2026-11-22: build the pit-stop retirement next, once 0.1.4's stuck wheel nut sequence tests well
+in game.** A stuck nut gets an X % chance that the team retires the car in the box, using Terminal
+Damage's method: a MessageVehicleStatusRequest (status 7 retired) posted with `Ne_Post_BusMessage` for any
+car. AI cars: then `Game_Pitlane_SetVehicleStatus(…, 9)`, or let the game remove them (~14 s). The player:
+also the garage push (fake crew push messages, crew-ready flag, hidden pit equipment). Needs TD's own
+signature scans for the message vtable and bus. TD's licence allows reuse with the credit line "Uses work
+from Terminal Damage by nyannoying" + repo link; don't act on the player's car when TD does too (or ask
+TD's author for a retire call in its API).
+
+Earlier status: On hold until Swofty launcher 1.10, then check what it exposes
 (penalties especially). Own offsets are acceptable for this addon if the launcher doesn't cover something,
 as with Terminal Damage, accepting that a game update may break it. The database part (0.1.x) stays as it is: stop times, small mistakes
 and the stuck wheel nut. This plan covers what a native plugin could add on top, using only the launcher's

@@ -9,7 +9,7 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.2.8. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+**Status: 1.2.10. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
 telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
@@ -102,6 +102,17 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   flag. Cars within 10 s only. Every car's laps are timed from the live state, its pace the average of its last 3
   clean laps; the laps left come from the game's total laps (UDP). Stops still to come and tyre wear aren't in it.
   Setting "Catch / hold lap times".
+- **Real-driver rev lights for created drivers** (1.2.9, setting on by default): a created career driver's steering
+  wheel LEDs show the classic bar (the first five green RPM lights) where a real driver in the same car keeps the
+  first group for single mode lights (straight mode / overtake). The game builds each car's LEDs from three group
+  settings it takes from the driver's record, and a created driver has none (all 2). Driver Display copies the
+  team-mate's settings (else most cars') onto your car before each LED update. 1.2.10: your car's own settings
+  are read at the session start; only when most cars have different ones (you have the created-driver style) is
+  anything copied, and any car with your style (a created team-mate, other created drivers) is skipped. A real
+  driver's lights are never touched, and no LED value is assumed. **This part uses the dash's own
+  offsets into the game** (the LED update's entries, from the launcher's reverse-engineering notes and a static
+  disassembly of Steam 1.0.145): every read is checked, and anything unexpected after a game patch leaves the
+  game's own lights (logged once, "rev lights: left to the game ...") without touching the rest of the dash.
 - **FINAL LAP** over the screen in white (the white flag) as the last lap starts. The gap to the car ahead or behind blinks for 3 s
   as it comes within a second (from lap 2). Under the fuel margin: the margin per lap left (+ to spend, - to save).
 - **Boot screen:** when the game hands you the car (the end of the intro, skipped or watched; else when the car

@@ -2,54 +2,109 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "0.1.2",
+  "version": "0.2.1",
   "author": "Sedz",
-  "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, small crew mistakes happen more often, and a rare stuck wheel nut costs 30 to 60 s. My Team and Driver Career, for you and the AI teams.",
+  "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, crew mistakes happen more often, and now and then a stuck rear right wheel nut holds the car in the box while the crew fight it. My Team and Driver Career, for you and the AI teams.",
   "license": "MIT",
   "repository": "https://github.com/JaySedz/swofty-addons/tree/main/immersive-pitstops",
   "category": "career",
   "kind": [
-    "database"
+    "database",
+    "erp",
+    "native"
+  ],
+  "experimental_features": [
+    "telemetry"
   ],
   "compat": {
     "game": "f1_25",
-    "launcher": ">=1.8.36"
+    "launcher": ">=1.9.34",
+    "platforms": [
+      "steam"
+    ]
   },
+  "requires": [
+    {
+      "id": "swofty.core",
+      "version": ">=0.1.0"
+    }
+  ],
   "options": [
     {
       "id": "big_mistakes",
       "type": "choice",
-      "label": "Big mistakes",
-      "description": "How often a crew mistake is a stuck wheel nut. Rare: one of the eight wheel mistakes. Often: two of them. Off: every mistake is a small one (up to 3 s).",
+      "label": "Stuck wheel nut",
+      "description": "On: the crew mistake on the rear right wheel going on becomes a stuck wheel nut, with the crew fighting the wheel while the car waits on its jacks. It's one of the eight wheel mistakes, so about one mistake in eight. Off: the game's own short mistake.",
       "values": [
         { "value": "off", "label": "Off" },
-        { "value": "rare", "label": "Rare" },
-        { "value": "often", "label": "Often" }
+        { "value": "on", "label": "On" }
       ],
-      "default": "rare",
+      "default": "on",
       "binds": "db"
     },
     {
-      "id": "big_min",
+      "id": "stuck_length",
+      "type": "choice",
+      "label": "Stuck wheel nut time",
+      "description": "About how much longer a stop with a stuck wheel nut takes. The game plays the whole stop faster or slower with the crew's rolled speed, so the real time varies a little around it.",
+      "values": [
+        { "value": "10", "label": "10 s" },
+        { "value": "15", "label": "15 s" },
+        { "value": "20", "label": "20 s" },
+        { "value": "30", "label": "30 s" },
+        { "value": "60", "label": "60 s" }
+      ],
+      "default": "20",
+      "binds": "db"
+    },
+    {
+      "id": "hold_box",
+      "type": "toggle",
+      "label": "Hold the car until the crew finish",
+      "description": "The pit lane lets a car go after about 20 s in its box even if the crew are still working. On: that limit is kept off while the crew work, so a stuck wheel nut lasts its full time and ends with the car dropped and released. Applies at once.",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "max_hold",
       "type": "slider",
-      "label": "Big mistake, shortest (s)",
-      "description": "The least time a stuck wheel nut adds to the stop. Keep it below the longest.",
+      "label": "Longest hold (s)",
+      "description": "A safety stop: after this long in the box the game's own limit is let back in, in case a crew never finishes.",
+      "min": 30,
+      "max": 300,
+      "step": 30,
+      "default": 120,
+      "binds": "native"
+    },
+    {
+      "id": "retire_chance",
+      "type": "slider",
+      "label": "Retirement chance (%)",
+      "description": "How often a stuck wheel nut ends the car's race: the team gives up and the car is retired in its box. Otherwise the crew get the wheel on and the car goes back out. Yours and the AI's. 0 turns retirements off.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 25,
+      "binds": "native"
+    },
+    {
+      "id": "retire_after",
+      "type": "slider",
+      "label": "Give up after (s in the box)",
+      "description": "How long the crew fight a stuck wheel nut before the team retires the car. If the stuck wheel nut is shorter, the car is retired as soon as the crew finish.",
       "min": 10,
       "max": 60,
       "step": 5,
-      "default": 30,
-      "binds": "db"
+      "default": 15,
+      "binds": "native"
     },
     {
-      "id": "big_max",
-      "type": "slider",
-      "label": "Big mistake, longest (s)",
-      "description": "The most time a stuck wheel nut adds to the stop.",
-      "min": 20,
-      "max": 120,
-      "step": 5,
-      "default": 60,
-      "binds": "db"
+      "id": "pit_log",
+      "type": "toggle",
+      "label": "Log pit stops (testing)",
+      "description": "Writes each stop's box time and the pit lane's limit to the launcher log.",
+      "default": true,
+      "binds": "native"
     },
     {
       "id": "team_pit_times",
@@ -63,12 +118,12 @@
       "id": "test_mode",
       "type": "choice",
       "label": "Test mode",
-      "description": "For testing only: forces every pit stop, yours and the AI's. Fast: 1.6 s, no mistakes. Slow: 3.0 s, no mistakes. Big mistake: a stuck wheel nut on every stop, using the big mistake times above. Set it back to Off to race.",
+      "description": "For testing only: forces every pit stop, yours and the AI's. Fast: 1.6 s, no mistakes. Slow: 3.0 s, no mistakes. Stuck wheel nut: a mistake on every stop, and every wheel mistake plays the stuck wheel nut (with the time above). Set it back to Off to race.",
       "values": [
         { "value": "off", "label": "Off" },
         { "value": "fast", "label": "Fast stops (1.6 s)" },
         { "value": "slow", "label": "Slow stops (3.0 s)" },
-        { "value": "big_mistake", "label": "Big mistake every stop" }
+        { "value": "big_mistake", "label": "Stuck wheel nut every stop" }
       ],
       "default": "off",
       "binds": "db"
@@ -77,6 +132,14 @@
   "operations": {
     "database": [
       "db/pitstops.json"
+    ],
+    "erp": [
+      "erp/stuck_nut.json"
+    ],
+    "native": [
+      {
+        "dll": "native/immersive_pitstops.dll"
+      }
     ]
   }
 }

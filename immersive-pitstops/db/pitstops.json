@@ -147,162 +147,6 @@
   },
   {
    "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "0.3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "1.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "0.3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "1.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "0.3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "1.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "0.3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "1.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "0.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "0.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "0.5"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "3"
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "0.5",
-   "when": {
-    "big_mistakes": "off"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "3",
-   "when": {
-    "big_mistakes": "off"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
-   "when": {
-    "big_mistakes": "rare"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
-   "when": {
-    "big_mistakes": "rare"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
-   "when": {
-    "big_mistakes": "often"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
-   "when": {
-    "big_mistakes": "often"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
-   "when": {
-    "big_mistakes": "often"
-   }
-  },
-  {
-   "op": "set",
-   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
-   "when": {
-    "big_mistakes": "often"
-   }
-  },
-  {
-   "op": "set",
    "select": "pit_lane.pit_times.team_pit_times[_metadata_=mercedes]",
    "field": "min_pit_time",
    "value": "2.1",
@@ -1204,8 +1048,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1213,8 +1057,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_removal]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1222,8 +1084,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1231,8 +1093,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_left_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1240,8 +1120,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1249,8 +1129,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_removal]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1258,8 +1156,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1267,8 +1165,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_front_right_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1276,8 +1192,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1285,8 +1201,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_removal]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1294,8 +1228,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1303,8 +1237,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_left_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1312,8 +1264,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1321,8 +1273,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_removal]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1330,8 +1300,8 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "min_time_loss",
-   "value": "{{big_min}}",
+   "field": "animation_name",
+   "value": "RRON",
    "when": {
     "test_mode": "big_mistake"
    }
@@ -1339,8 +1309,26 @@
   {
    "op": "set",
    "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
-   "field": "max_time_loss",
-   "value": "{{big_max}}",
+   "field": "immersive_vo_name",
+   "value": "PitStopImmersive_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
+   "field": "cinematic_vo_name",
+   "value": "PitStopCinematic_BackRightWheel_Attachment",
+   "when": {
+    "test_mode": "big_mistake"
+   }
+  },
+  {
+   "op": "set",
+   "select": "pit_crew_training.mistakes.mistake_info[_metadata_=slow_back_right_wheel_attachment]",
+   "field": "event_node_name",
+   "value": "brw_attach",
    "when": {
     "test_mode": "big_mistake"
    }

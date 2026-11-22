@@ -23,6 +23,7 @@
 #include <swofty/hooks.hpp>
 #include <swofty/hud.hpp>
 #include <swofty/live.hpp>
+#include <swofty/mem.hpp>
 #include <swofty/mixin.hpp>
 #include <swofty/systems/race_control.hpp>
 #include <swofty/systems/sessions.hpp>
@@ -113,6 +114,187 @@ void put(const char *name, const char *v)
     put(name, std::string(v ? v : ""));
 }
 void put(const char *, bool) = delete; // a bool goes through put_flag
+
+// ------------------------------------------------------------------ real-driver rev lights (1.2.9)
+// The user's report (and a player's): a created driver's steering wheel LEDs show the classic bar (the first five
+// green as RPM lights), a real driver's in the same car keep the first group for single mode lights (straight
+// mode, overtake). Found by static disassembly of Steam 1.0.145: Car_SteeringWheelLeds_Update (a launcher binding)
+// keeps one entry per car (vehicle id order) from +0x70, 0xA8 apart, the count at +0x1180, and builds each car's 15
+// LEDs as three groups of five from the entry's group settings at +0x68 / +0x6C / +0x70. The game fills those from
+// the car's driver record (+0x588..+0x590) when its lookup finds one, else 2 / 2 / 2: the created driver's.
+// Before each update the player's settings are copied from the team-mate's entry (a real driver in the same car;
+// else the setting most other cars have). The offsets are our own (from the launcher's notes and the disassembly),
+// so every read is guarded and anything unexpected leaves the game's own lights: a game patch that moves them
+// turns this off (logged once), never the rest of the dash.
+SWOFTY_SETTING(bool, real_rev_lights, true);
+namespace revlights {
+constexpr uintptr_t kEntries = 0x70, kStride = 0xA8, kCount = 0x1180, kGroups = 0x68;
+std::atomic<int> g_mate{-1};     // the player's team-mate's vehicle id (live state; -1 unknown)
+std::atomic<int> g_applied{0};   // copies made this session (for the log)
+std::atomic<bool> g_off{false};  // a check failed: hands off until the session changes
+std::atomic<uint32_t> g_gen{0};  // the session the checks ran in
+struct Triple {
+    uint32_t v[3];
+    bool operator==(const Triple &o) const { return v[0] == o.v[0] && v[1] == o.v[1] && v[2] == o.v[2]; }
+    bool sane() const { return v[0] < 0x8000 && v[1] < 0x8000 && v[2] < 0x8000; } // 15 flag bits are used
+};
+bool read3(uintptr_t at, Triple &t)
+{
+    return swofty::mem::read(at, t.v[0]) && swofty::mem::read(at + 4, t.v[1]) && swofty::mem::read(at + 8, t.v[2]);
+}
+bool write3(uintptr_t at, const Triple &t)
+{
+    if (!swofty::mem::readable(at, 12))
+        return false;
+    __try {
+        auto *p = reinterpret_cast<volatile uint32_t *>(at);
+        p[0] = t.v[0], p[1] = t.v[1], p[2] = t.v[2];
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+void off(const char *why)
+{
+    if (!g_off.exchange(true))
+        swofty::log("[driver-display] rev lights: left to the game (%s)", why);
+}
+void apply(void *self)
+{
+    if (!bool(real_rev_lights) || g_off.load() || !self)
+        return;
+    int me = int(g_player_vehicle.load());
+    if (me < 0)
+        return;
+    uintptr_t sys = reinterpret_cast<uintptr_t>(self);
+    uint64_t count = 0;
+    if (!swofty::mem::read(sys + kCount, count))
+        return off("the LED system can't be read");
+    if (count == 0)
+        return; // between sessions
+    if (count > 32)
+        return off("the LED entry count isn't a car count");
+    if (uint64_t(me) >= count)
+        return;
+    auto at = [&](uint64_t i) { return sys + kEntries + i * kStride + kGroups; };
+    Triple mine{};
+    if (!read3(at(uint64_t(me)), mine) || !mine.sane())
+        return off("the player's LED settings don't look like LED settings");
+    // 1.2.10: the player's settings as the game gave them, read once a session before any copy. When most other
+    // cars have different ones, the player has the created-driver style, and every car that has that same style
+    // (a created team-mate, other created drivers) is skipped as a source. No value is assumed: the style is
+    // whatever the game gave the player's car. When the player's settings are the common ones (a real driver), or no
+    // car has another style, nothing is touched.
+    static uint32_t seen_gen = ~0u;
+    static Triple created{}, wrote{};
+    static bool have_created = false, have_wrote = false;
+    static int decided = 0; // 0 not yet, 1 copy (the player has the created style), 2 leave the game's lights
+    bool ours = have_wrote && mine == wrote; // what the entry holds is our own copy, not the game's
+    if (seen_gen != g_gen.load()) {
+        seen_gen = g_gen.load();
+        decided = 0;
+        if (!ours) // (a new session whose entry still holds our copy keeps the style read before)
+            created = mine, have_created = true;
+    } else if (!ours && !(have_created && mine == created)) {
+        created = mine, have_created = true; // the game rebuilt the entry: its style again
+        decided = 0;
+    }
+    if (!have_created)
+        return;
+    if (decided == 2)
+        return;
+    // the most common settings among the other cars, and the most common among those that aren't the player's style
+    Triple common{}, best{};
+    int common_n = 0, best_n = 0, from_best = -1;
+    for (uint64_t i = 0; i < count; i++) {
+        Triple t{};
+        if (int(i) == me || !read3(at(i), t) || !t.sane())
+            continue;
+        int n = 0;
+        for (uint64_t k = 0; k < count; k++) {
+            Triple u{};
+            if (int(k) != me && read3(at(k), u) && u == t)
+                n++;
+        }
+        if (n > common_n)
+            common = t, common_n = n;
+        if (!(t == created) && n > best_n)
+            best = t, best_n = n, from_best = int(i);
+    }
+    if (decided == 0) {
+        if (common_n == 0)
+            return; // the other cars aren't there yet
+        if (common == created || from_best < 0) {
+            decided = 2;
+            swofty::log("[driver-display] rev lights: player car %d keeps the game's lights (%u/%u/%u: %s)", me, created.v[0],
+                        created.v[1], created.v[2], common == created ? "the same as most cars" : "no car has another style");
+            return;
+        }
+        decided = 1;
+    }
+    Triple src{};
+    int from = -1;
+    int mate = g_mate.load();
+    if (mate >= 0 && uint64_t(mate) < count && mate != me && read3(at(uint64_t(mate)), src) && src.sane() &&
+        !(src == created))
+        from = mate; // the team-mate, a real driver in the same car
+    if (from < 0) {
+        src = best; // else the most common real-driver style
+        from = from_best;
+    }
+    if (from < 0 || src == mine)
+        return;
+    if (!write3(at(uint64_t(me)), src))
+        return off("the player's LED settings can't be written");
+    wrote = src, have_wrote = true;
+    static int last_from = -2;
+    if (from != last_from || g_applied.fetch_add(1) == 0) {
+        last_from = from;
+        swofty::log("[driver-display] rev lights: player car %d %u/%u/%u -> %u/%u/%u (car %d's, %s; cars with the player's "
+                    "own style skipped)", me, created.v[0], created.v[1], created.v[2], src.v[0], src.v[1], src.v[2], from,
+                    from == mate ? "the team-mate" : "most cars");
+    }
+}
+void (*orig)(void *, void *, void *, void *) = nullptr;
+// the update's own arguments pass straight through (its prototype isn't in the launcher's bindings)
+void wrap(void *self, void *a, void *b, void *c)
+{
+    apply(self);
+    orig(self, a, b, c);
+}
+const swofty::detail::mixin reg{"Car_SteeringWheelLeds_Update", SWOFTY_MIXIN_WRAP, 0, (void *)&wrap, (void **)&orig};
+
+// the frame side (the flow thread): the team-mate by team badge, a new session re-arms the checks
+void frame()
+{
+    auto ses = swofty::live::session();
+    uint32_t gen = ses ? ses->generation : 0;
+    if (gen != g_gen.load()) {
+        g_gen = gen;
+        g_off = false;
+        g_applied = 0;
+        g_mate = -1;
+    }
+    static double t = 0.0;
+    t -= g_step;
+    if (t > 0.0)
+        return;
+    t = 2.0;
+    auto me = swofty::live::player();
+    if (!me)
+        return;
+    auto mine = swofty::live::team_badge(me->vehicle);
+    int mate = -1;
+    if (mine && !mine->empty())
+        for (uint32_t v = 0; v < SWOFTY_LIVE_MAX_CARS; v++)
+            if (v != me->vehicle && swofty::live::car(v))
+                if (auto b = swofty::live::team_badge(v); b && *b == *mine) {
+                    mate = int(v);
+                    break;
+                }
+    g_mate = mate;
+}
+} // namespace revlights
 
 // the 2026 Ferrari is the player's car (and its correction is on): the switches in kSplitLeaves show their _f copies
 bool g_fer = false;
@@ -2190,6 +2372,7 @@ void on_frame(double dt, void *)
         // (the event fires for every car).
         if (auto me = swofty::live::player())
             g_player_vehicle = int64_t(me->vehicle);
+        revlights::frame();
         static bool due = false, due_handed = false, waiting_logged = false;
         bool handed = g_to_human.exchange(false);
         if (boot_armed && !swofty::view::paused() && !due && (handed || r.speed_kmh >= 5)) {
@@ -2618,7 +2801,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.2.8: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.2.10: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -2663,6 +2846,12 @@ SWOFTY_ON_LOAD
     }
     swofty::log("[driver-display] race control events: %s, tyre damage: %s", rr == swofty::events::Result::ok ? "on" : "not available",
                 swofty::hooks::live<swofty::tyre_damage::events::Damage>() ? "live" : "not live");
+    {
+        uintptr_t at = swofty::api && swofty::api->resolve ? swofty::api->resolve("Car_SteeringWheelLeds_Update") : 0;
+        swofty::log("[driver-display] rev lights: %s", !bool(real_rev_lights) ? "off in the settings"
+                    : at ? "the LED update is wrapped; created drivers get the team-mate's LED settings"
+                         : "the LED update isn't found on this build: the game's own lights");
+    }
     try_tap();
     swofty::events::on_frame(tap_frame);
 }
