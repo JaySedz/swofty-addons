@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 AI Helmets contributors
+Copyright (c) 2026 Sedz
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,3 +23,11 @@ SOFTWARE.
 The Swofty SDK headers in native/include are MIT-licensed by Swofty (see
 native/include/LICENSE-swofty-sdk); native/include/swofty/mixin.hpp carries a
 one-line change so it builds with MSVC.
+
+Parts of native/src/immersive_pitstops.cpp use work from Terminal Damage by nyannoying
+(https://github.com/nyannoying1337/f1-25-terminal-damage): the way a car is retired (the game's own retirement
+message and the byte pattern that finds it), the way a wheel is torn off (the game's own corner damage set just past
+its detach limit), and the layout of Terminal Damage's public API. That work is
+Copyright (c) 2026 nyannoying and is used under the Terminal Damage Attribution License 1.0, included in
+LICENSE-terminal-damage. Not endorsed by nyannoying.
+

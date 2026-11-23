@@ -49,6 +49,8 @@
 #include <mutex>
 #include <random>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include <swofty/events.hpp>
 #include <swofty/hud.hpp>
@@ -67,12 +69,13 @@ constexpr bool hold_box = true;    // keep the failsafe off while a car's crew w
 constexpr int max_hold = 120;      // seconds in the box after which the game's failsafe is let back in
 constexpr int uncalled_delay = 0;  // extra seconds in the box before the crew of an uncalled stop run out (1.0.1: 0;
                                    // their run-out from the garage is the penalty)
-constexpr int stop_spread = 30;    // % each stop's crew speed is varied by
 SWOFTY_SETTING(int, retire_chance, 25);    // % of stuck wheel nuts that end the car's race
-SWOFTY_SETTING(int, loose_chance, 3);      // % of your normal race stops that leave a loose wheel
-SWOFTY_SETTING(float, ai_loose_chance, 1.0f);
+SWOFTY_SETTING(float, loose_chance, 0.3f); // % of your normal race stops that leave a loose wheel (0.1 steps, 1.0.17)
+SWOFTY_SETTING(bool, loose_test, false);   // every normal race stop leaves a loose wheel (testing, 1.0.17)
+SWOFTY_SETTING(float, ai_loose_chance, 0.3f); // 0-10 % in 0.1 steps (1.0.18)
 SWOFTY_SETTING(bool, call_stop, true);
-SWOFTY_SETTING(int, stuck_chance, 3);
+SWOFTY_SETTING(int, stuck_chance, 1);
+SWOFTY_SETTING(std::string_view, stop_times, "default"); // default / fast / slow: how each stop's time varies (1.0.15)
 SWOFTY_SETTING(bool, ferrari_mode, false); // 1.0.14: Ferrari's stuck nut and loose wheel chances at 50 % (a joke)  // % of stops the plugin turns into a stuck wheel nut (1.0.13)  // stops you don't call with Box This Lap find the crew in the garage  // % of AI stops whose loose wheel comes off on the out-lap
 SWOFTY_SETTING(bool, pit_log, false);      // log each stop's timer and limit (for testing)
 
@@ -143,6 +146,23 @@ bool ferrari(uint32_t car)
     return k.find("ferrari") != std::string::npos;
 }
 
+// Alerts for your own stop (1.0.10): the HUD alert box isn't seen while your car is in the pit lane (2026-11-24: CREW
+// NOT READY and STUCK WHEEL NUT were shown at the pit entry and as the crew started, and not seen), so they wait until
+// you're released, the moment the loose wheel's alert uses.
+struct Pending {
+    std::string title, text;
+    float secs = 0;
+};
+std::mutex g_pending_mu;
+std::vector<Pending> g_pending;
+
+void alert_after_release(const char *title, std::string text, float secs)
+{
+    std::lock_guard<std::mutex> lk(g_pending_mu);
+    if (g_pending.size() < 4)
+        g_pending.push_back(Pending{title, std::move(text), secs});
+}
+
 void off(const char *why, uint32_t car)
 {
     if (!g_off.exchange(true))
@@ -179,11 +199,40 @@ bool check(uint32_t car, uintptr_t rec, float timer, float limit)
             return same;
         }
     }
-    if (bool(pit_log))
-        swofty::log("[immersive-pitstops] car %u: no live garage to check against (record garage %u); timer and limit look "
-                    "sane", car, garage & 0xff);
-    return true;
+    // 1.0.8: no live garage to check against (the launcher's pit lane data is off on this build, as on the EA app):
+    // nothing is written, the box hold stays off and the game's own pit lane timing applies
+    return false;
 }
+
+// Inside the game's own image: a message type (vtable) and its first function must be, before a message goes out.
+bool in_game_image(uintptr_t a)
+{
+    static uintptr_t base = 0, end = 0;
+    if (!base) {
+        auto m = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+        uint32_t pe = 0, size = 0;
+        if (!m || !swofty::mem::read(m + 0x3c, pe) || !swofty::mem::read(m + pe + 0x50, size) || !size)
+            return false;
+        base = m, end = m + size;
+    }
+    return a >= base && a < end;
+}
+
+bool good_vtable(const void *vt)
+{
+    uintptr_t v = reinterpret_cast<uintptr_t>(vt), fn = 0;
+    return v && in_game_image(v) && swofty::mem::read(v, fn) && in_game_image(fn);
+}
+
+// The pit lane hold can run: the launcher reports your car's garage, which the record check needs (1.0.8).
+bool hold_verifiable()
+{
+    auto me = swofty::live::player();
+    auto c = me ? swofty::live::car(me->vehicle) : std::nullopt;
+    return c && swofty::pitlane::garage(*c).has_value();
+}
+
+bool hold_ok() { return bool(hold_box) && !g_off.load() && hold_verifiable(); }
 
 int32_t rel32(uintptr_t at)
 {
@@ -223,6 +272,8 @@ bool find_by_bindings()
                 if (!swofty::mem::read(vt, first) || !first)
                     break;
                 g_bus_holder = holder;
+                if (!good_vtable(reinterpret_cast<const void *>(vt)))
+                    break; // not a message type in the game's image: leave retirements to the pattern / off
                 g_status_vtable = reinterpret_cast<const void *>(vt);
                 return true;
             }
@@ -255,6 +306,12 @@ void find_status_request()
     g_bus_holder = site + 7 + int64_t(rel);
     std::memcpy(&rel, reinterpret_cast<const void *>(site + 0x16), 4);
     g_status_vtable = reinterpret_cast<const void *>(site + 0x1a + int64_t(rel));
+    if (!good_vtable(g_status_vtable)) {
+        g_status_vtable = nullptr;
+        g_bus_holder = 0;
+        swofty::log("[immersive-pitstops] retirement off: the status request the pattern finds isn't in the game's image");
+        return;
+    }
     swofty::log("[immersive-pitstops] retirement: status request found by the byte pattern (bus post %s)",
                 g_post ? "bound" : "NOT BOUND");
 }
@@ -299,7 +356,7 @@ void find()
             if (!swofty::mem::read(j, b) || b[0] != 0x48 || b[1] != 0x8D || b[2] != 0x0D) // lea rcx, [rip+x]
                 continue;
             uintptr_t vt = j + 7 + int64_t(rel32(j + 3)), first = 0;
-            if (swofty::mem::read(vt, first) && first) {
+            if (swofty::mem::read(vt, first) && first && good_vtable(reinterpret_cast<const void *>(vt))) {
                 g_vt = reinterpret_cast<const void *>(vt);
                 swofty::log("[immersive-pitstops] crew hold: the crew's call-out message found from the launcher's bindings");
                 return;
@@ -476,6 +533,12 @@ void (*orig_update)(void *, float) = nullptr;
 // instead; the 2026-11-23 test showed the car goes into its box whatever that byte says.)
 namespace call {
 std::atomic<bool> g_called{false};
+// 1.0.16: a called stop that's done keeps its call until you've been back on track kKeepCall seconds, so a flashback
+// to before the stop finds the crew still ready (1.0.15 dropped the call as the crew finished: the 2026-11-23 log's
+// repeated flashbacks gave CREW NOT READY on stops the player had called)
+std::atomic<bool> g_called_done{false};
+constexpr double kKeepCall = 30.0;
+double g_on_track = 0; // flow thread
 std::atomic<bool> g_uncalled_stop{false}; // your current stop wasn't called
 struct Approach {
     bool active = false;
@@ -490,13 +553,14 @@ bool race_session()
 
 bool tick(uintptr_t m, uint32_t car, float dt);
 bool uncalled_now(uint32_t car, bool *told);
+bool engineer_box_call(std::string_view stem);
 } // namespace call
 
 // --- 6. Crew speed per stop (0.2.20) -------------------------------------------------------------------------------
 // The game rolls each driver's stop time once per session (2026-11-23 test: 2.65 s, 2.65 s, 2.66 s), so a session's
 // stops all look the same. The launcher binding Sess_PitStopUpdateJob_Update(job) advances a crew's animation by the
 // frame time at job+0x10 (job+0x08 the crew's PitStopInstance), scaled by the crew rate; scaling that frame time per
-// stop spreads the stops (stop_spread %), and setting it to 0 holds the crew still (the uncalled stop). A crew is
+// stop spreads the stops (stop_times), and setting it to 0 holds the crew still (the uncalled stop). A crew is
 // matched to a car when its StartJob sequence starts: the car entering its box at that moment.
 namespace crew {
 struct Job {
@@ -525,11 +589,11 @@ constexpr Window kWindows[] = {
     {"rron", false, 79, 122, 1806}, {"flon", true, 65, 125, 1800},  {"fron", true, 76, 124, 1824},
     {"rlon", true, 79, 133, 1782},  {"rron", true, 79, 124, 1800},
 };
-// How long a stuck nut lasts: short ones are common, a full minute is about one stuck nut in 25 (at Normal's ~3 % of
-// stops, roughly once a season across the grid).
+// How long a stuck nut lasts (1.0.17, tilted short): 5 s 60 %, 10 s 25 %, 20 s 10 %, 30 s 4 %, a full minute 1 %. At
+// the default 1 % of stops a full minute comes up about once in 10,000 stops, roughly once a decade across the grid.
 float stuck_length()
 {
-    struct { float s; int w; } t[] = {{5, 45}, {10, 30}, {20, 14}, {30, 7}, {60, 4}};
+    struct { float s; int w; } t[] = {{5, 60}, {10, 25}, {20, 10}, {30, 4}, {60, 1}};
     int r = int(rnd() % 100);
     for (auto &e : t) {
         if (r < e.w)
@@ -600,17 +664,24 @@ std::atomic<bool> g_stuck_seq[kCars]; // a rear stuck nut sequence started on th
 
 float spread_rate()
 {
-    int sp = int(stop_spread);
-    if (sp <= 0)
-        return 1.0f;
-    // 0.2.20 used a peaked spread: in testing 5 stops came out x0.93-x1.03 (2.4-2.6 s), too alike. Now even across
-    // +-spread, and one stop in six is fumbled a little: 1-2.5 x spread slower on top (at 15 %: 2.8-3.3 s for 2.4 s).
-    float x = float(rnd() % 2001) / 1000.0f - 1.0f; // -1..1, even
-    float f = float(sp) / 100.0f;
-    float k = 1.0f + x * f; // the stop takes k times as long
-    if (rnd() % 6 == 0)
-        k += f * (1.0f + float(rnd() % 1501) / 1000.0f);
-    return 1.0f / std::fmax(0.5f, k);
+    // 1.0.15: a choice instead of a % slider. Each stop takes k times the crew's normal time (the game's stock band:
+    // ~2.4 s in Driver Career): most in the normal range, some quick, some slow; each part even, so nothing piles up
+    // at a limit. The slow side never passes x1.22 (about 3 s): a slower stop is a crew mistake (1.0.13: no
+    // "fumbles", 0.2.21-1.0.12 made 4 s stops with no mistake).
+    //   default: 70 % normal x0.92-1.08 (2.2-2.6 s), 15 % quick down to x0.75 (1.8 s), 15 % slow up to x1.22
+    //   fast:    55 % normal x0.90-1.05, 35 % quick down to x0.70 (1.7 s), 10 % slow up to x1.15
+    //   slow:    55 % normal x0.95-1.10, 10 % quick down to x0.80, 35 % slow up to x1.22
+    std::string_view mode = stop_times;
+    struct Shape { int normal, quick; float nlo, nhi, qlo, shi; };
+    Shape sh = mode == "fast" ? Shape{55, 35, 0.90f, 1.05f, 0.70f, 1.15f}
+             : mode == "slow" ? Shape{55, 10, 0.95f, 1.10f, 0.80f, 1.22f}
+                              : Shape{70, 15, 0.92f, 1.08f, 0.75f, 1.22f};
+    auto even = [](float lo, float hi) { return lo + (hi - lo) * float(rnd() % 10001) / 10000.0f; };
+    int part = int(rnd() % 100);
+    float k = part < sh.normal              ? even(sh.nlo, sh.nhi)
+            : part < sh.normal + sh.quick   ? even(sh.qlo, sh.nlo)
+                                            : even(sh.nhi, sh.shi);
+    return 1.0f / k;
 }
 } // namespace crew
 
@@ -703,9 +774,20 @@ void update(void *mgr, float dt)
                                 st.player ? " (you)" : "", timer, limit);
             }
             st.in_box += dt;
+            // 1.0.9: the safety car parks in "garage 99" and has no live garage: leave it alone (1.0.8 would have turned
+            // the hold off for the session when it pulled in)
+            {
+                uint32_t g = 0;
+                if (swofty::mem::read(rec + kGarage, g) && (g & 0xff) == 99)
+                    continue;
+                if (auto c = swofty::live::car(car); c && swofty::pitlane::safety_car(*c))
+                    continue;
+            }
             if (!st.checked) {
                 if (!check(car, rec, timer, limit)) {
-                    off("the pit lane record doesn't look like this build's", car);
+                    off(hold_verifiable() ? "the pit lane record doesn't look like this build's"
+                                              : "the launcher can't confirm the pit lane record on this build",
+                            car);
                     break;
                 }
                 st.checked = true;
@@ -893,6 +975,14 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
         bool ours = false;
         bool is_ferrari = car >= 0 && ferrari(uint32_t(car));
         int stuck_pc = is_ferrari ? kFerrariChance : int(stuck_chance);
+        // 1.0.8: only while the box hold can run (a long stuck nut needs it; without it the pit lane would release the
+        // car mid-animation at ~20 s): off for the session when the pit lane record can't be confirmed (EA app)
+        if (car >= 0 && stuck_pc > 0 && !hold_ok()) {
+            static std::atomic<bool> s_told{false};
+            if (!s_told.exchange(true))
+                swofty::log("[immersive-pitstops] stuck wheel nuts off: the box hold can't run on this build");
+            stuck_pc = 0;
+        }
         if (car >= 0 && stuck_pc > 0) {
             std::string lower = n, raw;
             for (char &c : lower)
@@ -915,9 +1005,7 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
                 ours = true;
                 auto me = swofty::live::player();
                 if (me && int(me->vehicle) == car)
-                    swofty::hud::toast("STUCK WHEEL NUT", pick == kRR ? "Rear right: the crew are fighting it"
-                                                                      : "Rear left: the crew are fighting it",
-                                       6.0f);
+                    alert_after_release("STUCK WHEEL NUT", "A wheel nut stuck on your stop", 6.0f);
             }
         }
         if (car >= 0) {
@@ -1254,6 +1342,35 @@ void game_tick()
 // Flow thread, every frame: your car, then the AI cars.
 void frame(double dt, void *)
 {
+    {
+        // your stop's alerts, once you're released (or out of the pit lane)
+        std::vector<Pending> show;
+        bool me_ok = false;
+        uint32_t me_car = 0;
+        if (auto me = swofty::live::player(); me && me->vehicle < kCars) {
+            me_ok = true;
+            me_car = me->vehicle;
+            uint32_t pit = g_status[me->vehicle].load();
+            if (pit == 6 || pit == 7 || pit == 14 || pit == 1 || pit == 0) {
+                std::lock_guard<std::mutex> lk(g_pending_mu);
+                show.swap(g_pending);
+            }
+        }
+        for (auto &p : show)
+            swofty::hud::toast(p.title.c_str(), p.text.c_str(), p.secs);
+        // a done called stop: drop its call once you've been back on track a while (kept through flashbacks)
+        if (call::g_called_done.load()) {
+            uint32_t pit = me_ok ? g_status[me_car].load() : 2;
+            call::g_on_track = pit == 0 || pit == 1 ? call::g_on_track + dt : 0.0;
+            if (call::g_on_track >= call::kKeepCall && call::g_called_done.exchange(false)) {
+                call::g_called.store(false);
+                call::g_on_track = 0;
+                swofty::log("[immersive-pitstops] %.0f s back on track: the call is used up", call::kKeepCall);
+            }
+        } else {
+            call::g_on_track = 0;
+        }
+    }
     // a red flag: tyres may be changed, so every loose wheel still on its car is fixed
     auto rc = swofty::race_control::now();
     bool red = rc && (rc->red_flag == swofty::race_control::RedFlag::deployed ||
@@ -1384,8 +1501,58 @@ void frame(double dt, void *)
 }
 } // namespace loose
 
+// The engineer calling you into the pits (1.0.7): every line of the game's English subtitles (language_eng.lng,
+// lng_subtitle_eng_*) that tells the player to box, read one by one. Left out on purpose: the pit window countdowns
+// (eng_pit_open_10..30, "opens in N laps"), eng_vc_fl_box ("do not box" on the formation lap), eng_dt_sc ("stay
+// out"), eng_sc_pitstrat_03/04 (stay out under the safety car), practice programme lines and lines about other cars.
+bool call::engineer_box_call(std::string_view stem)
+{
+    auto num = [&](std::string_view prefix) -> int { // the number after prefix + "_", or -1
+        if (!stem.starts_with(prefix) || stem.size() <= prefix.size() + 1 || stem[prefix.size()] != '_')
+            return -1;
+        int n = 0;
+        size_t k = prefix.size() + 1;
+        if (k >= stem.size() || stem[k] < '0' || stem[k] > '9')
+            return -1;
+        while (k < stem.size() && stem[k] >= '0' && stem[k] <= '9')
+            n = n * 10 + (stem[k++] - '0');
+        return n;
+    };
+    auto in = [&](std::string_view prefix, std::initializer_list<int> ns) {
+        int n = num(prefix);
+        for (int x : ns)
+            if (n == x)
+                return true;
+        return false;
+    };
+    // damage: "box now", "box for repairs" (every *_dam_NN_pit line, and the front wing's own)
+    for (std::string_view part : {"eng_plbw_dam_", "eng_pldf_dam_", "eng_plrw_dam_", "eng_plub_dam_"})
+        if (stem.starts_with(part) && stem.find("_pit") != std::string_view::npos)
+            return true;
+    int pit = num("eng_pit_open");
+    return (pit >= 1 && pit <= 9) ||                           // box this lap / the pit window is open
+           in("eng_plfw_dam", {5, 6, 7, 9, 10, 13, 14, 15, 16}) || // front wing damage: box for a new one
+           in("eng_drs_fault", {4, 5, 6}) ||                    // DRS stuck open: pit for repairs
+           in("eng_rd_add", {38}) ||                             // lap times falling off: pit for repairs
+           stem.starts_with("eng_stratchange_box") ||            // box, we're adjusting the strategy
+           in("eng_sc_pitstrat", {1, 2}) ||                     // pit under the safety car (03, 04: stay out)
+           in("eng_pit_speed_warning", {1, 2}) ||               // box this lap, mind the speed limit
+           stem.starts_with("eng_shrdpunc") || stem.starts_with("eng_slwpunc") || stem.starts_with("eng_fullpunc") ||
+           stem.starts_with("eng_pl_lofuel") ||                  // box within 2 laps for fuel
+           in("eng_tyre_weather_strat", {2, 3}) ||               // the weather's turning, time to box
+           in("eng_wther_st", {11, 12, 13, 14}) ||               // pit for wets / drys
+           in("eng_int_t_gen", {3, 5, 6}) ||                     // box for inters
+           in("eng_wet_t_gen", {1, 4, 6}) ||                     // time to change to wets
+           in("eng_wetness_gen", {6, 7}) || in("eng_wetness_wetint", {6}) || in("eng_wetness_dryint", {5}) ||
+           stem.starts_with("eng_tywet_zen") || stem.starts_with("eng_tydry_zen") || // team-mate faster: we need to pit
+           in("eng_slw_traff", {5, 6, 7, 8});                    // pit early to avoid traffic
+}
+
 bool call::uncalled_now(uint32_t car, bool *told_out)
 {
+    // Ferrari Mode (1.0.2): Ferrari's crew are never ready, called or not
+    if (ferrari(car))
+        return race_session() && td_state() != TD_LIMPING && td_state() != TD_RETIRING;
     int ls = loose::g_state.load();
     bool told = loose::g_car.load() == int(car) && (ls == loose::loose || ls == loose::pitting);
     if (told_out)
@@ -1407,15 +1574,23 @@ bool call::tick(uintptr_t, uint32_t car, float)
     }
     if (!a.active) {
         a.active = true;
+        { // 1.0.16: alerts still queued from an earlier stop (one undone by a flashback) are dropped
+            std::lock_guard<std::mutex> lk(g_pending_mu);
+            g_pending.clear();
+        }
         bool told = false;
         bool uncalled = uncalled_now(car, &told);
         bool called = g_called.load() || told;
         g_uncalled_stop.store(uncalled);
+        bool fer = ferrari(car);
         swofty::log("[immersive-pitstops] car %u in the pit lane: stop %s", car,
-                    called ? (told ? "called (loose wheel)" : "called (Box This Lap)")
-                           : (uncalled ? "NOT called: the crew aren't ready" : "not called (no delay here)"));
+                    fer && uncalled ? "held (Ferrari Mode: the crew are never ready)"
+                    : called        ? (told ? "called (loose wheel)" : "called (Box This Lap or the engineer)")
+                    : (uncalled ? "NOT called: the crew aren't ready" : "not called (no delay here)"));
         if (uncalled)
-            swofty::hud::toast("CREW NOT READY", "You didn't call your stop", 5.0f);
+            alert_after_release("CREW NOT READY", fer ? "Ferrari Mode: the crew are never ready"
+                                                      : "You didn't call your stop",
+                                5.0f);
     }
     return true;
 }
@@ -1424,7 +1599,7 @@ bool call::tick(uintptr_t, uint32_t car, float)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[immersive-pitstops] loaded 1.0.0: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
+    swofty::log("[immersive-pitstops] loaded 1.0.20: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
                 "(when the crew finish, the game's retirement); log %s", bool(hold_box) ? "on" : "off", int(max_hold),
                 int(retire_chance), bool(pit_log) ? "on" : "off");
     find_status_request();
@@ -1458,8 +1633,10 @@ SWOFTY_ON_LOAD
             // the loose wheel (your car, races): the stop that fixes it, or the roll after a normal stop
             // (only races have box stops: in practice and qualifying the car is wheeled into its garage)
             if (e.previous == kInPitBox && e.status == kCrewDone) {
-                if (auto me = swofty::live::player(); me && me->vehicle == e.car && call::g_called.exchange(false))
-                    swofty::log("[immersive-pitstops] car %u: the called stop is done", e.car);
+                if (auto me = swofty::live::player(); me && me->vehicle == e.car && call::g_called.load() &&
+                                                         !call::g_called_done.exchange(true))
+                    swofty::log("[immersive-pitstops] car %u: the called stop is done (the call is kept until %.0f s back "
+                                "on track, for flashbacks)", e.car, call::kKeepCall);
                 auto me = swofty::live::player();
                 if (me && me->vehicle == e.car) {
                     int ls = loose::g_state.load();
@@ -1467,12 +1644,15 @@ SWOFTY_ON_LOAD
                         loose::g_state.store(loose::fixed);
                     } else if (ls == loose::none && !g_stops[e.car].rolled && !g_wants_retire[e.car].load() &&
                                !crew::g_stuck_seq[e.car].load()) { // 1.0.17: not after any stuck nut
-                        int chance = ferrari(e.car) ? kFerrariChance : int(loose_chance), roll = int(rnd() % 100);
-                        if (ferrari(e.car))
-                            swofty::log("[immersive-pitstops] car %u (Ferrari Mode): loose wheel at %d %%", e.car, chance);
-                        bool hit = roll < chance;
-                        swofty::log("[immersive-pitstops] car %u: loose wheel roll %d against %d %%%s", e.car, roll, chance,
-                                    hit ? ": the wheel isn't on properly" : "");
+                        // 1.0.17: a decimal chance (0.1 steps), rolled in hundredths of a percent
+                        float chance = bool(loose_test) ? 100.0f
+                                       : ferrari(e.car) ? float(kFerrariChance) : float(loose_chance);
+                        int roll = int(rnd() % 10000);
+                        if (ferrari(e.car) && !bool(loose_test))
+                            swofty::log("[immersive-pitstops] car %u (Ferrari Mode): loose wheel at %d %%", e.car, kFerrariChance);
+                        bool hit = roll < int(chance * 100.0f + 0.5f);
+                        swofty::log("[immersive-pitstops] car %u: loose wheel roll %.2f against %.1f %%%s", e.car, roll / 100.0,
+                                    chance, hit ? ": the wheel isn't on properly" : "");
                         if (hit) {
                             loose::g_car.store(int(e.car));
                             loose::g_corner.store(loose::random_corner());
@@ -1514,8 +1694,13 @@ SWOFTY_ON_LOAD
         }
         loose::g_ai_reset.store(true);
         call::g_called.store(false);
+        call::g_called_done.store(false);
         call::g_uncalled_stop.store(false);
         hold::g_held.store(false);
+        {
+            std::lock_guard<std::mutex> lk(g_pending_mu);
+            g_pending.clear();
+        }
         {
             std::lock_guard<std::mutex> lk(crew::g_mu);
             for (auto &j : crew::g_jobs)
@@ -1529,16 +1714,37 @@ SWOFTY_ON_LOAD
     // Box This Lap: the engineer's confirmation
     auto sp = swofty::events::on<swofty::speech::events::Line>().after(
         [](const swofty::speech::events::Line &l, const swofty::events::Context &) {
-            if (!swofty::speech::engineer(l) || !swofty::speech::stem(l).starts_with("eng_pit_conf"))
+            if (!swofty::speech::engineer(l))
                 return;
+            // your Box This Lap confirmed, or the engineer calling you in himself
+            auto stem = swofty::speech::stem(l);
+            // 1.0.5: a strategy the engineer proposes (eng_query_strat_NN: after damage, a puncture, the weather...)
+            // and you accept (his eng_vc_cnfrm_NN within 30 s) calls the stop too (2026-11-23: front wing damage and
+            // a slow puncture, both accepted, crew held)
+            static std::atomic<uint64_t> s_query_at{0};
+            if (stem.starts_with("eng_query_strat")) {
+                s_query_at.store(GetTickCount64());
+                return;
+            }
+            bool accepted = stem.starts_with("eng_vc_cnfrm") && s_query_at.load() &&
+                            GetTickCount64() - s_query_at.load() < 30000;
+            if (accepted)
+                s_query_at.store(0);
+            bool confirm = stem.starts_with("eng_pit_conf") || accepted;
+            bool team = call::engineer_box_call(stem); // the engineer calling you in (the full list: see there)
+            if (!confirm && !team)
+                return;
+            call::g_called_done.store(false); // a new call: kept for the next stop
             if (!call::g_called.exchange(true)) {
-                swofty::log("[immersive-pitstops] Box This Lap confirmed (%.*s): the crew get ready",
-                            int(swofty::speech::stem(l).size()), swofty::speech::stem(l).data());
-                if (bool(call_stop))
-                    swofty::hud::toast("BOX CONFIRMED", "The crew are getting ready", 4.0f);
+                swofty::log("[immersive-pitstops] %s (%.*s): the crew get ready",
+                            accepted ? "the new strategy accepted" : confirm ? "Box This Lap confirmed"
+                                                                            : "the engineer calls you in",
+                            int(stem.size()), stem.data());
+                // (1.0.6: no popup when the crew get ready; only CREW NOT READY shows)
             }
         });
-    swofty::log("[immersive-pitstops] crew speed per stop: %d %% spread; crew update job %s", int(stop_spread),
+    swofty::log("[immersive-pitstops] crew speed per stop: %.*s; crew update job %s", int(std::string_view(stop_times).size()),
+                std::string_view(stop_times).data(),
                 swofty::api && swofty::api->resolve && swofty::api->resolve("Sess_PitStopUpdateJob_Update") ? "found"
                                                                                                           : "NOT FOUND");
     swofty::log("[immersive-pitstops] call your stop: %s; speech events %s", bool(call_stop) ? "on" : "off",
@@ -1560,7 +1766,8 @@ SWOFTY_ON_LOAD
             }
         });
     swofty::events::on_frame(loose::frame);
-    swofty::log("[immersive-pitstops] loose wheel %d %% of your stops; lap events %s", int(loose_chance),
+    swofty::log("[immersive-pitstops] loose wheel %.1f %% of your stops%s; stuck wheel nut %d %%; lap events %s",
+                float(loose_chance), bool(loose_test) ? " (testing: every stop)" : "", int(stuck_chance),
                 lp == swofty::events::Result::ok ? "on" : "NOT AVAILABLE");
     swofty::log("[immersive-pitstops] session.pit %s, session start %s, pit lane update %s, pit status %s",
                 r == swofty::events::Result::ok ? "on" : "NOT AVAILABLE", s == swofty::events::Result::ok ? "on" : "not available",

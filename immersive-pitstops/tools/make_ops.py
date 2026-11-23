@@ -30,15 +30,10 @@ P = "pit_crew_training.probabilities.probability_set[_metadata_=%s].probability_
 M = "pit_crew_training.mistakes.mistake_info[_metadata_=%s]"
 F1_ROWS = [P % ("f1", i) for i in range(5)] + [P % ("f1_equal_performance", 0)]
 
-# F1 training bands: stop times only (min s, max s). 1.0.13: the mistake chances are the game's own again: changing
-# them never gave the addon control (2026-11-23: ~140 stops at 10-14 % and 18 stops at 50 %, all without a mistake;
-# at 100 % every stop had one). Stuck wheel nuts are rolled by the plugin instead (native/src).
-bands = [(2.00, 2.95), (1.90, 2.90), (1.80, 2.85), (1.70, 2.80), (1.60, 2.75)]
-for i, (lo, hi) in enumerate(bands):
-    r = P % ("f1", i)
-    s(r, "min_routine_pit_stop_time", lo); s(r, "max_routine_pit_stop_time", hi)
-r = P % ("f1_equal_performance", 0)
-s(r, "min_routine_pit_stop_time", 1.80); s(r, "max_routine_pit_stop_time", 2.85)
+# F1 training bands: stock since 1.0.13 (no ops). 1.0.0-1.0.12 widened the stop times (1.80-2.85 s at the Driver
+# Career level), and with the plugin's spread on top a slow session gave 4 s stops without a crew mistake (player
+# report, 2026-11-24). The base is now the game's own (2.40-2.45 s in Driver Career) and the plugin's Stop time spread
+# setting does all the variation, with a cap near 3 s. The mistake chances are the game's own too (1.0.13).
 
 # (Test mode was removed in 1.0.14: the sliders go to 100 % for testing)
 
@@ -46,6 +41,9 @@ s(r, "min_routine_pit_stop_time", 1.80); s(r, "max_routine_pit_stop_time", 2.85)
 # rules.crossing_pit_white_line.<long_race|short_race>.penalty_level_0.level, read by Sess_Rules_ReadPitWhiteLine.
 # Tested 2026-11-23: level 3 gives 2 s; level 4 (the stock second offence) gives 3 s with the engineer's radio call.
 # So the first offence is level 4 too (1.0.18); practice and qualifying stay warnings.
+# The seconds depend on the race length (2026-11-24 tests): short races, level 3 = 2 s, level 4 = 3 s; long races,
+# level 3 = a warning only (1.0.19), level 4 = 10 s (logged as a "stop go", added to the race time in the stock game).
+# 1.0.20: level 4 for both.
 for race in ("long_race", "short_race"):
     s("rules.crossing_pit_white_line.%s.penalty_level_0" % race, "level", "4")
 

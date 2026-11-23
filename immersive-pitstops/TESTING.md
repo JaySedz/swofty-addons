@@ -1,4 +1,97 @@
-# Immersive Pitstops 1.0.0 (release): what to test
+# Immersive Pitstops 1.0.20: what to test
+
+1.0.19 result: level 3 in a long race is only a warning. 1.0.20 puts long races back to level 4 (10 s, added to the
+race time), short races stay level 4 (3 s). Nothing else changed.
+
+## 1.0.19
+
+Pit exit line: a long race gave 10 s at level 4 (the 3 s was a 5-lap race, a short race). 1.0.19 sets long races to
+level 3 (expected 5 s) and keeps short races at level 4 (3 s). Check a long race: the first offence should be 5 s.
+
+## 1.0.18
+
+AI loose wheel chance now uses the same slider as yours (0-10 % in 0.1 steps, default 0.3, was 1 %). The "Loose wheel
+every stop (testing)" toggle moved to the bottom, above Log pit stops. Check the settings page order and values.
+
+## 1.0.17
+
+1.0.16 result: the call was kept through 15 flashbacks with no false CREW NOT READY [x]; the spread ran from x0.82 to
+x1.29 [x]. A loose wheel (roll 0 against 1 %) and then a stuck nut on the stop that fixed it: natural rolls, but too
+often for the real thing. 1.0.17: stuck wheel nut 1 % by default; lengths tilted short (5 s 60 %, 10 s 25 %, 20 s
+10 %, 30 s 4 %, 60 s 1 %); loose wheel 0.3 % by default, slider 0-10 % in 0.1 steps (the launcher allows at most 100
+steps); new toggle "Loose wheel every stop (testing)". Check: the sliders show 1 and 0.3; the load line reads
+`loose wheel 0.3 % of your stops; stuck wheel nut 1 %`; with the testing toggle on, a stop leaves a loose wheel.
+
+## 1.0.16
+
+1.0.15 result: More fast stops worked (about 2 s, a few under 2 s) [x]. False CREW NOT READY after called stops: the
+call was used up as the crew finished, so after a flashback to before the stop, the repeated stop counted as uncalled.
+Also, an alert still queued from an earlier stop could show after a later one. 1.0.16 keeps a done call until you've
+been back on track for 30 s, and drops queued alerts when a new pit lane approach starts. Check: call a stop, flash
+back to before the pit entry, pit again: no CREW NOT READY (log: `the called stop is done (the call is kept...`, then
+`30 s back on track: the call is used up`). An uncalled stop later still gets the alert.
+
+## 1.0.10
+
+1.0.9 result: the engineer's pit window call readied the crew [x]; a plugin stuck nut (rear right, 5 s, cut exactly)
+[x]. Its STUCK WHEEL NUT alert and the earlier CREW NOT READY were shown in the pit lane and not seen. 1.0.10 shows
+your stop's alerts once you're released (as the loose wheel's). Check both appear after the stop.
+
+## 1.0.9
+
+1.0.7 log: the engineer's damage call counted [x]. The safety car (car 22) parks in "garage 99" with no live garage:
+1.0.8's stricter check would have switched the box hold off for the session when it pulled in. 1.0.9 skips the
+safety car. Check a race: no `off for this session` line, box hold and stuck nuts as before.
+
+## 1.0.8
+
+1.0.8 (fallbacks for other game copies, EA app): the box hold no longer writes when the launcher can't report the
+car's garage (it used to fall back to "the values look sane"); stuck wheel nuts stay off while the box hold can't run;
+the retirement and crew call-out message types must lie in the game's image. On Steam nothing should change: check
+the load lines and a normal race are as 1.0.7.
+
+## 1.0.7
+
+1.0.7: the engineer's box calls are the full list from the game's English subtitles (143 lines: pit window, strategy,
+damage, DRS, punctures, weather, safety car, traffic, fuel, "box this lap, mind the speed limit"). Fixed on the way:
+the safety car "stay out" lines (eng_sc_pitstrat_03/04) and the pit window countdowns (eng_pit_open_10-30) no
+longer count. Any engineer call that still leaves the crew held: the log line before the stop names its stem.
+
+## 1.0.6
+
+1.0.6: no BOX CONFIRMED popup any more; only CREW NOT READY shows, when the crew aren't ready.
+
+## 1.0.5
+
+1.0.4 result: two accepted strategy changes (front wing damage, slow puncture) left the crew held. The engineer asks
+with eng_query_strat_NN and confirms your accept with eng_vc_cnfrm_NN; 1.0.5 counts a confirm within 30 s of his
+question as calling the stop (log `the new strategy accepted (...)`), and his slow puncture calls (eng_slwpunc).
+
+## 1.0.4
+
+1.0.3 result: the engineer's mid-race call (eng_pit_open_04, the pit window opening) wasn't counted; 1.0.4 counts
+every eng_pit_open line. The CREW NOT READY popup was queued and shown by the launcher at the pit entry (log), but
+you didn't see it: check where it appears.
+
+## 1.0.3
+
+1.0.2 result: the safety car strategy call (eng_sc_pitstrat_02) wasn't counted as a call; 1.0.3 counts every
+safety car pit strategy line except the "stay out" ones.
+
+## 1.0.2
+
+1.0.2: the engineer calling you in (strategy change "box this lap", box under the safety car, shredded tyre) counts
+as calling your stop (log `the engineer calls you in (...)`). Ferrari Mode: in a Ferrari the crew are held on every
+race stop, called or not (log `held (Ferrari Mode: the crew are never ready)`).
+
+## 1.0.1
+
+1.0.0 was approved by the launcher's review. 1.0.1 applies its suggestions: compat.launcher >=1.10.0 (before that
+Game_PitLane_UpdateMovement isn't there and the DLL would be dropped while the 60 s sequences still apply), the
+LICENSE copyright (was "AI Helmets contributors"), and Terminal Damage's copyright notice and license
+(LICENSE-terminal-damage) shipped with the addon. No code changes.
+
+## 1.0.0 (release)
 
 The release build is 1.0.18's code, renumbered 1.0.0 (the 1.0.x numbers before were test builds). 1.0.18 result:
 pit exit penalty 3 s from the first offence [x].
