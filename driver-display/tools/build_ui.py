@@ -794,25 +794,51 @@ def main():
         text(f'rd_pop_value_{tone}', 861, 775, H + 'pop_value', colour, scale=1.0, style='OSD_24_bold', wpx=500,
              visible=H + f'pop_{tone}', layer=L_POPTEXT)
 
+    # 1.2.13: the bottom row's bars on the 2026 Ferrari. A straight box came out curved there (its screen bends the
+    # display, the user's photo: black corners at the top left and right of a bar); each bar gets a Ferrari copy over
+    # one picture of the bar drawn against the bend, as the lines and the safety car panel have. The copies take
+    # their colour from their material like every box: no colour override.
+    from PIL import ImageDraw as _RD
+    _row_tex = []
+
+    def row_bar_texture():
+        if not _row_tex:
+            x0, y0, x1, y1 = 30, 595, 1640, 905
+            pts = []
+            for (ax, ay), (bx, by) in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)),
+                                       ((x0, y1), (x0, y0))):
+                n = max(2, int(max(abs(bx - ax), abs(by - ay)) / 8))
+                pts += [ferrari(ax + (bx - ax) * u / n, ay + (by - ay) * u / n) for u in range(n)]
+            big = Image.new('L', (1672, 944), 0)
+            _RD.Draw(big).polygon(pts, fill=255)
+            _row_tex.append(overlay_texture('rd_ovl_rowf', big.resize((836, 472), Image.LANCZOS)))
+        return _row_tex[0]
+
+    def row_box(name, colour, visible):
+        """A bottom-row bar: the straight box on other cars, the bent copy on the 2026 Ferrari."""
+        vn, vf = split_leaf(visible)
+        box(name, 30, 595, 1640, 905, colour, vn, L_POPTEXT + 1)
+        car_quad(name + '_f', row_bar_texture(), (0, 0, 1670, 942), colour, vf, L_POPTEXT + 1)
+
     # under a safety car / VSC, after its full screen: the bottom row turns amber with what is out (SAFETY CAR, VSC,
     # VSC ENDING, SC IN THIS LAP, SLOW DOWN), so gear, speed and the SC delta stay readable above it (1.0.4)
-    box('rd_sc_bar', 30, 595, 1640, 905, (255, 205, 0), H + 'sc_bar', L_POPTEXT + 1)
+    row_box('rd_sc_bar', (255, 205, 0), H + 'sc_bar')
     text('rd_sc_bar_text', 835, 750, H + 'sc_bar_text', (10, 10, 10), scale=1.9, wpx=1500, value='SAFETY CAR',
          visible=H + 'sc_bar', layer=L_POPTEXT + 2)
 
     # race messages across the bottom row (1.0.22: backmarker, pit window, rain, retirements, contact; the ERS SOC
     # cell's pop-up was too narrow for them and stays for setting changes): blue with white text for information,
     # amber with black text for incidents
-    box('rd_row_blue', 30, 595, 1640, 905, (10, 92, 255), H + 'row_blue', L_POPTEXT + 1)
-    box('rd_row_amber', 30, 595, 1640, 905, (240, 160, 0), H + 'row_amber', L_POPTEXT + 1)
-    box('rd_row_red', 30, 595, 1640, 905, (215, 0, 0), H + 'row_red', L_POPTEXT + 1)  # a puncture (1.1.6)
+    row_box('rd_row_blue', (10, 92, 255), H + 'row_blue')
+    row_box('rd_row_amber', (240, 160, 0), H + 'row_amber')
+    row_box('rd_row_red', (215, 0, 0), H + 'row_red')  # a puncture (1.1.6)
     text('rd_row_text_l', 835, 750, H + 'row_text', WHITE, scale=1.2, wpx=1500, value='-',
          visible=H + 'row_light', layer=L_POPTEXT + 2)
     text('rd_row_text_d', 835, 750, H + 'row_text', (10, 10, 10), scale=1.2, wpx=1500, value='-',
          visible=H + 'row_dark', layer=L_POPTEXT + 2)
 
     # the fastest lap of the race (1.0.21): the bottom row purple with the driver and the time for 5 s
-    box('rd_fl_bar', 30, 595, 1640, 905, (150, 60, 225), H + 'fl_bar', L_POPTEXT + 1)
+    row_box('rd_fl_bar', (150, 60, 225), H + 'fl_bar')
     text('rd_fl_text', 835, 750, H + 'fl_text', WHITE, scale=1.2, wpx=1500, value='FASTEST LAP',
          visible=H + 'fl_bar', layer=L_POPTEXT + 2)
 
@@ -1239,6 +1265,14 @@ def main():
             ops.append({'op': 'add-resource', 'erp': pkg, 'resource': res, 'type': rtype, 'sources': sources})
     os.makedirs(os.path.join(ROOT, 'erp'), exist_ok=True)
     json.dump({'schema_version': 1, 'ops': ops}, open(os.path.join(ROOT, 'erp', 'driver_display.json'), 'w'), indent=2)
+    # 1.2.15: ui/tex keeps only what an op uses (earlier builds left renumbered car part pictures behind, which were
+    # packed with every release: 85 files the upload check flagged as unused)
+    used = {src for op in ops for src in op.get('sources', [op.get('source')]) if src}
+    tex = os.path.join(ROOT, 'ui', 'tex')
+    stale = [n for n in os.listdir(tex) if 'ui/tex/' + n not in used]
+    for n in stale:
+        os.remove(os.path.join(tex, n))
+    print(f'ui/tex: {len(stale)} unused file(s) removed')
     # sanity: both files read back
     pkgfmt.read(lcd.encode())
     # the LCD holds at most 512 nodes: 0.4.22 had 520 and the display drew nothing at all

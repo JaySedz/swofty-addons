@@ -2,10 +2,11 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "0.2.17",
+  "version": "1.0.0",
   "author": "Sedz",
-  "description": "Makes career pit stops less predictable: stationary times spread from about 1.6 to 3 s, crew mistakes happen more often, and now and then a stuck rear right wheel nut holds the car in the box while the crew fight it. My Team and Driver Career, for you and the AI teams.",
+  "description": "Makes pit stops less predictable: every stop's time varies, a stuck rear wheel nut can hold a car in its box (and sometimes end its race), a wheel left loose has to be fixed next lap or it comes off, the crew aren't ready if you come in without calling Box This Lap, and crossing the pit exit line costs a 3 s penalty. For you and the AI teams.",
   "license": "MIT",
+  "icon": "icon.png",
   "repository": "https://github.com/JaySedz/swofty-addons/tree/main/immersive-pitstops",
   "category": "career",
   "kind": [
@@ -31,74 +32,14 @@
   ],
   "options": [
     {
-      "id": "big_mistakes",
-      "type": "choice",
-      "label": "Stuck wheel nut",
-      "description": "On: the crew mistake on the rear right wheel going on becomes a stuck wheel nut, with the crew fighting the wheel while the car waits on its jacks. It's one of the eight wheel mistakes, so about one mistake in eight. Off: the game's own short mistake.",
-      "values": [
-        {
-          "value": "off",
-          "label": "Off"
-        },
-        {
-          "value": "on",
-          "label": "On"
-        }
-      ],
-      "default": "on",
-      "binds": "db"
-    },
-    {
-      "id": "stuck_length",
-      "type": "choice",
-      "label": "Stuck wheel nut time",
-      "description": "About how much longer a stop with a stuck wheel nut takes (the game plays the whole stop a little faster or slower with the crew's rolled speed). A set time: the rear right wheel. Random: a stuck nut on any wheel, about 5 s on the front left, 15 s on the front right, 30 s on the rear left or 60 s on the rear right, so stuck nuts also come up four times as often.",
-      "values": [
-        {
-          "value": "10",
-          "label": "10 s"
-        },
-        {
-          "value": "15",
-          "label": "15 s"
-        },
-        {
-          "value": "20",
-          "label": "20 s"
-        },
-        {
-          "value": "30",
-          "label": "30 s"
-        },
-        {
-          "value": "60",
-          "label": "60 s"
-        },
-        {
-          "value": "random",
-          "label": "Random (5-60 s)"
-        }
-      ],
-      "default": "random",
-      "binds": "db"
-    },
-    {
-      "id": "hold_box",
-      "type": "toggle",
-      "label": "Hold the car until the crew finish",
-      "description": "The pit lane lets a car go after about 20 s in its box even if the crew are still working. On: that limit is kept off while the crew work, so a stuck wheel nut lasts its full time and ends with the car dropped and released. Applies at once.",
-      "default": true,
-      "binds": "native"
-    },
-    {
-      "id": "max_hold",
+      "id": "stuck_chance",
       "type": "slider",
-      "label": "Longest hold (s)",
-      "description": "A safety stop: after this long in the box the game's own limit is let back in, in case a crew never finishes.",
-      "min": 30,
-      "max": 300,
-      "step": 30,
-      "default": 120,
+      "label": "Stuck wheel nut chance (%)",
+      "description": "How many stops get a stuck wheel nut on a rear wheel: the crew fight the wheel while the car waits on its jacks, usually for a few seconds, now and then for up to a minute. Separate from the game's own small crew mistakes, which happen as in the stock game. Yours and the AI's. 0 turns it off; 100 gives one on every stop (for testing). Applies at once.",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 3,
       "binds": "native"
     },
     {
@@ -135,46 +76,28 @@
       "binds": "native"
     },
     {
-      "id": "pit_log",
+      "id": "ferrari_mode",
       "type": "toggle",
-      "label": "Log pit stops (testing)",
-      "description": "Writes each stop's box time and the pit lane's limit to the launcher log.",
+      "label": "Ferrari Mode",
+      "description": "Increases Ferrari's chances of a pit stop error (a stuck wheel nut or a loose wheel) to 50 %. Off by default.",
+      "default": false,
+      "binds": "native"
+    },
+    {
+      "id": "call_stop",
+      "type": "toggle",
+      "label": "Call your stop",
+      "description": "Race stops only. On: pick Box This Lap in the MFD radio menu before you pit, or the crew are still in the garage when you get to your box and have to run out first. Off: the crew are always ready, as in the stock game. Applies at once.",
       "default": true,
       "binds": "native"
     },
     {
-      "id": "team_pit_times",
+      "id": "pit_log",
       "type": "toggle",
-      "label": "Widen team pit times too",
-      "description": "Also widens each team's own pit time range in the pit lane table. That table is read outside the careers too, so Grand Prix and other modes change as well. Off by default.",
+      "label": "Log pit stops (testing)",
+      "description": "Writes each stop's box time and the pit lane's limit to the launcher log.",
       "default": false,
-      "binds": "db"
-    },
-    {
-      "id": "test_mode",
-      "type": "choice",
-      "label": "Test mode",
-      "description": "For testing only: forces every pit stop, yours and the AI's. Fast: 1.6 s, no mistakes. Slow: 3.0 s, no mistakes. Stuck wheel nut: a mistake on every stop, and every wheel mistake plays the stuck wheel nut (with the time above). Set it back to Off to race.",
-      "values": [
-        {
-          "value": "off",
-          "label": "Off"
-        },
-        {
-          "value": "fast",
-          "label": "Fast stops (1.6 s)"
-        },
-        {
-          "value": "slow",
-          "label": "Slow stops (3.0 s)"
-        },
-        {
-          "value": "big_mistake",
-          "label": "Stuck wheel nut every stop"
-        }
-      ],
-      "default": "off",
-      "binds": "db"
+      "binds": "native"
     }
   ],
   "operations": {

@@ -35,19 +35,22 @@ import zstandard  # noqa: E402
 
 ERP = "2025_asset_groups/animation_package/scenes/pitstops/f1/pitstop_26.erp"
 RESOURCE = "eaid://animation_package/sequences/pitstops/f1/pitstopstartjobdostandardstop%s.sequence"
-# The fixed lengths are the rear right wheel's; Random gives each "wheel on" mistake its own length (0.2.2): the
-# game picks which wheel's mistake happens, so the stuck nut's length comes out random.
+# Each "wheel on" mistake gets its own length (0.2.2's Random; the only choice since 1.0): the game picks which
+# wheel's mistake happens, so the stuck nut's length comes out random.
 # Each also in its front wing adjust ("fwa") version, which the game plays when the stop changes the wing angle
 # (the AI do that a lot: 0.2.2's test had three AI cars on the unedited fwa version).
-_B = [("rron", s) for s in (10, 15, 20, 30, 60)] + [("flon", 5), ("fron", 15), ("rlon", 30)]
+_B = [("rlon", 60), ("rron", 60)]  # 60 s each; the plugin cuts each stuck nut to a rolled length (1.0.4); rear only (1.0.5)
 BUILDS = _B + [("fwa" + w, s) for w, s in _B]
 GUN_PROP = {"FL": "frontleft", "FR": "frontright", "RL": "rearleft", "RR": "rearright"}
 FPS = 30
 
 
 def find_window(root):
-    """The struggle: the tyre-on man's tyre_on_error sound, play to stop (rear right: 79..121), and the corner."""
-    clip, play, stop = None, None, None
+    """The struggle: the tyre-on man's tyre_on_error sound, play to stop (rear right: 79..121), and the corner.
+    Returns the window, the clips that loop it, and the gun man's own loop start: his tyre_gun_error key (1.0.5: the
+    gun man and his gun repeat his failed attempt with the gun, from that key, for the same length; on the rear
+    right it is 3 frames before the tyre man's window, so before 1.0.5 his attempt never repeated)."""
+    clip, play, stop, gun = None, None, None, None
     for n, _ in vtf.walk(root):
         if n.kind:
             continue
@@ -57,11 +60,14 @@ def find_window(root):
             play, corner = int(n.attr(b"time_f")), clip[:2]
         elif n.name == b"Key" and n.attr(b"play") == b"stop_anim_tyre_on_error" and stop is None:
             stop = int(n.attr(b"time_f"))
+        elif n.name == b"Key" and n.attr(b"play") == b"play_anim_tyre_gun_error" and gun is None:
+            gun = int(n.attr(b"time_f"))
     if play is None or stop is None or corner not in GUN_PROP:
         raise SystemExit("no tyre_on_error window in this sequence")
     loop = {corner + "_TG", corner + "_TF", GUN_PROP[corner] + "_wheel_gun_prop", "TyreNew_%s_Car1" % corner,
             "TyreNew_%s_Car2" % corner, corner.lower()}
-    return (play, stop + 1), loop
+    gun_clips = {corner + "_TG", GUN_PROP[corner] + "_wheel_gun_prop"}
+    return (play, stop + 1), loop, gun_clips, gun
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -110,9 +116,9 @@ def active_key(keys, frame):
     return best
 
 
-def stretch(root, extra, window, LOOP):
-    a, b = window
-    d = b - a
+def stretch(root, extra, window, LOOP, GUN=(), gun_start=None):
+    a0, b = window
+    d = b - a0
     reps = extra // d
     p = b  # the pause goes in where the struggle ends
     clip = None
@@ -127,11 +133,14 @@ def stretch(root, extra, window, LOOP):
         anims = [k for k in node.children if k.kind == 0 and k.name == b"AnimKey"]
         others = [k for k in node.children if k.kind == 0 and k.name != b"AnimKey"]
         loop = clip in LOOP
+        # the clip's own loop: the gun man and his gun from his gun error key, everyone else the tyre man's window;
+        # both are d frames long, so the plugin's cut (whole repeats of d) keeps every clip in step
+        a = gun_start if (clip in GUN and gun_start is not None) else a0
         new_anims, new_others = [], []
         for k in anims:
             t, dur = ival(k, b"time_f"), ival(k, b"duration_f")
             start = ival(k, b"animStartTime_f", 0)
-            if loop and a < t < b and dur:
+            if loop and a < t < a + d and dur:
                 raise SystemExit("%s: an AnimKey starts inside the struggle at %d" % (clip, t))
             if t >= p:
                 new_anims.append(anim_key(k, t + extra, dur, start) if dur else shifted(k, extra))
@@ -160,7 +169,7 @@ def stretch(root, extra, window, LOOP):
                 new_others.append(k)
                 continue
             new_others.append(shifted(k, extra) if t >= p else k)
-            if loop and k.name == b"Key" and k.attr(b"play") is not None and a <= t < b:
+            if loop and k.name == b"Key" and k.attr(b"play") is not None and a <= t < a + d:
                 for r in range(reps):  # the struggle's sounds play again in every repeat
                     new_others.append(at_time(k, p + r * d + (t - a)))
         new_anims.sort(key=lambda k: ival(k, b"time_f"))
@@ -198,14 +207,15 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     for wheel, seconds in BUILDS:
         stock = read_fragment(game, ERP, RESOURCE % wheel, 0)
-        window, loop = find_window(vtf.parse(stock))
+        window, loop, gun_clips, gun = find_window(vtf.parse(stock))
         d = window[1] - window[0]
         extra = max(1, round(seconds * FPS / d)) * d  # whole repeats of the struggle
         root = vtf.parse(stock)
-        stretch(root, extra, window, loop)
+        stretch(root, extra, window, loop, gun_clips, gun)
         data = vtf.write(root)
         base = os.path.join(out_dir, "%s_stuck_%ds" % (wheel, seconds))
-        print("%s: struggle frames %d-%d, looping %s" % (wheel, window[0], window[1], ", ".join(sorted(loop))))
+        print("%s: struggle frames %d-%d, gun man from %s, looping %s" % (wheel, window[0], window[1], gun,
+                                                                      ", ".join(sorted(loop))))
         open(base + ".sequence", "wb").write(data)
         open(base + ".tsmd", "wb").write(vtf.tsmd(vtf.parse(data)))
         print("%s: +%.1f s, %d frames, %d bytes" % (os.path.basename(base), extra / FPS,

@@ -13,6 +13,7 @@ copy /y native\immersive_pitstops.dll build\pkg\native\ >nul
 copy /y swofty.json build\pkg\ >nul
 copy /y README.md build\pkg\ >nul
 copy /y LICENSE build\pkg\ >nul
+copy /y icon.png build\pkg\ >nul
 copy /y db\pitstops.json build\pkg\db\ >nul
 rem erp\*.sequence / *.tsmd come from tools\make_stuck_nut.py, erp\stuck_nut.json from tools\make_ops.py
 copy /y erp\stuck_nut.json build\pkg\erp\ >nul

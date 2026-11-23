@@ -111,6 +111,15 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [ ] 1.2.10 rev lights: a created driver with a created team-mate (My Team) gets the real style from most cars
       ("cars with the player's own style skipped"); a real driver logs "keeps the game's lights (... the same as most
       cars)"; the style comes back after a restart / the next session.
+- [ ] 1.2.11 rev lights: a created driver in the Ferrari gets the common style (no green flash). (The
+      "rev lights (diag):" log lines were removed in 1.2.14; the 1.2.13 backup still has them.)
+- [ ] 1.2.12 rev lights: "a created player driver (career player driver 0x4....)" for a created driver, the greens as
+      in 1.2.11; as Leclerc (a real driver) "the player isn't a created driver" and the game's own lights (his
+      greens flash briefly: the game's style); no car other than the player's changed at a session load.
+- [ ] 1.2.15 "Start lights screen" off: at the race start the wheel stays on its normal page (no black lights screen, no
+      green GO); on (the default) as before. The package's ui/tex holds 465 files (85 unused ones gone).
+- [ ] 1.2.13 2026 Ferrari: the bottom-row bars (amber, blue, red, the safety car's yellow on the car / pit page, the
+      fastest lap's purple) fill the row with no black corners; other cars' bars unchanged.
 - [ ] The boot logo leaves no faint copy on the page after it (3 s logo, then 1 s black).
 - [ ] 1.2.1: the game's own wheel screen is out of the layout (378 of 512 nodes, colour to node 102). Check every
       page, the boot screen, the flag screens and the safety car screen still draw, and the log has no new errors

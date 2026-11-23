@@ -1,118 +1,148 @@
 # Immersive Pitstops
 
-Career pit stops in F1 25 come out at almost exactly the same time every lap: a clean stop with the stock
-crew is 2.4 s, every time. This addon spreads them out. Most stops land between about 2.2 and 2.8 s, a good
-crew now and then turns one in 1.6 to 2.0 s, mistakes happen more often, and once in a while the rear right
-wheel nut sticks and the car sits on its jacks while the crew fight it. Sometimes they get it on and the
-car goes back out; sometimes the team gives up and the car's race is over.
+Pit stops in F1 25 come out at almost exactly the same time every stop: the game gives each driver one stop time
+for the whole session. This addon makes pit stops something that can go right or wrong:
 
-It changes game database values and one pit stop animation sequence, and has a small native plugin
-(`native/src/immersive_pitstops.cpp`, source included) that keeps the pit lane from releasing a car while
-its crew are still working, and retires the car when the team gives up.
+- every stop's time varies, quicker or slower, now and then a little fumbled;
+- a rear wheel nut can stick and hold the car on its jacks while the crew fight it, usually for a few seconds, now
+  and then for up to a minute; sometimes the team gives up and the car's race is over;
+- now and then a wheel isn't on properly: box next lap to have it fixed, or it comes off;
+- call your stop with **Box This Lap** in the MFD radio menu, or the crew are still in the garage when you get there;
+- crossing the pit exit line costs a 3 s penalty.
 
-How the retirement message is found (0.2.17): the launcher's bindings `Game_Game_RetireLocalPlayer` (the pause
-menu's Retire) and `g_Game_MessageBus` lead to the game's own code that sends it, so a game update is covered when
-the launcher updates those bindings. With an older launcher that lacks them, Terminal Damage's byte pattern is used
-instead.
+The game's own small crew mistakes happen as in the stock game. Races in My Team, Driver Career and Grand Prix, for
+you and the AI teams (the call and the loose wheel's "box this lap" are yours).
+
+It changes game database values and the crew's "wheel on" mistake animations, and has a small native plugin
+(`native/src/immersive_pitstops.cpp`, source included). No network access, no files written, no processes
+started.
 
 Uses work from Terminal Damage by nyannoying:
 [https://github.com/nyannoying1337/f1-25-terminal-damage](https://github.com/nyannoying1337/f1-25-terminal-damage)
-(the way a car is retired: the game's own retirement message and the byte pattern that finds it; and the way a
-wheel is torn off: the game's own corner damage set just past its detach limit). Not endorsed by Terminal
-Damage's author.
+(the way a car is retired: the game's own retirement message and the byte pattern that finds it, now only a
+fallback for launchers before 1.10.26; and the way a wheel is torn off: the game's own corner damage set just past
+its detach limit). Not endorsed by Terminal Damage's author.
 
 ## What it changes
 
-Pit crew training bands (`pit_crew_training.probabilities`), F1 set. The game picks a band by the team's
-pit crew training level, for your team and for the AI teams:
+**Pit crew training bands** (`pit_crew_training.probabilities`, F1 set): the stop times are widened. The game
+picks a band by the team's pit crew training level (in Driver Career every team uses the "up to 60 %" band) and
+rolls each driver's stop time from it once per session. The crew mistake chances are the game's own, so its small
+crew mistakes happen as often as in the stock game.
 
-| Training level | Stock stop | New stop | Stock mistake chance | New mistake chance |
-|---|---|---|---|---|
-| up to 20 % | 2.50-2.54 s | 2.00-2.95 s | 21-30 % | 18-25 % |
-| up to 40 % | 2.45-2.50 s | 1.90-2.90 s | 11-20 % | 14-18 % |
-| up to 60 % | 2.40-2.45 s | 1.80-2.85 s | 6-10 % | 10-14 % |
-| up to 80 % | 2.30-2.40 s | 1.70-2.80 s | 1-5 % | 7-10 % |
-| up to 100 % | 2.24-2.30 s | 1.60-2.75 s | 0 % | 4-7 % |
-| equal performance | 2.24 s | 1.80-2.85 s | 0 % | 8-10 % |
+| Training level | Stock stop | New stop |
+|---|---|---|
+| up to 20 % | 2.50-2.54 s | 2.00-2.95 s |
+| up to 40 % | 2.45-2.50 s | 1.90-2.90 s |
+| up to 60 % | 2.40-2.45 s | 1.80-2.85 s |
+| up to 80 % | 2.30-2.40 s | 1.70-2.80 s |
+| up to 100 % | 2.24-2.30 s | 1.60-2.75 s |
+| equal performance | 2.24 s | 1.80-2.85 s |
 
-Stuck wheel nut: the game's crew mistakes are pre-made animation sequences, and the car leaves the box when
-its sequence ends; the time loss values in the database don't change that. A "wheel on" mistake
-(`pitstopstartjobdostandardstoprron.sequence` and the other three wheels' in `pitstops/f1/pitstop_24/25/26.erp`)
-is rebuilt with a pause: that wheel's gun man and tyre-on man repeat their struggle while the rest of the
-crew, the jacks and the car hold still. With a set time it's the rear right wheel, 10 to 60 s longer; with
-Random all four wheels get one, of different lengths (front left ~5 s, front right ~15 s, rear left ~30 s,
-rear right ~60 s), and since the game picks which wheel's mistake happens, the length comes out random. The
-game's 5 s and 10 s penalty stops hold the car the same way. `tools/make_stuck_nut.py` builds the sequences
-from the game's own files.
+**Every stop varies.** The plugin speeds each stop's crew up or down by up to 30 %, evenly, and about one stop
+in six is a little fumbled on top. A 2.4 s stop lands anywhere from about 1.7 to 3.1 s, now and then up to
+about 4 s. Yours and the AI's. It scales the crew's animation time through the launcher binding
+`Sess_PitStopUpdateJob_Update`.
 
-The pit lane's failsafe: while a car is in its box the pit lane counts a timer, and when it passes the
-stop's limit (about 20 s) it marks the crew as done and lets the car go, even mid-animation: no "go", no
-drop from the jacks. The plugin wraps the launcher binding `Game_PitLane_UpdateMovement` and keeps that
-timer just under the limit while the car is in its box, so the crew finishing ends the stop as normal. A
-safety cap (**Longest hold**) lets the game's limit back in after 120 s. The timer's place in the game's
-memory comes from the launcher's research notes, not from a launcher API, so a game update can break it.
-The plugin checks the record against the garage the launcher reports before it writes anything, and turns
-itself off for the session (logged) if they don't match. No network access, no files written, no
-processes started.
+**Stuck wheel nut.** A separate incident from the game's own crew mistakes: at the start of each stop the plugin
+rolls **Stuck wheel nut chance** (3 % by default), yours and the AI's. On a hit it hands the crew a rear wheel's
+"wheel on" sequence (left or right rear, rolled) instead of the normal stop: the tyre-on man fights the wheel and the
+gun man keeps retrying with the gun while the rest of the crew, the jacks and the car hold still. A popup tells you
+("STUCK WHEEL NUT"); the engineer has no line for it, as it isn't one of the game's own mistakes.
+- The sequences: the rear wheels' "wheel on" mistakes (`pitstopstartjobdostandardstop<rl/rr>on.sequence` and their
+  front wing adjust versions, in `pitstops/f1/pitstop_24/25/26.erp`) rebuilt with a minute-long pause, built from the
+  game's own files by `tools/make_stuck_nut.py`. The plugin swaps the sequence name it passes to
+  `Game_PitStopInstance_PlaySequence` (a launcher binding).
+- The length: about 5 s (45 %), 10 s (30 %), 20 s (14 %), 30 s (7 %) or a full 60 s (4 %). When the time is up the
+  plugin moves the crew's animation clock ahead by whole repeats of the struggle, to the same pose near the end of the
+  pause, and the stop carries on. (The clock is the crew sequence's time, PitStopInstance +0x3b0 then +0x5c, from the
+  launcher's research notes: checked sane before it's written, or the stuck nut plays its full minute.)
+- When the game picks its own "rear wheel on" mistake, the plugin cuts the pause out entirely, so it plays at its
+  stock length.
+- Rear wheels only, behind the driver, where the loop's small jumps are out of view. (A front wheel's file holding the
+  rear crew's animation switches the game's crew mistakes off altogether: found in testing.)
+- At 3 % a full-minute stuck nut comes up about once in 800 stops, roughly once a season across the grid. Only stuck
+  nuts longer than about 13 s run past the pit lane's limit and roll the **Retirement chance**.
 
-Retirement: a stop that runs past the pit lane's own limit for it (about 15.8 s in the box, the failsafe
-above) is a stuck wheel nut: no stock stop gets there, and penalty stops are allowed 5 s more. It rolls the
-**Retirement chance** once. Short stuck nuts (Random's ~5 s front left) finish under the limit, so they never
-end a race. Either way the stuck wheel nut
-plays out in full. If the roll missed, the car goes back out. If it landed, the team retires the car when
-the crew finish: the plugin sends the game's own "retired" status for the car, the one the pause menu's
-Retire sends, and keeps the car in its box. An AI car is put in its garage 5 s later, as the game does with retired AI cars. Your own car
-stays in its box and the game's retirement takes over (the race ends for you).
+**Holding the car in its box.** While a car is in its box the pit lane counts a timer, and at about 20 s it lets
+the car go, even with the crew mid-animation. The plugin wraps the launcher binding `Game_PitLane_UpdateMovement`
+and keeps that timer just under the limit, so the crew finishing ends the stop as normal; after 120 s in the box
+the game's limit is let back in, in case a crew never finishes. The timer's place in the game's memory comes from
+the launcher's research notes, not a launcher API, so a game update can break it. The plugin checks the record
+against the garage the launcher reports before it writes anything, and turns itself off for the session (logged)
+if they don't match.
 
-Planned: with Terminal Damage installed (optional), its crew push your retired car into the garage. The code
-is in the plugin but switched off (`kTdHandOff`): on the current game build Terminal Damage's push doesn't
-start, so it waits for a Terminal Damage update.
+**Retirement.** A stop that runs past the pit lane's own limit (about 15.8 s in the box, longer for penalty stops
+and for a stop you didn't call) is a stuck wheel nut. It rolls the **Retirement chance** once. The stuck nut plays
+out in full; if the roll missed the car goes back out, if it landed the team retires the car when the crew
+finish: the plugin sends the game's own "retired" status, the one the pause menu's Retire sends, and keeps the car
+in its box. An AI car is put in its garage 5 s later; for your car the game's retirement takes over. The message is
+found from the launcher bindings `Game_Game_RetireLocalPlayer` and `g_Game_MessageBus` (Terminal Damage's byte
+pattern on older launchers). Short stuck nuts (under about 13 s) finish under the limit and never end a race.
 
-Loose wheel: now and then a normal stop sends you out with a wheel that isn't on properly (**Loose wheel
-chance**). As you leave the box you're told "LOOSE WHEEL - box this lap". Come into the pit lane and you get
-a normal stop that fixes it. Cross the line on track without pitting and the wheel comes off: the plugin sets
-the game's own damage for that corner just past its detach limit (Terminal Damage's method: the car's
-suspension damage component, found from the launcher's live car), the game tears the wheel off and its wheel
-loss ends your race. If the car is somehow still running 20 s later, the team retires it. A flashback that
-takes you back before the line leaves the wheel loose again (box this lap, or it comes off at the line); one
-that leaves you past the line takes it off again. AI cars can't be told
-to pit, so for them it's a very rare incident (**AI loose wheel chance**): the wheel comes off 5-25 s into
-the car's out-lap. A red flag fixes any loose wheel still on its car (tyres may be changed under a red flag).
+A push of your retired car into the garage by Terminal Damage's crew is in the plugin but switched off
+(`kTdHandOff`): on the current game build Terminal Damage's push doesn't start. It waits for a Terminal Damage
+update.
 
-The F2 bands are unchanged. Mistakes stay switched on only in My Team and Driver Career, as in the stock game.
+**Loose wheel.** Now and then a normal stop sends you out with a wheel that isn't on properly (**Loose wheel
+chance**): "LOOSE WHEEL - box this lap". Pit and you get a normal stop that fixes it. Cross the line on track
+without pitting and the wheel comes off: the plugin sets the game's own damage for that corner just past its
+detach limit, the game tears the wheel off and its wheel loss ends your race (if the car is somehow still running
+20 s later, the team retires it). A flashback back before the line leaves the wheel loose again; one that leaves
+you past the line takes it off again. A red flag fixes it. AI cars can't be told to pit, so for them it's a very
+rare incident (**AI loose wheel chance**): the wheel comes off 5-25 s into the out-lap. The safety car is left out.
+
+**Call your stop** (race stops). Pick **Box This Lap** in the MFD radio menu before you come in: the engineer
+confirms ("BOX CONFIRMED") and the crew come out for you as usual. Come in without calling and the crew aren't
+ready: they stay in the garage until you have stopped in your box, then run out and do the stop.
+- The engineer's confirmation is caught with the launcher's speech event.
+- The crew's call-out (MessageCarEnteredPitLane, the message Terminal Damage also holds back for a broken car) is
+  held back with the launcher binding `Ne_Post_BusMessage` and sent later. Its type is read from the game's code,
+  starting at the launcher bindings `Game_PitLane_EnterLimitZone` and `g_Game_MessageBus`.
+- The pit lane still starts your crew's run-out as the car gets close, so that run-out is held at its first frame,
+  in the garage, until the car is in its box. Started that late, the game plays the run-out at a catch-up speed;
+  the plugin plays it at the crew's normal pace instead (their rate, at +0x3bc in the crew's object per the
+  launcher's research notes, divided out). Your crew are found by garage order (every crew plays its idle
+  sequence as the session loads, in garage order) or by your or your team-mate's last stop.
+- If the call-out can't be found, the crew come out but stand still in the box instead.
+
+**Call your stop** in the settings turns this off: the crew are then always ready, as in the stock game. A loose
+wheel you were told to box for counts as called; a car Terminal Damage has broken never waits. AI stops
+are unchanged. Without the launcher's speech events every stop counts as called.
+
+**Pit exit line.** Crossing the white line at the pit exit in a race costs a 3 s time penalty from the first offence,
+with the engineer's radio call, as in real F1 (the stock game warns first). It's the game's own rule,
+`rules.crossing_pit_white_line.<long_race / short_race>.penalty_level_0.level`, set from 2 (warning) to 4 (3 s, the
+stock game's own second-offence level); the game issues and serves it. Practice and qualifying stay warnings. Applies
+to every car.
+
+The F2 bands are unchanged.
 
 ## Settings
 
-- **Stuck wheel nut**: On (default) or Off. With a set time it's one of the eight wheel mistakes (the rear
-  right wheel going on), so about one mistake in eight; with Random four of the eight, one per wheel.
-- **Stuck wheel nut time**: **Random** (default, 5-60 s, see above), or about 10, 15, 20, 30 or 60 s on the
-  rear right. The game plays the whole stop at the crew's rolled speed, so the real time varies a little.
-  Each also comes in the front wing adjust version of the stop (the AI use it often).
-- **Hold the car until the crew finish**: On (default). Off gives the game's own ~20 s limit back.
-- **Longest hold (s)**: 120 by default; the safety cap above.
+- **Stuck wheel nut chance (%)**: 3 by default; how many stops get a stuck wheel nut. 0 turns it off, 100 gives one
+  on every stop (testing).
 - **Retirement chance (%)**: 25 by default; how many stuck wheel nuts end the car's race. 0 turns it off.
 - **Loose wheel chance (%)**: 3 by default; how many of your normal race stops leave a loose wheel. 0 turns
   it off.
-- **AI loose wheel chance (%)**: 1 by default (up to 100 for testing); how many AI stops lose a wheel on the out-lap. 0 turns it off.
-- **Log pit stops (testing)**: writes each stop's box time and the pit lane's limit to the launcher log.
-- **Widen team pit times too**: also widens each team's range in `pit_lane.pit_times`. That table is read
-  outside the careers too, so Grand Prix changes as well. Off by default.
-- **Test mode**: for testing only. Forces every stop to 1.6 s, to 3.0 s, or to a stuck wheel nut.
-  Off by default.
+- **AI loose wheel chance (%)**: 1 by default; how many AI stops lose a wheel on the out-lap. 0 turns it off.
+- **Ferrari Mode**: Off by default. On, Ferrari's cars get a stuck wheel nut or a loose wheel at 50 % (a
+  joke mode). Ferrari is found by its team badge in the launcher's live data.
+- **Call your stop**: On (default) or Off. Off: the crew are always ready, whether you called or not.
+- **Log pit stops (testing)**: Off by default; writes each stop's details to the launcher log.
 
-Changing a setting needs a rebuild, which the launcher does on the next launch.
+Every setting applies at once, in game too (Career → ADDON SETTINGS).
 
 ## Limits
 
-- The stop schedule is rolled when a session loads, so a change applies from the next session.
-- The stuck wheel nut is always the rear right wheel.
+- The training band roll happens when a session loads, so a change to it applies from the next session.
 - Steam only: the plugin's offsets were found on the Steam build.
-- Without the plugin's hold (or if it turns itself off), stuck nuts over about 15 s are cut short.
+- If the plugin turns itself off, stuck nuts over about 15 s are cut short by the pit lane.
 
 ## Building
 
 `python tools/make_stuck_nut.py "<F1 25 folder>"` writes the sequences in `erp/` (needs the `zstandard`
 package and the launcher's `tools/erp.py` and `tools/vtf.py`). `python tools/make_ops.py` writes
 `db/pitstops.json` and `erp/stuck_nut.json`. `build.bat` builds `native/immersive_pitstops.dll` (Visual
-Studio 2022 with "Desktop development with C++"; the SDK headers in `native/include` are the launcher's,
+Studio 2022 or later with "Desktop development with C++"; the SDK headers in `native/include` are the launcher's,
 with the same one-line MSVC fix in `mixin.hpp` as Driver Display's copy). Then run `package.bat`.

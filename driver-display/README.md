@@ -9,7 +9,7 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.2.10. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
+**Status: 1.2.15. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
 telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
@@ -66,7 +66,7 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   the race (DNF, RETIRED, NOT CLASSIFIED): white on black for the rest of the session.
 - **Setting changes** (ERS mode, fuel mode, brake bias, differential) pop up in the ERS SOC cell for 2 s.
 - **Start lights:** the screen goes black and the five red lights come on with the game's, then a green GO at
-  lights out.
+  lights out. Setting "Start lights screen" (1.2.15, on by default): off keeps the normal page through the start.
 - **Fastest lap:** the bottom row turns purple for 5 s with the driver and the time.
 - **Across the bottom row** (blue, amber for incidents): BACKMARKER with the driver's code as you close on a lapped car (races), PIT WINDOW OPEN,
   RAIN IN n MIN when the forecast's chance passes 50 % in the dry, RETIRED with the driver's code when a car
@@ -106,10 +106,11 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   wheel LEDs show the classic bar (the first five green RPM lights) where a real driver in the same car keeps the
   first group for single mode lights (straight mode / overtake). The game builds each car's LEDs from three group
   settings it takes from the driver's record, and a created driver has none (all 2). Driver Display copies the
-  team-mate's settings (else most cars') onto your car before each LED update. 1.2.10: your car's own settings
-  are read at the session start; only when most cars have different ones (you have the created-driver style) is
-  anything copied, and any car with your style (a created team-mate, other created drivers) is skipped. A real
-  driver's lights are never touched, and no LED value is assumed. **This part uses the dash's own
+  most common real-driver settings onto your car before each LED update (1.2.10 preferred the team-mate's,
+  but in the Ferrari that gave flashing greens: 1.2.11). 1.2.12: only when the career's player driver is a
+  created one (the launcher's career state says so); any car with your created style is skipped as a source, a real
+  driver's lights (his own style included: Leclerc's greens flash briefly in the game) are never touched, and a car
+  changed by mistake while a session loads gets its own settings back. **This part uses the dash's own
   offsets into the game** (the LED update's entries, from the launcher's reverse-engineering notes and a static
   disassembly of Steam 1.0.145): every read is checked, and anything unexpected after a game patch leaves the
   game's own lights (logged once, "rev lights: left to the game ...") without touching the rest of the dash.

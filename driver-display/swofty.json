@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.driver-display",
   "name": "Driver Display",
-  "version": "1.2.10",
+  "version": "1.2.15",
   "author": "Sedz",
   "description": "A full HUD on the steering wheel display. Can be used in cockpit view as a replacement to the game's on-screen one, or outside cockpit view as just an immersive texture replacer.\n\nIt contains three pages (race, car damage, and pit information), switched by a button you assign. Flags, safety cars, warnings, and penalties will pop up on screen. Fully compatible with SimHub and other UDP telemetry mods.\n\nSteam only for now: on the EA app version of the game the launcher doesn't provide the data the display needs yet.",
   "license": "MIT",
@@ -103,6 +103,13 @@
       "id": "pace_targets",
       "type": "toggle",
       "label": "Catch / hold lap times",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "start_lights",
+      "type": "toggle",
+      "label": "Start lights screen",
       "default": true,
       "binds": "native"
     },

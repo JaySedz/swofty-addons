@@ -22,6 +22,7 @@
 #include <swofty/events.hpp>
 #include <swofty/hooks.hpp>
 #include <swofty/hud.hpp>
+#include <swofty/career.hpp>
 #include <swofty/live.hpp>
 #include <swofty/mem.hpp>
 #include <swofty/mixin.hpp>
@@ -47,6 +48,7 @@ SWOFTY_SETTING(bool, undercut, true);    // 1.2.2: undercut / overcut calls
 SWOFTY_SETTING(int, undercut_window, 3); // seconds: the gap within which a stop next to you counts
 SWOFTY_SETTING(bool, radio_tags, true); // 1.2.3: the engineer's important calls as tags across the bottom row
 SWOFTY_SETTING(bool, pace_targets, true); // 1.2.7: CATCH / HOLD lap time calls
+SWOFTY_SETTING(bool, start_lights, true); // 1.2.15: the start lights screen and its GO (off: the normal page)
 SWOFTY_SETTING(int, page_action, 1); // "UDP Action" number from the game's controls (any device), 0 = off
 
 namespace {
@@ -129,7 +131,8 @@ void put(const char *, bool) = delete; // a bool goes through put_flag
 SWOFTY_SETTING(bool, real_rev_lights, true);
 namespace revlights {
 constexpr uintptr_t kEntries = 0x70, kStride = 0xA8, kCount = 0x1180, kGroups = 0x68;
-std::atomic<int> g_mate{-1};     // the player's team-mate's vehicle id (live state; -1 unknown)
+std::atomic<int> g_stable{-1};   // the player's vehicle id once steady for a second (1.2.12)
+std::atomic<bool> g_created{false}; // the career's player driver is a created one (1.2.12)
 std::atomic<int> g_applied{0};   // copies made this session (for the log)
 std::atomic<bool> g_off{false};  // a check failed: hands off until the session changes
 std::atomic<uint32_t> g_gen{0};  // the session the checks ran in
@@ -163,9 +166,6 @@ void apply(void *self)
 {
     if (!bool(real_rev_lights) || g_off.load() || !self)
         return;
-    int me = int(g_player_vehicle.load());
-    if (me < 0)
-        return;
     uintptr_t sys = reinterpret_cast<uintptr_t>(self);
     uint64_t count = 0;
     if (!swofty::mem::read(sys + kCount, count))
@@ -174,41 +174,52 @@ void apply(void *self)
         return; // between sessions
     if (count > 32)
         return off("the LED entry count isn't a car count");
-    if (uint64_t(me) >= count)
-        return;
     auto at = [&](uint64_t i) { return sys + kEntries + i * kStride + kGroups; };
+
+    // 1.2.12: a car changed that turned out not to be the player's (a session load reported car 1 as the player for
+    // one frame) gets its own settings back, when it still holds the copy
+    static int wrote_car = -1;
+    static Triple wrote{}, wrote_orig{};
+    int me = g_stable.load(); // the player's car once it has been the same for a second (1.2.12)
+    if (wrote_car >= 0 && wrote_car != me) {
+        Triple now{};
+        if (uint64_t(wrote_car) < count && read3(at(uint64_t(wrote_car)), now) && now == wrote) {
+            write3(at(uint64_t(wrote_car)), wrote_orig);
+            swofty::log("[driver-display] rev lights: car %d (not the player's) gets its own %u/%u/%u back", wrote_car,
+                        wrote_orig.v[0], wrote_orig.v[1], wrote_orig.v[2]);
+        }
+        wrote_car = -1;
+    }
+    if (me < 0 || uint64_t(me) >= count)
+        return;
     Triple mine{};
     if (!read3(at(uint64_t(me)), mine) || !mine.sane())
         return off("the player's LED settings don't look like LED settings");
-    // 1.2.10: the player's settings as the game gave them, read once a session before any copy. When most other
-    // cars have different ones, the player has the created-driver style, and every car that has that same style
-    // (a created team-mate, other created drivers) is skipped as a source. No value is assumed: the style is
-    // whatever the game gave the player's car. When the player's settings are the common ones (a real driver), or no
-    // car has another style, nothing is touched.
+    // 1.2.12: only a created player driver (the career's player driver id is a created one: the launcher's career
+    // state). A real driver keeps the game's lights, his own style included (Leclerc's 49 flashes the greens: the
+    // game's, which 1.2.9-1.2.11 took for a created driver's because it isn't the common style)
+    if (!g_created.load())
+        return;
+    // the player's style as the game gave it (never our own copy), read again when the game rebuilds the entry
     static uint32_t seen_gen = ~0u;
-    static Triple created{}, wrote{};
-    static bool have_created = false, have_wrote = false;
-    static int decided = 0; // 0 not yet, 1 copy (the player has the created style), 2 leave the game's lights
-    bool ours = have_wrote && mine == wrote; // what the entry holds is our own copy, not the game's
+    static Triple created{};
+    static bool have_created = false;
+    bool ours = wrote_car == me && mine == wrote;
     if (seen_gen != g_gen.load()) {
         seen_gen = g_gen.load();
-        decided = 0;
-        if (!ours) // (a new session whose entry still holds our copy keeps the style read before)
+        if (!ours)
             created = mine, have_created = true;
     } else if (!ours && !(have_created && mine == created)) {
-        created = mine, have_created = true; // the game rebuilt the entry: its style again
-        decided = 0;
+        created = mine, have_created = true;
     }
     if (!have_created)
         return;
-    if (decided == 2)
-        return;
-    // the most common settings among the other cars, and the most common among those that aren't the player's style
-    Triple common{}, best{};
-    int common_n = 0, best_n = 0, from_best = -1;
+    // the most common real-driver style: the other cars' settings, the player's own (created) style skipped
+    Triple best{};
+    int best_n = 0, from = -1;
     for (uint64_t i = 0; i < count; i++) {
         Triple t{};
-        if (int(i) == me || !read3(at(i), t) || !t.sane())
+        if (int(i) == me || !read3(at(i), t) || !t.sane() || t == created)
             continue;
         int n = 0;
         for (uint64_t k = 0; k < count; k++) {
@@ -216,43 +227,21 @@ void apply(void *self)
             if (int(k) != me && read3(at(k), u) && u == t)
                 n++;
         }
-        if (n > common_n)
-            common = t, common_n = n;
-        if (!(t == created) && n > best_n)
-            best = t, best_n = n, from_best = int(i);
+        if (n > best_n)
+            best = t, best_n = n, from = int(i);
     }
-    if (decided == 0) {
-        if (common_n == 0)
-            return; // the other cars aren't there yet
-        if (common == created || from_best < 0) {
-            decided = 2;
-            swofty::log("[driver-display] rev lights: player car %d keeps the game's lights (%u/%u/%u: %s)", me, created.v[0],
-                        created.v[1], created.v[2], common == created ? "the same as most cars" : "no car has another style");
-            return;
-        }
-        decided = 1;
-    }
-    Triple src{};
-    int from = -1;
-    int mate = g_mate.load();
-    if (mate >= 0 && uint64_t(mate) < count && mate != me && read3(at(uint64_t(mate)), src) && src.sane() &&
-        !(src == created))
-        from = mate; // the team-mate, a real driver in the same car
-    if (from < 0) {
-        src = best; // else the most common real-driver style
-        from = from_best;
-    }
-    if (from < 0 || src == mine)
+    if (from < 0 || best == mine)
         return;
-    if (!write3(at(uint64_t(me)), src))
+    if (!write3(at(uint64_t(me)), best))
         return off("the player's LED settings can't be written");
-    wrote = src, have_wrote = true;
+    if (wrote_car != me)
+        wrote_orig = created;
+    wrote_car = me, wrote = best;
     static int last_from = -2;
     if (from != last_from || g_applied.fetch_add(1) == 0) {
         last_from = from;
-        swofty::log("[driver-display] rev lights: player car %d %u/%u/%u -> %u/%u/%u (car %d's, %s; cars with the player's "
-                    "own style skipped)", me, created.v[0], created.v[1], created.v[2], src.v[0], src.v[1], src.v[2], from,
-                    from == mate ? "the team-mate" : "most cars");
+        swofty::log("[driver-display] rev lights: created player's car %d %u/%u/%u -> %u/%u/%u (car %d's, the most common "
+                    "real-driver style)", me, created.v[0], created.v[1], created.v[2], best.v[0], best.v[1], best.v[2], from);
     }
 }
 void (*orig)(void *, void *, void *, void *) = nullptr;
@@ -273,26 +262,31 @@ void frame()
         g_gen = gen;
         g_off = false;
         g_applied = 0;
-        g_mate = -1;
     }
-    static double t = 0.0;
-    t -= g_step;
-    if (t > 0.0)
-        return;
-    t = 2.0;
+    // the player's car, published once it has been the same for a second (a session load can name another car for
+    // a frame)
+    static int cand = -1;
+    static double held = 0.0;
     auto me = swofty::live::player();
-    if (!me)
-        return;
-    auto mine = swofty::live::team_badge(me->vehicle);
-    int mate = -1;
-    if (mine && !mine->empty())
-        for (uint32_t v = 0; v < SWOFTY_LIVE_MAX_CARS; v++)
-            if (v != me->vehicle && swofty::live::car(v))
-                if (auto b = swofty::live::team_badge(v); b && *b == *mine) {
-                    mate = int(v);
-                    break;
-                }
-    g_mate = mate;
+    int v = me ? int(me->vehicle) : -1;
+    if (v != cand) {
+        cand = v;
+        held = 0.0;
+        g_stable = -1;
+    } else if ((held += g_step) >= 1.0) {
+        g_stable = v;
+    }
+    // a created player driver: the career's player driver id is a created one (a stock driver's is its stat id in the
+    // high half, 0x70000; a created driver's carries its own table in the low half, 0x40001)
+    swofty::career::State cs{};
+    bool created = false;
+    if (swofty::career::state(&cs) == swofty::career::Result::ok && cs.loaded && cs.has_player)
+        created = cs.player_driver >= 0x10000 && (cs.player_driver & 0xFFFF) != 0;
+    if (created != g_created.load()) {
+        g_created = created;
+        swofty::log("[driver-display] rev lights: %s (career player driver %#x)", created ? "a created player driver" :
+                    "the player isn't a created driver: the game's lights", cs.player_driver);
+    }
 }
 } // namespace revlights
 
@@ -1257,17 +1251,19 @@ void race_messages(double dt)
     static uint32_t sl = G.lights_seq, so = G.lgot_seq, sf = G.ftlp_seq, sr = G.rtmt_seq, scl = G.coll_seq;
     if (G.lights_seq != sl) {
         sl = G.lights_seq;
-        g_lights = G.lights;
-        g_lights_left = 10.0;
+        g_lights = bool(start_lights) ? int(G.lights) : 0;
+        g_lights_left = bool(start_lights) ? 10.0 : 0.0;
     }
     if (G.lgot_seq != so) {
         so = G.lgot_seq;
         g_lights = 0;
         g_lights_left = 0.0;
-        g_msg_title = "GO";
-        g_msg_sub = "";
-        g_msg_tone = 8; // green
-        g_msg_left = 1.5;
+        if (bool(start_lights)) {
+            g_msg_title = "GO";
+            g_msg_sub = "";
+            g_msg_tone = 8; // green
+            g_msg_left = 1.5;
+        }
         swofty::log("[driver-display] event: lights out");
     }
     if (g_lights_left > 0.0)
@@ -2801,7 +2797,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.2.10: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.2.15: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -2849,7 +2845,7 @@ SWOFTY_ON_LOAD
     {
         uintptr_t at = swofty::api && swofty::api->resolve ? swofty::api->resolve("Car_SteeringWheelLeds_Update") : 0;
         swofty::log("[driver-display] rev lights: %s", !bool(real_rev_lights) ? "off in the settings"
-                    : at ? "the LED update is wrapped; created drivers get the team-mate's LED settings"
+                    : at ? "the LED update is wrapped; a created career driver gets the most common real-driver LED settings"
                          : "the LED update isn't found on this build: the game's own lights");
     }
     try_tap();

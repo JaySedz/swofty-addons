@@ -1,4 +1,144 @@
-# Immersive Pitstops 0.2.17: what to test
+# Immersive Pitstops 1.0.0 (release): what to test
+
+The release build is 1.0.18's code, renumbered 1.0.0 (the 1.0.x numbers before were test builds). 1.0.18 result:
+pit exit penalty 3 s from the first offence [x].
+
+## 1.0.18
+
+1.0.16 result: pit exit line level 3 = 2 s, level 4 (the stock second offence) = 3 s with the engineer's call [x].
+1.0.18: the first offence is level 4 too (3 s + radio from the start); the plugin's 5 s override (1.0.17) is removed.
+Still in: no loose wheel after a stuck nut on the same stop (1.0.17).
+
+## 1.0.17
+
+1.0.15/1.0.16 results: Ferrari Mode works [x] (your Ferrari: a stuck nut and a loose wheel on the same stop;
+team-mate a loose wheel and DNF). The pit exit line now gives a penalty [x] but 2 s. 1.0.17: no loose wheel after a
+stuck nut on the same stop; the pit exit line penalty goes out as 5 s (log `time penalty: car N, reason R, 2 s (just
+left the pit lane: the pit exit line, 5 s)`). Cross the line once and send the log: the reason code lets the
+plugin tie it to the rule exactly.
+
+## 1.0.16
+
+1.0.16: crossing the pit exit white line in a race gives a 5 s time penalty on the first offence (stock: a
+warning). Check: cross it once in a race: a 5 s penalty notice and the penalty on the timing; a second crossing a
+drive-through (stock second level).
+
+## 1.0.15
+
+1.0.13/1.0.14 results: 100 %: stuck nuts on both rear wheels [x] (a real 60 s roll; a 20 s roll cut exactly, then
+retired) . 3 %: no stuck nuts, stop times 1.8-3 s [x]. Ferrari Mode couldn't be checked from the log. 1.0.15 logs
+every Ferrari stop's roll while Ferrari Mode is on: `car N (Ferrari Mode): <sequence>, stuck nut roll R against 50 %`
+(and the loose wheel). Wing replacement stops get no stuck nut roll.
+
+## 1.0.14
+
+1.0.14: **Ferrari Mode** (Ferrari's stuck nut and loose wheel chances at 50 %), and **Test mode** removed (the
+sliders go to 100 %). Check Ferrari Mode on: Ferrari stops get stuck nuts about every other stop (log `stuck wheel
+nut` for the Ferrari cars), other teams at the slider's chance.
+
+## 1.0.13
+
+1.0.12 result: 50 % mistakes with stock stop times: 18 stops, no mistakes. The game's mistake chance gives the addon
+no control. 1.0.13: the game's mistakes are stock again (its own chances), and the plugin rolls its own stuck wheel
+nuts (**Stuck wheel nut chance (%)**, 3 by default) by swapping the stop's sequence. Check with 100 %, Log pit
+stops on: every stop `stuck wheel nut (F1StartJobDoStandardStopR?ON), N s this time`, a STUCK WHEEL NUT popup on
+yours, the rear crew fighting the wheel, `comes free after` lines, the stop ending normally. Then a race at 3 %.
+Stop time spread is unchanged (every stop still varies).
+
+## 1.0.12
+
+Why no crew mistakes with the mod? Stock F1 25 gives you one every few races; with the mod, none in ~140 stops.
+Two Test modes, one race each, Stuck wheel nut chance Normal, Log pit stops on, several stops (yours and the AI's):
+- **50 % mistakes, stock stop times**: expect mistakes on about half the stops if the game honours the chance.
+- **50 % mistakes, mod stop times**: if this one has none, the widened stop times keep mistakes out.
+In the log: `crew sequence: F1StartJob...` names ending in ON/OFF (wheel) or MON/MOFF (wing) are mistakes.
+
+## 1.0.11
+
+1.0.10 results: Normal (15 stops) and High (24 stops): no crew mistakes at all. Across every log since 0.2.10, about
+140 stops at normal chances gave zero crew mistakes; mistakes only ever came at 100 %. High also retired AI car 19
+after a front wing change slowed to x0.51 ran 17.7 s (taken for a stuck nut). 1.0.11 fixes that: the retirement roll
+needs a rear stuck nut sequence on that stop.
+
+## 1.0.10
+
+1.0.9 result: mistakes back [x] (6 RRON stuck nuts, AI wing mistakes), cuts at 5, 10 and 20 s [x]. So the rear
+crew's animation inside the front files switched the game's mistakes off. 1.0.10: rear stuck nuts only, front
+mistakes and files untouched; High = all four rear mistakes + twice the mistake chance; Always = a mistake every
+stop (stuck nut when it's a rear one). Check a race on Normal and one on High: crew mistakes happen at all, stuck
+nuts only on the rear wheels.
+
+## 1.0.9
+
+1.0.8 result: no crew mistakes at Always, same save and a fresh race (mistake data identical to 1.0.4). 1.0.9 test:
+the front wheels' files hold their own stuck nut again (1.0.4's files, front stuck nuts back for this test); only
+the rear files (gun man loop) and the plugin differ from 1.0.4. If mistakes come back, the rear animation inside
+the front files was what switched the game's mistakes off.
+
+## 1.0.8
+
+1.0.7 result: still no crew mistakes at Always (AI wing ones included); loose wheel at 1 % worked. 1.0.8: the
+mistake data is exactly 1.0.4's (the last version with mistakes); only the erp files differ (the front wheels' files
+hold the rear stuck nut). If mistakes come back, the shared engineer lines were the cause (on a front mistake the
+engineer now names the front wheel while the rear crew struggles, to be fixed). If they don't, the cause is elsewhere:
+note how you load the race (same save each time, or a fresh weekend).
+
+## 1.0.7
+
+1.0.6 result: at Always no crew mistakes at all, the AI's wing mistakes included (1.0.4 had them on every stop).
+The only mistake-table change since 1.0.4: the front rows got the rear wheels' lines and event nodes. 1.0.7 gives
+the front rows their own event nodes back (the spoken lines stay the rear wheel's). Check Always: mistakes again
+(`F1StartJob...ON`, AI `FrontWingReplaceMON`). If still none, the shared lines are the problem too.
+
+## 1.0.6
+
+1.0.5 result: at Always, no mistake at all on 2 stops. In 1.0.4 every Always stop was the front left mistake
+(FLON), so the game seems to keep picking that one, and 1.0.5 had renamed its animation to the rear left's (RLON):
+the game then played no mistake. 1.0.6 keeps every mistake's own animation name and puts the rear stuck nut inside
+the front wheels' files instead (High and Always). Check Always again: a stuck nut every stop, on a rear wheel, the
+engineer naming the rear wheel, `comes free after` lines. Also note which sequence names play
+(`crew sequence: F1StartJob...ON`): if it's always FLON, Normal (rear mistakes only) may hardly ever trigger.
+The addon icon is packaged from this version.
+
+## 1.0.5
+
+1.0.4 result: rolled lengths and the cut work [x] (5, 10, 30, 60 s seen; once the clock didn't read sanely and the
+stuck nut played in full, the fallback). 1.0.5: stuck nuts on the rear wheels only (High and Always map front
+mistakes to the rear wheel on the same side), and the gun man loops his own failed gun attempt with its sound (rear
+right: from frame 76, before 1.0.5 he only stood by). Check with Always: only rear stuck nuts, engineer names a rear
+wheel, and the gun man visibly retries with the gun each loop.
+
+## 1.0.4
+
+1.0.4: every stuck nut is a 60 s animation cut short by the plugin to a rolled length (5 s 45 %, 10 s 30 %, 20 s
+14 %, 30 s 7 %, 60 s 4 %). Test with Stuck wheel nut chance: Always and Log pit stops on. Per stuck nut the log says
+`wheel-on mistake (...): if it's a stuck nut, N s this time`, then `the stuck nut comes free after N s (sequence a ->
+b)`. Watch the moment it comes free: is it seamless (no snap of the crew or the wheel), and does the stop finish
+normally? If the log says `the crew's sequence clock doesn't read sanely`, the clock offset is wrong on this build.
+
+## 1.0.3
+
+1.0.3: **Stuck wheel nut chance** also has **Off** (no stuck nuts; the game's own short mistakes).
+
+## 1.0.2
+
+1.0.2: **Stuck wheel nut chance** replaces the on/off setting: Normal (default; rear wheels going on only, ~3 % of
+stops), High (all eight wheel mistakes, ~12 %), Always (every stop; was Test mode's "stuck wheel nut every stop",
+now gone from Test mode). Check Always gives a stuck nut every stop on all four wheels with the right engineer line,
+and Normal only ever shows rear wheel stuck nuts (front wheel mistakes stay the game's short ones).
+
+
+1.0.1: new setting **Call your stop** (On by default; Off = crew always ready). No extra wait in the box (0 s):
+an uncalled stop's crew run out as soon as you stop. The run-out was sped up; it now plays at the crew's normal
+pace. With Log pit stops on, look for `the crew's run-out was at x...; played at normal pace` (the rate the game
+used). If that line never appears, the speed-up isn't in that rate and needs another look. With Call your stop
+Off: no `CREW NOT READY`, no hold lines.
+
+
+1.0.0 fixes five settings (previously options): stuck wheel nut time Random, box hold on, longest hold 120 s,
+crew not ready 1 s (in the box), stop time spread 30 %. Log pit stops is off by default: turn it on for test logs.
+The rear right only stuck nut files (10-30 s) are gone; Test mode's stuck nut plays each wheel's own.
+
 
 Install `dist\sedz.immersive-pitstops.swoftyaddon` and send the launcher log after each test.
 
@@ -10,6 +150,75 @@ SUSPENSION FAILURE, and the game's retirement teleported the car into the garage
 Terminal Damage is updated for this build.
 
 - [ ] Stuck-nut retirement (Test 1 settings): no wheel comes off, no SUSPENSION FAILURE, RETIRED as in 0.2.14.
+
+## Test G: the crew stay in the garage (0.2.23)
+
+0.2.27 result: held in the garage for the set time (3 s) [x], your stop matched to your car [x], but then the crew
+were frozen again at the car for the same time (`held still first (not called)`): the old in-box freeze, which in
+0.2.26 only stayed off because the stop was matched to car 16. 0.2.28: no second freeze when the crew were held in
+the garage. Expect no `held still first` on a garage-held stop.
+
+0.2.26 result: the hold works [x]: crew held in the garage, called out after 8 s in the box. In the log your crew's
+start came 0.6 s after car 16 began entering its box and was matched to car 16 (wrong speed, and your stop not
+marked as lengthened, 14.5 s in the box against the 15.8 s stuck nut limit). 0.2.27 matches a stop to its car by the
+crew first, and marks a held stop as lengthened by the wait plus the run-out. Check: `car 21's crew start (...)`
+appears for your held stop, and a longer **Crew not ready** (say 15 s) causes no `stuck wheel nut` line.
+
+0.2.25 result: first stop of the session with other cars in the lane, so the plugin didn't know which crew was yours
+(`not sure it's yours`) and didn't hold the run-out. The run-out is the game's normal call ~2.4 s before the car
+reaches its box. 0.2.26 knows your crew from the start: the crews are laid out in garage order (checked in the log for
+cars 0, 16 and 21), and every crew plays its idle sequence at the session load. Expect `held in the garage` on the
+first stop too.
+
+0.2.24 result: the crew still came out early and stood watching. The log: with the call-out held back, the crew
+still played `F1InGarageToReady` (their run-out) ~8 s before the car reached its box: something else calls them as
+the car gets close. 0.2.25 holds that run-out at its first frame (in the garage) until you have waited in the box for
+the delay. Log lines:
+- `car 21's crew start their run-out (F1InGarageToReady...): held in the garage` (or `not sure it's yours`, if
+  other cars were in the pit lane before your first stop; then it isn't held),
+- `car 21's crew start (F1StartJob...)`: note whether this comes before the crew have run out (the car was put in
+  its box without them) or only after the release,
+- `the crew are called out (the crew's wait in the box is over ...)`.
+
+0.2.23 result: the crew stayed in the garage down the lane [x], but the pit lane brought the car into its box at
+~8.9 s without waiting, started the crew's sequence, and the crew ran out at once (`the car is in its box; ... 0.1 s
+standing`). 0.2.24 also freezes that sequence's start for the delay, so the crew should wait in the garage while you
+sit in the box, then run out: log `the crew are ready, the stop starts` and `the crew are called out (the crew's wait in
+the box is over ...)` together. Does the crew wait in the garage, and how does the run-out look?
+
+0.2.20-0.2.22 held the crew still in the box. 0.2.23 keeps them in the garage: the game's call-out to the crew is held
+back and sent late. Test mode Off, Crew not ready 8 s.
+
+- [ ] At load: `crew hold: the crew's call-out message found from the launcher's bindings`.
+- [ ] Pit without calling: `entered the pit lane without calling: the crew stay in the garage`. The crew stay in the
+      garage as you drive down the lane. Where does your car stop: at its box, or somewhere before it?
+- [ ] After 8 s standing: `the crew are called out (you waited; ...)`, the crew run out and do the stop. Or `(the car
+      is in its box ...)` if the car went into the box first: then the crew run out to a waiting car.
+- [ ] Call first (Box This Lap): normal stop, no hold lines.
+- [ ] No crew left behind and nothing stuck on the next stops (yours and your team-mate's).
+- [ ] With Terminal Damage on: its own broken-car handling unchanged.
+
+## Test C: call your stop and stop spread (0.2.20)
+
+0.2.20 result: the crew freeze on an uncalled stop works [x]. Stop spread works but was too narrow: five stops at
+x0.93-x1.03 gave 2.4-2.6 s. 0.2.21 spreads evenly over +-15 % and fumbles about one stop in six (2.8-3.3 s for a
+2.4 s stop). Check a handful of stops again.
+
+0.2.22: **Widen team pit times too** removed (the `pit_lane.pit_times` table lists 2018 teams and changed nothing
+in a career). Try **Stop time spread: 30 %** too: about 1.7-3.1 s for a 2.4 s stop, fumbles up to about 4 s.
+
+0.2.19 result: the pit lane's crew-ready byte doesn't stop the car (`into its box ... didn't hold the car`), and
+every stop was the same length (the game rolls one stop time per driver per session). 0.2.20 does both through the
+crew's own animation update (launcher binding `Sess_PitStopUpdateJob_Update`). Test mode Off.
+
+- [ ] At load: `crew speed per stop: 15 % spread; crew update job found`.
+- [ ] Pit without calling: CREW NOT READY at the pit entry, then log `car N's crew start (...): speed x..., held
+      still first (not called)`. In the box the crew stand still about 8 s, then `the crew are ready, the stop
+      starts` and a normal stop. Does the freeze look acceptable (pose, car on its jacks or not)?
+- [ ] Call first (Box This Lap): no freeze.
+- [ ] Several stops: different stop times (the pit lane HUD's stop time and the log's `pit status 4 -> 5` gaps),
+      mostly near your usual time, a few quicker or slower. AI stops too (`speed x...` lines for other cars).
+- [ ] No stuck nut retirement on a frozen stop (a frozen 8 s + stop stays under the stuck nut limit).
 
 ## Test R: retirement found from the launcher's bindings (0.2.17)
 
