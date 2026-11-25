@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "ops": [
+    {
+      "op": "replace-resource",
+      "erp": "2025_asset_groups/f1_2026_vehicle_package/teams/ferrari/wep/ferrari.erp",
+      "resource": "eaid://f1_2026_vehicle_package/teams/ferrari/idf/ferrari.idf?lod=all&vb=9",
+      "fragment": 1,
+      "source": "erp/vb9.bin"
+    }
+  ]
+}

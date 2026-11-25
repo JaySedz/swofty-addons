@@ -316,6 +316,8 @@ inline void decode(const uint8_t *d, size_t n)
         g.bbal = c[3];                      // frontBrakeBias %
         g.pit_limiter = c[4];               // pitLimiterStatus: 0 off, 1 on
         g.fuel_laps = rd<float>(c + 13);    // fuelRemainingLaps (the MFD's margin)
+        g.fuel_tank = rd<float>(c + 5);     // fuelInTank, kg (1.3.1)
+        g.fuel_cap = rd<float>(c + 9);      // fuelCapacity, kg (1.3.1)
         g.ers_mode = c[41];                 // ersDeployMode
         g.drs_allowed = c[22];              // drsAllowed: 0 not allowed, 1 allowed
         g.drs_distance = rd<uint16_t>(c + 23); // drsActivationDistance: metres to the next zone, 0 none

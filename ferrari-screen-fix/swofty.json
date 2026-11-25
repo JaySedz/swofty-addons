@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "sedz.ferrari-screen-fix",
+  "name": "Ferrari Screen Fix",
+  "version": "0.1.1",
+  "author": "Sedz",
+  "description": "Straightens the 2026 Ferrari's steering wheel screen. The game maps its screen texture unevenly, so everything on it bows and part of the top is lost; this maps it straight, like the other cars'.",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/ferrari-screen-fix",
+  "category": "utility",
+  "kind": [
+    "erp"
+  ],
+  "compat": {
+    "game": "f1_25",
+    "launcher": ">=1.8.36",
+    "seasons": [
+      "f1_2026"
+    ]
+  },
+  "operations": {
+    "erp": [
+      "erp/ferrari_screen_fix.json"
+    ]
+  }
+}

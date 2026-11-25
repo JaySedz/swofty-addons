@@ -16,6 +16,7 @@ struct Values {
     std::atomic<int> pit_limiter{-1}; // car status pitLimiterStatus: 0 off, 1 on
     std::atomic<int> fia_flag{0}; // the flag the game shows this car: -1 unknown, 0 none, 1 green, 2 blue, 3 yellow
     std::atomic<float> fuel_laps{-999.f};
+    std::atomic<float> fuel_tank{-1.f}, fuel_cap{-1.f}; // kg (1.3.1, the Aston Martin's fuel bar)
     std::atomic<float> wear[4] = {{-1.f}, {-1.f}, {-1.f}, {-1.f}}; // FL FR RL RR %
     std::atomic<int> tyre_inner[4] = {{-1}, {-1}, {-1}, {-1}};      // FL FR RL RR deg C (carcass, as the game shows)
     std::atomic<int> brake_temp[4] = {{-1}, {-1}, {-1}, {-1}};      // FL FR RL RR deg C

@@ -113,6 +113,13 @@ race, 10 s in a long one. It's the game's own rule,
 game's own second-offence level); the game issues and serves it. Practice and qualifying stay warnings. Applies to every
 car.
 
+**Driver Display.** With Driver Display also installed, this addon shares its pit events with it (a stuck wheel nut
+and the time in the box, a loose wheel, a wheel that came off, a retirement and why), through a launcher service
+(`native/src/ip_link.hpp`); Driver Display shows them. It only reads them: nothing changes in either addon when the
+other isn't installed.
+With Driver Display 1.2.25 or later, **Ferrari Mode** (Light or Full) also changes Driver Display's Ferrari pages (in the 2026
+Ferrari).
+
 ## Settings
 
 - **Stuck wheel nut chance (%)**: 1 by default; how many stops get a stuck wheel nut. 0 turns it off, 100 gives one
@@ -122,26 +129,36 @@ car.
 - **Loose wheel chance (%)**: 0.3 by default, 0-10 in 0.1 steps; how many of your normal race stops leave a loose
   wheel. 0 turns it off.
 - **AI loose wheel chance (%)**: 0.3 by default, 0-10 in 0.1 steps; how many AI stops lose a wheel on the out-lap. 0 turns it off.
-- **Ferrari Mode**: Off by default. On, Ferrari's cars get a stuck wheel nut or a loose wheel at 50 %, and if you
-  drive for Ferrari your crew are never ready when you come in, called or not (a joke mode). Ferrari is found by its
-  team badge in the launcher's live data.
+- **Ferrari Mode**: Off by default.
+  - Light: if you drive for Ferrari your crew are never ready when you come in, called or not, so your stops are a bit
+    slower. Everything else is normal.
+  - Full: that, and Ferrari's cars get a stuck wheel nut or a loose wheel at 50 %.
+  Ferrari is found by its team badge in the launcher's live data.
 - **Call your stop**: On (default) or Off. Off: the crew are always ready, whether you called or not.
 - **Loose wheel every stop (testing)**: Off by default. On, every normal race stop of yours leaves a loose wheel.
+- **AI loose wheel every stop (testing)**: Off by default. On, every AI normal race stop leaves a loose wheel.
 - **Log pit stops (testing)**: Off by default; writes each stop's details to the launcher log.
 
 Every setting applies at once, in game too (Career → ADDON SETTINGS).
 
 ## Limits
 
-- Tested on the Steam copy. On other copies (the EA app) every part checks before it acts and falls back to the
-  stock game instead of writing anything it can't confirm:
+- Needs launcher 1.10.41 or later.
+- Tested on the Steam copy. The EA app copy (1.0.145) should work but hasn't been tested. It's the same game version, so
+  the pit lane and crew values the plugin reads are the same, and the launcher has every binding it uses for that
+  build. Its code is protected, so the plugin follows jump stubs when it reads the retirement and crew call-out
+  messages from the game's code, and logs when it does.
+- Every part checks before it acts and falls back to the stock game instead of writing anything it can't confirm:
   - a launcher binding missing on the build: that part stays off (logged once at load);
-  - the box hold needs the launcher to report your car's garage, to confirm the pit lane record; without it (the
-    launcher's pit lane data is off on the EA app) the hold stays off, the game's own pit lane timing applies, and
-    the plugin's stuck wheel nuts are off too (a long one would be cut short mid-animation);
-  - the retirement and crew call-out messages are only sent if their type lies inside the game's own image;
+  - the box hold needs the launcher to report your car's garage, to confirm the pit lane record; without it the hold
+    stays off, the game's own pit lane timing applies, and the plugin's stuck wheel nuts are off too (a long one would
+    be cut short mid-animation);
+  - the retirement and crew call-out messages are only sent if their type lies inside the game's own image; without
+    the retirement message, stuck wheel nuts never end a race;
   - the wheel tear-off and the stuck nut length cut check their values first (the wheel stays on and the car is
-    retired; the stuck nut plays in full).
+    retired; the stuck nut plays in full);
+  - without the launcher's engineer speech events (the EA app copy, on the current launcher) every stop counts as
+    called, as in the stock game.
   Each failure is logged once, not every frame.
 
 ## Building

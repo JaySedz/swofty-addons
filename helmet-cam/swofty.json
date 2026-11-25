@@ -1,0 +1,354 @@
+{
+  "schema_version": 1,
+  "id": "sedz.helmet-cam",
+  "name": "Helmet Cam",
+  "version": "0.1.8",
+  "author": "Sedz",
+  "description": "The cockpit camera as seen from inside a helmet: the eye port's edges, the brow padding, a tinted visor with smudges and your team's visor strip, plus head sway under braking and cornering and road vibration. The helmet stays still while the world moves, like a real visor cam.\n\nOnly the cockpit camera changes, and the HUD stays on top and untouched. Turn it off and the game's camera is exactly as before. Works with Driver Display.",
+  "license": "MIT",
+  "repository": "https://github.com/JaySedz/swofty-addons/tree/main/helmet-cam",
+  "icon": "icon.png",
+  "category": "shaders",
+  "kind": [
+    "erp",
+    "native"
+  ],
+  "experimental_features": [
+    "postfx",
+    "telemetry"
+  ],
+  "compat": {
+    "game": "f1_25",
+    "launcher": ">=1.10.35",
+    "platforms": [
+      "steam"
+    ]
+  },
+  "requires": [
+    {
+      "id": "swofty.core",
+      "version": ">=0.1.0"
+    }
+  ],
+  "options": [
+    {
+      "id": "visor_on",
+      "type": "toggle",
+      "label": "Helmet view",
+      "description": "Turns the whole helmet view on and off in game.",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "edge",
+      "type": "slider",
+      "label": "Helmet edge",
+      "description": "How dark the edges of the helmet's eye port get, from none at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 60,
+      "binds": "native"
+    },
+    {
+      "id": "brow",
+      "type": "slider",
+      "label": "Brow padding",
+      "description": "How far the helmet's padding comes down across the top of the view, from none at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 50,
+      "binds": "native"
+    },
+    {
+      "id": "tint",
+      "type": "choice",
+      "label": "Visor tint",
+      "values": [
+        {
+          "value": "0",
+          "label": "Clear"
+        },
+        {
+          "value": "1",
+          "label": "Light smoke"
+        },
+        {
+          "value": "2",
+          "label": "Dark smoke"
+        },
+        {
+          "value": "3",
+          "label": "Iridium"
+        }
+      ],
+      "default": "1",
+      "binds": "native"
+    },
+    {
+      "id": "smudge",
+      "type": "slider",
+      "label": "Visor smudges",
+      "description": "Faint smears on the visor that catch the light, from a clean visor at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 20,
+      "binds": "native"
+    },
+    {
+      "id": "strip",
+      "type": "slider",
+      "label": "Visor strip",
+      "description": "Your team's strip across the top of the visor, from none at 0. Each team has its own strip.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 85,
+      "binds": "native"
+    },
+    {
+      "id": "strip_mirror",
+      "type": "toggle",
+      "label": "Strip seen from inside (mirrored)",
+      "description": "The strip is on the outside of the visor, so from inside its print reads back to front. Off shows it readable.",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "sway_brake",
+      "type": "slider",
+      "label": "Head movement: braking",
+      "description": "How much the view dips under braking and lifts under acceleration, from none at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 50,
+      "binds": "native"
+    },
+    {
+      "id": "sway_corner",
+      "type": "slider",
+      "label": "Head movement: cornering",
+      "description": "How much the view tilts and looks into corners, from none at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 70,
+      "binds": "native"
+    },
+    {
+      "id": "vibration",
+      "type": "slider",
+      "label": "Road vibration",
+      "description": "A fine shake that grows with speed, from none at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 30,
+      "binds": "native"
+    },
+    {
+      "id": "rain_mode",
+      "type": "choice",
+      "label": "Visor rain",
+      "description": "Rain drops on the visor, blown off to the sides at speed. Auto follows the game's weather (needs the game's UDP telemetry on); Always shows it in any weather, to try it.",
+      "values": [
+        {
+          "value": "auto",
+          "label": "Auto (weather)"
+        },
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "always",
+          "label": "Always"
+        }
+      ],
+      "default": "auto",
+      "binds": "native"
+    },
+    {
+      "id": "rain_amount",
+      "type": "slider",
+      "label": "Visor rain amount",
+      "description": "How many drops at the heaviest rain, from none at 0.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 70,
+      "binds": "native"
+    },
+    {
+      "id": "toggle_key",
+      "type": "choice",
+      "label": "Toggle key",
+      "description": "A key that turns the helmet view on and off while you drive.",
+      "values": [
+        "None",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "Home",
+        "End",
+        "Insert"
+      ],
+      "default": "None",
+      "binds": "native"
+    },
+    {
+      "id": "mount_height",
+      "type": "choice",
+      "label": "Camera height",
+      "description": "Moves every car's cockpit camera down from the game's own eye position, to sit where a helmet camera would. Applies at the next launch.",
+      "values": [
+        {
+          "value": "stock",
+          "label": "Game's own"
+        },
+        {
+          "value": "low",
+          "label": "1.5 cm lower"
+        },
+        {
+          "value": "lower",
+          "label": "3 cm lower"
+        },
+        {
+          "value": "lowest",
+          "label": "4.5 cm lower"
+        }
+      ],
+      "default": "stock",
+      "binds": "db"
+    },
+    {
+      "id": "mount_side",
+      "type": "choice",
+      "label": "Camera side",
+      "description": "Moves every car's cockpit camera 2 cm to one side, like a camera in the helmet's padding. Applies at the next launch.",
+      "values": [
+        {
+          "value": "centre",
+          "label": "Centre (game's own)"
+        },
+        {
+          "value": "left",
+          "label": "2 cm left"
+        },
+        {
+          "value": "right",
+          "label": "2 cm right"
+        }
+      ],
+      "default": "centre",
+      "binds": "db"
+    },
+    {
+      "id": "head_turn_amount",
+      "type": "slider",
+      "label": "Head turn into corners",
+      "description": "Turns the game's own cockpit camera a little towards the corner while you're under cornering load. Lane changes and small corrections don't move it. 0 turns it off; your own look buttons always win.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "default": 10,
+      "binds": "native"
+    },
+    {
+      "id": "camera_probe",
+      "type": "toggle",
+      "label": "Camera probe (test build)",
+      "description": "Logs what the game's free-look camera does, for the next version's real head movement. Changes nothing in game.",
+      "default": true,
+      "binds": "native"
+    },
+    {
+      "id": "verbose",
+      "type": "toggle",
+      "label": "Debug log",
+      "default": false,
+      "binds": "native"
+    }
+  ],
+  "postfx_textures": [
+    {
+      "name": "strips",
+      "file": "tex/strips.png"
+    },
+    {
+      "name": "state_a",
+      "width": 3,
+      "height": 1,
+      "format": "r32f",
+      "persistent": true
+    },
+    {
+      "name": "state_b",
+      "width": 3,
+      "height": 1,
+      "format": "r32f"
+    }
+  ],
+  "postfx": [
+    {
+      "shader": "fx/state.hlsl",
+      "name": "state",
+      "entry": "update",
+      "inputs": [
+        "state_a",
+        "previous"
+      ],
+      "output": "state_b",
+      "enabled": "{{visor_on}}",
+      "budget_ms": 0.5
+    },
+    {
+      "shader": "fx/state.hlsl",
+      "name": "state-keep",
+      "entry": "keep",
+      "inputs": [
+        "state_b"
+      ],
+      "output": "state_a",
+      "enabled": "{{visor_on}}",
+      "budget_ms": 0.5
+    },
+    {
+      "shader": "fx/visor.hlsl",
+      "name": "visor",
+      "inputs": [
+        "strips",
+        "state_b"
+      ],
+      "options": [
+        "{{edge}}",
+        "{{brow}}",
+        "{{tint}}",
+        "{{smudge}}",
+        "{{strip}}",
+        "{{sway_corner}}",
+        "{{vibration}}",
+        "{{strip_mirror}}",
+        "{{sway_brake}}"
+      ],
+      "enabled": "{{visor_on}}",
+      "budget_ms": 1.5
+    }
+  ],
+  "postfx_toggle": "{{toggle_key}}",
+  "operations": {
+    "erp": [
+      "erp/mount.json"
+    ],
+    "native": [
+      {
+        "dll": "native/helmet_cam.dll"
+      }
+    ]
+  }
+}

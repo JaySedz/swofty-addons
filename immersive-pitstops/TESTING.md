@@ -1,4 +1,67 @@
-# Immersive Pitstops 1.0.20: what to test
+# Immersive Pitstops 1.0.29: what to test
+
+No behaviour change: "A joke mode" dropped from the Ferrari Mode description.
+
+## 1.0.28
+
+Driver Display's Ferrari jokes now come with Ferrari Mode Light as well as Full (the link's ferrari_mode() is true for
+both). Full only adds the 50 % stuck nut and loose wheel chances. Check with Light: Driver Display's Ferrari pages
+change as they did with Full in 1.0.27.
+
+## 1.0.27
+
+Ferrari Mode is now a choice: Off / Light / Full. Light: only your crew never ready in a Ferrari (log `held (Ferrari
+Mode: the crew are never ready)`), stuck nut and loose wheel chances normal. Full: as before (50 % chances too).
+Driver Display's Ferrari jokes went with Full only (1.0.28: both). A saved On from before reads as Off (the setting's type changed).
+
+## 1.0.26
+
+The AI wing break (1.0.24-1.0.25) is removed: an AI car's loose wheel comes off 5-25 s into its out-lap again, as in
+1.0.23, until the launcher can call an AI car in. Kept: 1.0.25's retirement lookup and safety car fixes, and the "AI
+loose wheel every stop (testing)" toggle.
+
+## 1.0.25
+
+1.0.24 result (20261124-193600): the full wing break wrote (cars 3 and 14: left/right 0.5 each = the side max, total
+max 1.0) but neither AI car boxed; after 2 lap lines both lost their wheel and retired. Also found: 1.0.22's jump-stub
+following broke the Steam retirement lookup through the bindings (the byte pattern fallback still found it), and the
+safety car (car 22, parked 1 -> 4 at the session load) got an AI loose wheel roll. 1.0.25: the lookup tries the
+bindings without following jumps first, then with; the AI roll needs a real stop (status 3 within the last minute).
+Check the load line: `retirement: status request found from the launcher's bindings`. Open question: did the wing
+visibly come off?
+
+## 1.0.24
+
+AI loose wheel test: instead of the wheel coming off 5-25 s into the out-lap, the car's whole front wing is broken off
+then (both sides of its damage to the maximum), to see if the AI boxes for it; the stop fixes the wheel. If it crosses
+two more lap lines without boxing, the wheel comes off as before. New toggle "AI loose wheel every stop (testing)".
+Check with it on: log lines `its front wing is broken to call it in`, `AI wing: car N's front wing broken off (...)`,
+then `boxed N s after its wing broke` or `stayed out with its broken wing`. Watch an AI car (the wing visibly gone?).
+Next, if the AI boxes: a partly damaged wing, to see how often the AI chooses to pit.
+
+## 1.0.23
+
+The Driver Display link now also gives the Ferrari Mode setting (ip_link.hpp: State.ferrari_mode, appended; still
+version 1). With Driver Display 1.2.25 its log says `immersive pitstops: Ferrari Mode linked`, and `Ferrari Mode on`
+in the 2026 Ferrari with the option on. Nothing else changed.
+
+## 1.0.22
+
+EA app support (launcher 1.10.41+, now the minimum). The retirement and crew call-out finders step through jump stubs
+(the EA copy's code is protected) and log it: `retirement: reached through N jump stub(s)`, or the byte pattern
+fallback, whose ".xtls" the launcher maps to the build's own section. On Steam nothing should change: the load lines
+read `retirement: status request found from the launcher's bindings` and `crew hold: ... found` as before. On EA
+(untested): send the load lines; speech events are off there, so every stop counts as called.
+
+## 1.0.21
+
+1.0.21: a read-only link for Driver Display (1.2.16 and up): the launcher service `sedz.immersive-pitstops.state`
+(native/src/ip_link.hpp, the same file in both repos) gives per car: stuck nut in the box, seconds in the box, loose
+wheel, wheel off, retired (stuck nut / loose wheel, set before the retirement is posted). Check: the load line
+`Driver Display link: published`; with Driver Display 1.2.16 its log says `immersive pitstops: linked`. Stuck nut
+chance 100 % and "Loose wheel every stop (testing)" on show the events. Without Driver Display nothing changes.
+
+## 1.0.20
 
 1.0.19 result: level 3 in a long race is only a warning. 1.0.20 puts long races back to level 4 (10 s, added to the
 race time), short races stay level 4 (3 s). Nothing else changed.

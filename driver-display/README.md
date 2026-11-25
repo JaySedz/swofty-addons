@@ -9,8 +9,10 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.2.15. Steam copy of the game only for now:** on the EA app copy the launcher has no live car state or
-telemetry yet, so the dash shows only its lines there. Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
+**Status: 1.4.0. Needs launcher 1.10.41 or newer.** Tested on the Steam copy of the game. The EA app copy gets live
+race data from launcher 1.10.40 and the telemetry feed from 1.10.41, the data the dash was missing there, and the
+one game function the dash hooks (the wheel LEDs) is bound on the EA build too; it hasn't been tested on EA yet
+(reports welcome: the log's "[driver-display] udp tap" and "rev lights" lines say what it found). Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
 they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
 
@@ -67,6 +69,58 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
 - **Setting changes** (ERS mode, fuel mode, brake bias, differential) pop up in the ERS SOC cell for 2 s.
 - **Start lights:** the screen goes black and the five red lights come on with the game's, then a green GO at
   lights out. Setting "Start lights screen" (1.2.15, on by default): off keeps the normal page through the start.
+- **Immersive Pitstops** (1.2.16, only when [Immersive Pitstops](../immersive-pitstops) 1.0.21+ is installed too;
+  without it nothing here runs): your stuck wheel nut as an amber full screen with the time in the box, a loose wheel
+  across the bottom row in red (LOOSE WHEEL  BOX NOW) until the pit lane, WHEEL OFF and RETIRED full
+  screens in red, and AI cars' stuck nuts and loose wheels on the bottom row. Read only: it reads what Immersive Pitstops shares through the launcher's services.
+- **Team pages** (1.3.0): Ferrari, McLaren, Mercedes, Red Bull, Aston Martin (1.3.1), Williams (1.3.4), Audi / the 2025 Sauber (1.3.7), Haas (1.3.9) and Alpine (1.3.10), on both the 2025 and 2026 cars (1.3.2), show their own team's dash on every page
+  (race, practice / qualifying, safety car / VSC, car, pit), in their team's style; other teams follow in later
+  updates, and every other car keeps the standard pages. On the team pages the battery bar turns blue in the
+  overtake zone, and the mode badge reads STRAIGHT (purple while active). Setting "Team pages speed unit": KPH or MPH.
+- **2026 Ferrari pages** (after Ferrari's 2026 race screen): on the 2026 Ferrari every page uses Ferrari's own frame, every value white on a coloured
+  box. Every page: SPEED / REV (on red) top left, the mode bar (purple active, green ready, grey otherwise) under
+  the centre, the MGU-K bar on the right (blue deploying, red harvesting), ERS SOC as a number and a 20-segment
+  bar. Race: lap time, last sector's colour, delta (green / red / grey), LAP / TO GO, BB / FUEL, the car ahead and
+  behind, the gear in the centre, tyre temperatures. Practice / qualifying: last lap, the session (FP2, Q1), to
+  your best lap, STINT LAP / TIME LEFT, PERSONAL BEST, S1-S3 on their colours. Under a safety car / VSC: the banner
+  and SC delta in yellow, LAP / TO GO, BB / FUEL, EST. PIT EXIT and PIT WINDOW, the gear on yellow with the speed
+  under it. Car page: the car in the middle, FUEL MODE / DIFF. Pit page: PIT WINDOW (green when open), the tyres
+  on their compound's colour, REJOIN, REPAIR WING (red YES once the front wing is in the red band), PIT STOP TIME,
+  tyre wear on its colour. Speed in KPH or MPH by the setting "Ferrari page speed unit". Other cars keep the usual
+  pages. On the Ferrari pages (1.2.24) the setting-change pop-up is a box in the upper centre and the
+  bottom-row messages (race messages, fastest lap, the safety car bar) a banner across the lower centre, white
+  text on their colour; full screens are unchanged.
+- **2026 McLaren pages** (after McLaren's 2026 race screen): minimal,
+  no boxes, coloured text where McLaren's has it. Every page: the battery as a vertical bar on the left (13
+  segments and the %), the revs as one on the right (20 segments against the rev limit), the mode badge over a big
+  gear with the MGU-K line under it (orange deploying, red harvesting, grey otherwise), tyre values round a car
+  icon. Race: lap time, fuel delta, lap n/total, position, RPM, the delta (green / red), speed, the interval list
+  (the nearest five cars, up to three ahead). Practice / qualifying: last lap, personal best, time left, stint
+  lap, the delta to your best (green / yellow), the last lap's sectors. Under a SC / VSC: the top half yellow with
+  the SC delta, the banner, gear and speed and the estimated pit exit, then lap, fuel, pit window and brake bias.
+  Car page: the car, fuel mode, diff, brake bias, fuel delta. Pit page: pit window, rejoin, repair wing (orange
+  YES), lap, the tyres in their compound's colour, speed, tyre wear, pit stop time. Pop-ups and messages use the
+  same centre box and banner as the Ferrari's pages.
+- **2026 Mercedes pages** (after Mercedes's 2025 race screen): a grid
+  of cells under a header with the page's name, a 12-light RPM strip (cyan, orange, lilac) and the session's time;
+  the gears as a column on the left with the current one lit, the battery as a 20-segment column on the right.
+  White text only: the delta's cell turns green or red, the tyres' cell takes the compound's colour, the best
+  lap's cell is green, REPAIR WING's cell orange, three yellow cells across the top under a safety car / VSC.
+  Race: delta, position, lap, lap time, tyre temperatures, the gear, the cars ahead and behind, the mode, speed,
+  fuel delta, brake bias. Practice / qualifying: delta to best, position, stint lap, last lap, sectors, tyre
+  temperatures, personal best. Car page: the car, fuel mode, differential, brake bias. Pit page: pit window,
+  tyres, tyre wear, rejoin, repair wing, pit stop time.
+- **2026 Red Bull pages** (after Red Bull's race screen): an open layout with a big speed and a
+  light top left (the last sector's pace: grey, yellow, green your best, purple the session's best), a huge gear in the centre, the deltas and lap time on the right, a list down
+  the left (lap, position, tyre age, fuel delta; practice: the sectors and personal best), the battery as a green
+  column on the left edge (blue in the overtake zone), a yellow box at the bottom (last lap, time left, fuel
+  delta under a SC, pit stop time), the tyres as four coloured cells (temperature bands, wear bands on the pit
+  page). White text only, on slightly deeper colours than the mock-ups so it reads.
+- **Ferrari Mode** (1.2.25, with Immersive Pitstops 1.0.23+ and its Ferrari Mode option on, on the 2026 Ferrari):
+  the dash plays along. K1 IS AVAILABLE every 20 s while the battery is at 80 % or more in a race; retirements
+  read MUST BE THE (a part); the pit page's numbers are a little off (pit window late, rejoin place out, the wing
+  call the wrong way round, another compound, a slower stop, shuffled wear, new numbers each lap); the engineer's
+  BOX CONFIRMED reads WE ARE CHECKING. Without Immersive Pitstops, or with the option off, nothing changes.
 - **Fastest lap:** the bottom row turns purple for 5 s with the driver and the time.
 - **Across the bottom row** (blue, amber for incidents): BACKMARKER with the driver's code as you close on a lapped car (races), PIT WINDOW OPEN,
   RAIN IN n MIN when the forecast's chance passes 50 % in the dry, RETIRED with the driver's code when a car
@@ -120,9 +174,16 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   first moves), your team's logo shows on black for 3 s, as the dash switching on. The logo is the game's own 2026
   team logo, asked for by its name so that a logo replaced by a mod (the launcher's importer) shows too; nothing
   of it ships with the addon.
-- **2026 Ferrari wheel:** that car's steering wheel bends its screen (the game's own display bends too). On it the
-  HUD's text and lines are drawn from copies placed against the measured bend so they show straight ("Ferrari
-  wheel correction" setting, on by default; tools/ferrari_2026_warp.json). Other cars are not affected.
+- **2026 Ferrari wheel screen** (1.2.20): the game maps that car's wheel screen unevenly (its own display bows and
+  loses its top too; the screen itself is flat in the model). Driver Display rewrites the texture coordinates of
+  the screen part (102 vertices of the steering wheel model, three detail levels) so it maps straight, like every
+  other car's: one `replace-resource` op on `ferrari.idf?lod=all&vb=9` in
+  `2025_asset_groups/f1_2026_vehicle_package/teams/ferrari/wep/ferrari.erp`, built from the game's own buffer by
+  `tools/ferrari_screen.py`. Nothing else on the car changes. The display fills that screen, so it looks a little
+  taller there than on other cars (the screen is a taller shape). Don't install the separate test addon Ferrari
+  Screen Fix as well: both replace the same buffer. **After a game update that changes the 2026 Ferrari's model**,
+  the shipped buffer must be rebuilt (the build checks the screen is still the one it was measured on). Until
+  1.2.19 every element had a copy bent against the screen; those are gone (387 elements instead of 476).
 - Tyre temperatures and the fuel margin are white: the launcher (1.10) doesn't expose the game's own tyre windows.
 - Lap time and delta hold still while the game pauses its lap packets (replays, flashbacks).
 - The page button is a "UDP Action" bound in the game's Controls menu, on any device (wheel, controller,

@@ -10,7 +10,7 @@ Grid:
 
 - A new car, `konnersport_2026`, copied from the 2026 FOM car (the My Team body), performance tier 2 as the
   game's `konnersport_2025`, with Konnersport's names.
-- A 2026 livery preset, `konnersport_vehicle_customisation_2026`: one of the game's 28 2026 livery templates
+- A 2026 livery preset, `konnersport_vehicle_customisation_2026`: one of 16 of the game's 28 2026 livery templates (16 since 1.0.8: launchers now take at most 16 choices in a setting)
   (`livery_titlesponsor_liveryNN_2026`, the **Car livery** setting, template 12 by default) in Konnersport's
   colours. The game's Konnersport livery is painted for the 2025 car: on the 2026 car it races white, or
   misaligned once made compatible.

@@ -26,12 +26,24 @@
 #include <swofty/live.hpp>
 #include <swofty/mem.hpp>
 #include <swofty/mixin.hpp>
+#include <swofty/services.hpp>
 #include <swofty/systems/race_control.hpp>
 #include <swofty/systems/sessions.hpp>
 #include <swofty/systems/speech.hpp>
 #include <swofty/systems/tyre_damage.hpp>
 #include <swofty/telemetry.hpp>
 #include <swofty/view.hpp>
+#include "ip_link.hpp"
+#include "fp_combos.hpp"
+#include "mc_combos.hpp"
+#include "me_combos.hpp"
+#include "rb_combos.hpp"
+#include "am_combos.hpp"
+#include "wi_combos.hpp"
+#include "au_combos.hpp"
+#include "hs_combos.hpp"
+#include "al_combos.hpp"
+#include <ctime>
 
 #include "packet_values.hpp"
 #include "split_leaves.hpp"
@@ -39,7 +51,6 @@
 #include "udp_tap.hpp"
 
 SWOFTY_SETTING(bool, verbose, false);
-SWOFTY_SETTING(bool, ferrari_fix, true); // the 2026 Ferrari wheel: text and lines placed against its bend
 SWOFTY_SETTING(int, wear_amber, 40);
 SWOFTY_SETTING(int, wear_red, 70);
 SWOFTY_SETTING(std::string_view, delta_ref, "previous"); // the delta against the previous lap or the best one
@@ -49,6 +60,7 @@ SWOFTY_SETTING(int, undercut_window, 3); // seconds: the gap within which a stop
 SWOFTY_SETTING(bool, radio_tags, true); // 1.2.3: the engineer's important calls as tags across the bottom row
 SWOFTY_SETTING(bool, pace_targets, true); // 1.2.7: CATCH / HOLD lap time calls
 SWOFTY_SETTING(bool, start_lights, true); // 1.2.15: the start lights screen and its GO (off: the normal page)
+SWOFTY_SETTING(std::string_view, speed_unit, "kph"); // 1.2.18: the Ferrari page's speed: "kph" or "mph"
 SWOFTY_SETTING(int, page_action, 1); // "UDP Action" number from the game's controls (any device), 0 = off
 
 namespace {
@@ -63,6 +75,14 @@ struct Leaf {
     int logged = 0;
     int split = -1;                  // put_flag: -1 not looked up yet, 0 a plain switch, 1 with _n / _f copies
     Leaf *n = nullptr, *f = nullptr; // its copies when split
+    Leaf *t = nullptr, *m = nullptr; // 1.2.27: any team's pages, the McLaren's
+    Leaf *e = nullptr;               // 1.2.31: the Mercedes's
+    Leaf *b = nullptr;               // 1.2.37: the Red Bull's
+    Leaf *am = nullptr;              // 1.3.1: the Aston Martin's (suffix _am)
+    Leaf *wi = nullptr;              // 1.3.4: the Williams's (suffix _wi)
+    Leaf *au = nullptr;              // 1.3.7: the Audi's (suffix _au)
+    Leaf *hs = nullptr;              // 1.3.9: the Haas's (suffix _hs)
+    Leaf *al = nullptr;              // 1.3.10: the Alpine's (suffix _al)
 };
 
 struct NameHash {
@@ -77,6 +97,7 @@ std::atomic<int64_t> g_player_vehicle{-1}; // the player's vehicle id (live stat
 int g_page = 0; // the dash page shown: 0 race, 1 car
 bool g_pop_on = false; // a pop-up box covers the info panel
 bool g_overtake = false;
+char g_track_flag = 'g'; // 1.2.37: 'r' red flag, 'y' yellow / SC / VSC, 'b' blue flag, 'g' clear (no blinking)
 bool g_held_have = false;
 double g_held_delta = 0.0; // overtake available or active (2026): ERS SOC shows blue
 
@@ -94,12 +115,35 @@ Leaf &leaf(std::string_view name)
 
 // (1.2.4 held fast numbers for 0.2 s against the blur of the game's anti-aliasing / upscaling on the wheel
 // screen: still blurred and no longer smooth, so 1.2.5 took it out; the game's own wheel screen blurs the same)
+// 1.2.33: the 2 s refresh of unchanged values is spread out: at most kRefreshPerTick a tick (20 a second). With
+// the team pages every split switch has five copies, and 1.2.31's refreshes all fell due in one tick: ~400 sets
+// every 2 s against the launcher's 512-entry hud set queue ("set queue full ... dropping the oldest"), which
+// dropped real updates and froze parts of the display. A changed value is always written at once.
+constexpr int kRefreshPerTick = 60;
+int g_refresh_left = kRefreshPerTick;
+// 1.2.36: every write counts against a per-tick budget too. Getting into a team's car turns hundreds of switches
+// over at once (1.2.35's log: 467 dropped in that one tick); a write past the budget waits for the next tick (its
+// leaf keeps the old value, so it is retried), and switching over takes a few ticks instead of losing writes.
+constexpr int kSetsPerTick = 300;
+int g_sets_left = kSetsPerTick;
+
+bool refresh_due(double age)
+{
+    if (age < 2.0 || g_refresh_left <= 0)
+        return false;
+    g_refresh_left--;
+    return true;
+}
+
 void put(const char *name, const std::string &v)
 {
     Leaf &l = leaf(name);
     l.age += g_step;
-    if (l.last_b == 2 && v == l.last && l.age < 2.0)
+    if (l.last_b == 2 && v == l.last && !refresh_due(l.age))
         return;
+    if (g_sets_left <= 0)
+        return; // the next tick (1.2.36)
+    g_sets_left--;
     auto r = swofty::hud::set(l.path, v);
     if (r != swofty::hud::Result::ok) {
         if (l.logged++ < 1)
@@ -291,23 +335,38 @@ void frame()
 } // namespace revlights
 
 // the 2026 Ferrari is the player's car (and its correction is on): the switches in kSplitLeaves show their _f copies
-bool g_fer = false;
+bool g_fer = false;  // the 2026 Ferrari's own pages are on (g_team == 'f')
+char g_team = 0;     // 1.2.27: whose own pages are on: 'f' the 2026 Ferrari, 'm' the 2026 McLaren, 'e' the 2026
+                     // Mercedes (1.2.31), 0 none
+bool g_fp = false;  // 1.2.18: a Ferrari page is showing (1.2.22: every page on the 2026 Ferrari)
+char g_fps = 0;     // 1.2.22: its layout: 'r' race, 'q' practice / qualifying, 's' race under a SC, 'd' car, 'p' pit
 
 void put_flag_one(Leaf &l, bool v)
 {
     l.age += g_step;
-    if (l.last_b == int(v) && l.age < 2.0)
+    // 1.2.34: a switch that is off is never refreshed (a reset of the game's HUD data leaves it off too); that is
+    // every switch of the team pages not in use, and every hidden copy, so only what shows is refreshed
+    if (l.last_b == int(v) && (!v || !refresh_due(l.age)))
         return;
+    if (g_sets_left <= 0)
+        return; // the next tick (1.2.36)
+    g_sets_left--;
     if (swofty::hud::set(l.path, v) != swofty::hud::Result::ok)
         return;
     l.last_b = int(v);
     l.age = 0.0;
 }
 
-// A switch. One the layout draws in two copies (kSplitLeaves: its text and lines, straight and placed against the
-// 2026 Ferrari wheel's bend) is written as <name>_n (any other car) and <name>_f (the Ferrari) too.
+// A switch. One the layout draws in copies (kSplitLeaves) is written as <name>_n (no team's own pages), <name>_t (any
+// team's), <name>_f (the Ferrari's) and <name>_m (the McLaren's) too.
 void put_flag(const char *name, bool v) // a separate name: a char buffer would otherwise pick a bool overload over std::string (0.1.x wrote every text as true)
 {
+    // 1.2.18: the shared bottom row (its lines, ERS SOC, the mode badge) gives way to the Ferrari's own page 0;
+    // 1.2.20: these are plain switches (no bent Ferrari copies any more)
+    static const std::unordered_set<std::string_view> fp_hide{"all",      "mid_show",   "soc_ok",      "soc_low",
+                                                              "soc_b",    "badge_dark", "badge_light", "badge_n"};
+    if (g_fp && fp_hide.count(name))
+        v = false;
     Leaf &l = leaf(name);
     put_flag_one(l, v);
     if (l.split < 0) {
@@ -316,11 +375,29 @@ void put_flag(const char *name, bool v) // a separate name: a char buffer would 
         if (l.split) {
             l.n = &leaf(std::string(name) + "_n");
             l.f = &leaf(std::string(name) + "_f");
+            l.t = &leaf(std::string(name) + "_t");
+            l.m = &leaf(std::string(name) + "_m");
+            l.e = &leaf(std::string(name) + "_e");
+            l.b = &leaf(std::string(name) + "_b");
+            l.am = &leaf(std::string(name) + "_am");
+            l.wi = &leaf(std::string(name) + "_wi");
+            l.au = &leaf(std::string(name) + "_au");
+            l.hs = &leaf(std::string(name) + "_hs");
+            l.al = &leaf(std::string(name) + "_al");
         }
     }
     if (l.split) {
-        put_flag_one(*l.n, v && !g_fer);
-        put_flag_one(*l.f, v && g_fer);
+        put_flag_one(*l.n, v && !g_team);
+        put_flag_one(*l.t, v && g_team);
+        put_flag_one(*l.f, v && g_team == 'f');
+        put_flag_one(*l.m, v && g_team == 'm');
+        put_flag_one(*l.e, v && g_team == 'e');
+        put_flag_one(*l.b, v && g_team == 'b');
+        put_flag_one(*l.am, v && g_team == 'a');
+        put_flag_one(*l.wi, v && g_team == 'w');
+        put_flag_one(*l.au, v && g_team == 'u');
+        put_flag_one(*l.hs, v && g_team == 'h');
+        put_flag_one(*l.al, v && g_team == 'l');
     }
 }
 
@@ -958,6 +1035,7 @@ double g_pen_left = 0.0, g_chq_left = 0.0;
 bool g_sc_slow = false, g_sc_slow_rise = false;
 bool g_quali = false;  // page 0's practice / qualifying layout (moved up in 1.2.0)
 std::string g_lap_text = "-"; // the race page's LAP n/total, for the safety car screen (1.2.0)
+bool g_fcy = false;    // 1.2.40: a safety car / VSC is out (whatever the page), for the team pages' layout
 bool g_sc_scr = false; // 1.2.0: the race page's safety car layout is up (page 0, a race layout, SC / VSC out, no flag screen)
 std::string g_warn_title = "WARNING", g_warn_sub;
 double g_warn_left = 0.0;
@@ -1223,6 +1301,683 @@ std::string g_msg_title, g_msg_sub;
 int g_msg_tone = 6; // the blue screen: the game's overtake colour
 double g_msg_left = 0.0;
 
+// ------------------------------------------------------------------ the Ferrari's own page 0 (1.2.18)
+// The 2026 Ferrari shows Leclerc's 2026 race page (Ferrari's own layout) on page 0 in every session; the layout's
+// fp_* elements are Ferrari-only, the moved values keep their own switches. Values the other cars' page 0 also
+// shows are read back from their leaves (Leaf::last).
+// ------------------------------------------------------------------ the 2026 McLaren's own pages (1.2.27)
+// Its switches and values (the shared ones, fp_spd / fp_delta / fp_togo and the like, come from fp_page): the delta's
+// colour, the MGU-K line, the battery's 13 segments, the revs' 20, the interval list (two or three cars either side).
+void mc_page(const Reading &r, int soc, bool on)
+{
+    char t[48];
+    const char st = g_fps;
+    auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
+    // the delta: green gaining, red losing (race, car page), yellow behind the best (practice / qualifying)
+    const std::string &d = leaf(g_quali ? "qdelta" : "delta").last;
+    bool dneg = !d.empty() && d[0] == '-' && d != "--.--", dpos = !d.empty() && d[0] == '+';
+    put_flag("mc_dneg", in("rdq") && dneg);
+    put_flag("mc_dpos_r", in("rd") && dpos);
+    put_flag("mc_dpos_q", in("q") && dpos);
+    put_flag("mc_dnone", in("rdq") && !dneg && !dpos);
+    // the MGU-K line: orange deploying, red harvesting, grey otherwise (the car page's sits lower)
+    bool dep = false, har = false;
+    float rpm_limit = 0.f;
+    if (auto me = swofty::live::player()) {
+        if (swofty::live::has(*me, SWOFTY_LIVE_HAVE_ERS_POWER)) {
+            dep = me->ers_deploy > 1000.f;
+            har = !dep && me->ers_harvest_k > 1000.f;
+        }
+        if (swofty::live::has(*me, SWOFTY_LIVE_HAVE_RPM))
+            rpm_limit = me->rpm_limit;
+    }
+    bool kl = in("rqsp"), kd = in("d");
+    put_flag("mc_k_d", kl && dep);
+    put_flag("mc_k_h", kl && har);
+    put_flag("mc_k_i", kl && !dep && !har);
+    put_flag("mc_kd_d", kd && dep);
+    put_flag("mc_kd_h", kd && har);
+    put_flag("mc_kd_i", kd && !dep && !har);
+    // the battery (13 segments, the bottom one first) and the revs (20, against the rev limit)
+    for (int i = 0; i < 13; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 13;
+        std::snprintf(t, sizeof t, "mc_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "mc_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    float lim = rpm_limit > 3000.f ? rpm_limit : 13000.f;
+    float frac = r.rpm > 0 ? float(r.rpm) / lim : 0.f;
+    for (int i = 0; i < 20; i++) {
+        std::snprintf(t, sizeof t, "mc_rpm%02d", i);
+        put_flag(t, on && frac > i / 20.f);
+    }
+    // the interval list (race): the nearest five cars, up to three ahead, code and gap (ahead negative)
+    std::string code[5], gap[5];
+    int rows = 0;
+    if (in("r"))
+        if (auto me = swofty::live::player()) {
+            auto o = swofty::live::order();
+            int rk = o.rank_of(me->vehicle), n = int(o.ids.size());
+            auto gap_of = [](const swofty::live::Car &c) -> int {
+                return swofty::live::has(c, SWOFTY_LIVE_HAVE_GAP_AHEAD) && c.gap_ahead_ms != SWOFTY_LIVE_NO_GAP
+                           ? int(c.gap_ahead_ms) : -1;
+            };
+            if (rk >= 0) {
+                int ahead = std::min(rk, std::max(3, 5 - (n - 1 - rk)));
+                int first = rk - ahead;
+                // cumulative gaps: ahead, the player's own gap then each car's in front; behind, each car's own
+                std::vector<int> cum(size_t(n), -1);
+                cum[size_t(rk)] = 0;
+                for (int k = rk - 1; k >= 0; k--) {
+                    auto below = swofty::live::car(o.ids[size_t(k + 1)]);
+                    int g = below ? gap_of(*below) : -1;
+                    cum[size_t(k)] = (cum[size_t(k + 1)] >= 0 && g >= 0) ? cum[size_t(k + 1)] + g : -1;
+                }
+                for (int k = rk + 1; k < n; k++) {
+                    auto c = swofty::live::car(o.ids[size_t(k)]);
+                    int g = c ? gap_of(*c) : -1;
+                    cum[size_t(k)] = (cum[size_t(k - 1)] >= 0 && g >= 0) ? cum[size_t(k - 1)] + g : -1;
+                }
+                for (int k = first; k < n && rows < 5; k++) {
+                    if (k == rk)
+                        continue;
+                    code[rows] = car_code(int(o.ids[size_t(k)]));
+                    if (cum[size_t(k)] >= 0)
+                        std::snprintf(t, sizeof t, "%c%.2f", k < rk ? '-' : '+', cum[size_t(k)] / 1000.0);
+                    else
+                        std::snprintf(t, sizeof t, "-");
+                    gap[rows++] = t;
+                }
+            }
+        }
+    for (int i = 0; i < 5; i++) {
+        std::snprintf(t, sizeof t, "mc_code%d", i);
+        put(t, code[i]);
+        std::snprintf(t, sizeof t, "mc_gap%d", i);
+        put(t, gap[i]);
+        std::snprintf(t, sizeof t, "mc_row%d", i);
+        put_flag(t, i < rows);
+    }
+}
+
+// ------------------------------------------------------------------ the 2026 Mercedes's own pages (1.2.31)
+// Its switches: the header's 12 RPM lights (against the rev limit), the lit gear in the gear column, the battery's 20
+// segments, the delta's cell tint (green gaining, red losing).
+void me_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    const char st = g_fps;
+    auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
+    float lim = 13000.f;
+    if (auto me = swofty::live::player(); me && swofty::live::has(*me, SWOFTY_LIVE_HAVE_RPM) && me->rpm_limit > 3000.f)
+        lim = me->rpm_limit;
+    float frac = r.rpm > 0 ? float(r.rpm) / lim : 0.f;
+    for (int i = 0; i < 12; i++) {
+        std::snprintf(t, sizeof t, "me_rpm%02d", i);
+        put_flag(t, on && frac > 0.4f + i * 0.05f); // the strip covers the top 60 % of the revs
+    }
+    for (int g = 1; g <= 8; g++) {
+        std::snprintf(t, sizeof t, "me_g%d", g);
+        put_flag(t, on && r.gear == g);
+    }
+    for (int i = 0; i < 20; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 5;
+        std::snprintf(t, sizeof t, "me_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "me_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    const std::string &d = leaf(g_quali ? "qdelta" : "delta").last;
+    bool dneg = !d.empty() && d[0] == '-' && d != "--.--", dpos = !d.empty() && d[0] == '+';
+    put_flag("me_dneg", in("rq") && dneg); // 1.2.35: not on the car page
+    put_flag("me_dpos", in("rq") && dpos);
+}
+
+// ------------------------------------------------------------------ the 2026 Red Bull's own pages (1.2.37)
+// Its switches: the battery's 16 segments (green; blue in the overtake zone), the light top left (the last sector's
+// pace, 1.2.43), the tyre cells' temperature bands (blue under 75, green to 100, orange
+// above: a guide, the game shares no windows).
+void rb_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    const char st = g_fps;
+    auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
+    for (int i = 0; i < 16; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 16;
+        std::snprintf(t, sizeof t, "rb_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "rb_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    // the light top left: the last sector's pace (the game's lap packets: 0 yellow, 1 green, 2 purple), grey before
+    // there is one (1.2.43)
+    {
+        int last = -1;
+        for (int i = 0; i < 3; i++)
+            if (udp_tap::g.sector_ms[i] > 0)
+                last = i;
+        int col = last >= 0 && udp_tap::fresh(udp_tap::g.lap_tick) ? int(udp_tap::g.sector_col[last]) : -1;
+        bool sq = in("rqp");
+        put_flag("rb_sq_n", sq && col < 0);
+        put_flag("rb_sq_y", sq && col == 0);
+        put_flag("rb_sq_g", sq && col == 1);
+        put_flag("rb_sq_p", sq && col == 2);
+    }
+    static const char *cn[] = {"fl", "fr", "rl", "rr"};
+    bool temps = in("rqs") && udp_tap::fresh(udp_tap::g.tel_tick);
+    for (int i = 0; i < 4; i++) {
+        int c = temps ? int(udp_tap::g.tyre_inner[i]) : -1;
+        char band = c <= 0 ? 0 : c < 75 ? 'k' : c <= 100 ? 'g' : 'o';
+        for (char b : {'k', 'g', 'o'}) {
+            std::snprintf(t, sizeof t, "rb_t%s_%c", cn[i], b);
+            put_flag(t, band == b);
+        }
+    }
+}
+
+// ------------------------------------------------------------------ the 2026 Aston Martin's own pages (1.3.1)
+// Its switches: the 30-light rev strip (against the rev limit), the fuel bar (32 segments: the fuel in the tank
+// against the capacity from the game's packets, else against the most this session has seen), the battery (32,
+// green; blue in the overtake zone), the tyres' side bars (temperature bands), the SC / VSC name.
+void am_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    const char st = g_fps;
+    auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
+    float lim = 13000.f;
+    if (auto me = swofty::live::player(); me && swofty::live::has(*me, SWOFTY_LIVE_HAVE_RPM) && me->rpm_limit > 3000.f)
+        lim = me->rpm_limit;
+    float frac = r.rpm > 0 ? float(r.rpm) / lim : 0.f;
+    for (int i = 0; i < 30; i++) {
+        std::snprintf(t, sizeof t, "am_rpm%02d", i);
+        put_flag(t, on && frac > i / 30.f);
+    }
+    // fuel: the tank against its capacity (else the most seen this session)
+    static uint32_t gen = ~0u;
+    static float most = 0.f;
+    auto ses = swofty::live::session();
+    if (uint32_t g = ses ? ses->generation : 0; g != gen) {
+        gen = g;
+        most = 0.f;
+    }
+    float tank = udp_tap::fresh(udp_tap::g.status_tick) ? float(udp_tap::g.fuel_tank) : -1.f;
+    float cap = float(udp_tap::g.fuel_cap);
+    most = std::max(most, tank);
+    float full = cap > 1.f ? cap : most;
+    int pct = tank >= 0.f && full > 1.f ? std::clamp(int(std::lround(tank / full * 100.f)), 0, 100) : -1;
+    put("am_fuelpct", pct >= 0 ? std::to_string(pct) + "%" : std::string("-"));
+    for (int i = 0; i < 32; i++) {
+        std::snprintf(t, sizeof t, "am_fuel%02d", i);
+        put_flag(t, on && pct > i * 100 / 32);
+    }
+    for (int i = 0; i < 32; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 32;
+        std::snprintf(t, sizeof t, "am_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "am_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    static const char *cn[] = {"fl", "fr", "rl", "rr"};
+    bool temps = in("rqs") && udp_tap::fresh(udp_tap::g.tel_tick);
+    for (int i = 0; i < 4; i++) {
+        int c = temps ? int(udp_tap::g.tyre_inner[i]) : -1;
+        char band = c <= 0 ? 0 : c < 75 ? 'k' : c <= 100 ? 'g' : 'o';
+        for (char b : {'k', 'g', 'o'}) {
+            std::snprintf(t, sizeof t, "am_t%s_%c", cn[i], b);
+            put_flag(t, band == b);
+        }
+    }
+    put("fp_scshort", r.sc == 2 ? "VSC" : "SC");
+}
+
+// ------------------------------------------------------------------ the 2026 Williams's own pages (1.3.4)
+// Its switches: the battery's 12 segments (mint; blue in the overtake zone), the delta's colour (mint gaining,
+// salmon losing). Colour is scarce, so a row of values is one widget whose text is picked here for the layout.
+void wi_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    const char st = g_fps;
+    auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
+    for (int i = 0; i < 12; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 12;
+        std::snprintf(t, sizeof t, "wi_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "wi_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    const std::string &d = leaf(g_quali ? "qdelta" : "delta").last;
+    bool dneg = !d.empty() && d[0] == '-' && d != "--.--", dpos = !d.empty() && d[0] == '+';
+    put_flag("wi_dneg", in("rq") && dneg);
+    put_flag("wi_dpos", in("rq") && dpos);
+    put_flag("wi_dnone", in("rq") && !dneg && !dpos);
+    if (!on || st == 0)
+        return;
+    auto L = [](const char *n) -> std::string { return leaf(n).last.empty() ? std::string("-") : leaf(n).last; };
+    // the top: the position (race), the session (practice / qualifying), PIT (pit page), and its subtitle
+    int ty = udp_tap::g.session_type;
+    put("wi_top", st == 'q' ? L("fp_sess") : st == 'p' ? std::string("PIT") : L("pos"));
+    put("wi_sub", st == 'p'   ? "STRATEGY"
+                  : st == 'q' ? (ty >= 1 && ty <= 4 ? "PRACTICE" : ty == 18 ? "TIME TRIAL" : "QUALIFYING")
+                              : "RACE");
+    // the strip
+    put("wi_sl", st == 'q' ? L("fp_last") : st == 'p' ? L("pst") : L("cur"));
+    put("wi_sm", st == 'p' ? L("lap") : L("pos"));
+    put("wi_sr", st == 'q' ? L("fp_togo") : st == 'p' ? L("rejoin") : L("lap"));
+    // the rows: race / practice (four), SC / car / pit page (three), the tyres (temperatures, wear on the pit page)
+    bool rc = st == 'r';
+    put("wi_l0", rc ? L("fp_gap0") : L("s1"));
+    put("wi_l1", rc ? L("fp_gap1") : L("s2"));
+    put("wi_l2", rc ? L("fuel") : L("s3"));
+    put("wi_m0", st == 'd' ? L("mix") : st == 'p' ? L("fp_stint") : L("fuel"));
+    put("wi_m1", st == 'd' ? L("diff") : st == 'p' ? L("fp_wing") : L("pw"));
+    put("wi_m2", L("bbal"));
+    static const char *cn[] = {"fl", "fr", "rl", "rr"};
+    for (int i = 0; i < 4; i++) {
+        std::snprintf(t, sizeof t, "%c_%s", st == 'p' ? 'w' : 't', cn[i]);
+        std::string v = L(t);
+        std::snprintf(t, sizeof t, "wi_t%d", i);
+        put(t, v);
+    }
+}
+
+// ------------------------------------------------------------------ the 2026 Audi's own pages (1.3.7)
+// Its switches: the battery's 24 segments, left to right (green; blue in the overtake zone).
+void au_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    for (int i = 0; i < 24; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 24;
+        std::snprintf(t, sizeof t, "au_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "au_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+}
+
+// ------------------------------------------------------------------ the 2026 Haas's own pages (1.3.9)
+// Its switches: the battery's bar across the top (25 pieces, left to right; green, blue in the overtake zone).
+void hs_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    for (int i = 0; i < 25; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 4;
+        std::snprintf(t, sizeof t, "hs_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "hs_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+}
+
+// ------------------------------------------------------------------ the 2026 Alpine's own pages (1.3.10)
+// Its switches: the battery column (32 segments, bottom up; green, blue in the overtake zone); its value: the
+// clock (the PC's local time) on the race and practice pages.
+void al_page(const Reading &r, int soc, bool on)
+{
+    char t[24];
+    for (int i = 0; i < 32; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 32;
+        std::snprintf(t, sizeof t, "al_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "al_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    if (!on)
+        return;
+    std::time_t now = std::time(nullptr);
+    std::tm lt{};
+    localtime_s(&lt, &now);
+    std::snprintf(t, sizeof t, "%02d:%02d:%02d", lt.tm_hour, lt.tm_min, lt.tm_sec);
+    put("al_clock", t);
+}
+
+const char *session_name(int type); // below
+
+void fp_page(const Reading &r, int soc)
+{
+    char t[64];
+    const char st = g_fps;
+    auto in = [st](const char *states) { return st != 0 && std::strchr(states, st) != nullptr; };
+    // the layout sets (fp_combos.hpp): fp_<states> on while the Ferrari's layout is one of them
+    const bool F = g_team == 'f', MC = g_team == 'm';
+    for (const char *c : kFpCombos)
+        put_flag((std::string("fp_") + c).c_str(), F && in(c));
+    for (const char *c : kMcCombos)
+        put_flag((std::string("mc_") + c).c_str(), MC && in(c));
+    mc_page(r, soc, MC);
+    const bool ME = g_team == 'e';
+    for (const char *c : kMeCombos)
+        put_flag((std::string("me_") + c).c_str(), ME && in(c));
+    me_page(r, soc, ME);
+    const bool RB = g_team == 'b';
+    for (const char *c : kRbCombos)
+        put_flag((std::string("rb_") + c).c_str(), RB && in(c));
+    rb_page(r, soc, RB);
+    const bool AM = g_team == 'a';
+    for (const char *c : kAmCombos)
+        put_flag((std::string("am_") + c).c_str(), AM && in(c));
+    am_page(r, soc, AM);
+    const bool WI = g_team == 'w';
+    for (const char *c : kWiCombos)
+        put_flag((std::string("wi_") + c).c_str(), WI && in(c));
+    wi_page(r, soc, WI);
+    const bool AU = g_team == 'u';
+    for (const char *c : kAuCombos)
+        put_flag((std::string("au_") + c).c_str(), AU && in(c));
+    au_page(r, soc, AU);
+    const bool HS = g_team == 'h';
+    for (const char *c : kHsCombos)
+        put_flag((std::string("hs_") + c).c_str(), HS && in(c));
+    hs_page(r, soc, HS);
+    const bool AL = g_team == 'l';
+    for (const char *c : kAlCombos)
+        put_flag((std::string("al_") + c).c_str(), AL && in(c));
+    al_page(r, soc, AL);
+    if (!g_fp) { // everything Ferrari-only off
+        for (const char *k : {"fp_sec_on", "fp_sec_p", "fp_sec_g", "fp_sec_y", "fp_k_dep", "fp_k_har", "fp_gaps",
+                              "fp_dneg", "fp_dpos", "fp_dnone", "fp_dsc"})
+            put_flag(k, false);
+        for (int i = 0; i < 20; i++) {
+            std::snprintf(t, sizeof t, "fp_seg%02d", i);
+            put_flag(t, false);
+            std::snprintf(t, sizeof t, "fp_sob%02d", i);
+            put_flag(t, false);
+        }
+        return;
+    }
+    // speed in the setting's unit, revs as a number
+    bool mph = std::string_view(speed_unit) == "mph";
+    int kmh = r.speed_kmh < 0 ? 0 : r.speed_kmh;
+    put("fp_spd", std::to_string(mph ? int(std::lround(kmh * 0.621371)) : kmh));
+    put("fp_rev", std::to_string(r.rpm < 0 ? 0 : r.rpm));
+    // the lap alone, laps to go (race) or the session's time left (practice / qualifying)
+    put("fp_lap", std::to_string(r.lap >= 0 ? r.lap + 1 : 0));
+    if (g_quali) {
+        put("fp_togo", leaf("sess_left").last.empty() ? std::string("--:--") : leaf("sess_left").last);
+    } else {
+        int total = udp_tap::g.total_laps;
+        put("fp_togo", total > 0 && r.lap >= 0 ? std::to_string(std::max(0, total - (r.lap + 1))) : std::string("-"));
+    }
+    // the delta: the race's (the reference lap, or the SC delta) or, in practice / qualifying, to the best lap; its
+    // box green gaining, red losing, grey before there is one, yellow under a SC
+    const std::string &d = leaf(g_quali ? "qdelta" : "delta").last;
+    put("fp_delta", d.empty() ? std::string("--.--") : d);
+    bool dneg = !d.empty() && d[0] == '-' && d != "--.--", dpos = !d.empty() && d[0] == '+';
+    bool dset = F && in("rdq");
+    put_flag("fp_dneg", dset && dneg);
+    put_flag("fp_dpos", dset && dpos);
+    put_flag("fp_dnone", dset && !dneg && !dpos);
+    put_flag("fp_dsc", F && st == 's');
+    put("fp_scname", r.sc == 2 ? "VIRTUAL SAFETY CAR" : "SAFETY CAR");
+    // the sector just finished and its colour (the game's lap packets: 0 yellow, 1 green, 2 purple): race, car page
+    {
+        int last = -1;
+        for (int i = 0; i < 3; i++)
+            if (udp_tap::g.sector_ms[i] > 0)
+                last = i;
+        bool on = F && in("rd") && last >= 0 && udp_tap::fresh(udp_tap::g.lap_tick);
+        int col = on ? int(udp_tap::g.sector_col[last]) : -1;
+        put("fp_sec", on ? "S" + std::to_string(last + 1) : std::string("-"));
+        put_flag("fp_sec_on", on);
+        put_flag("fp_sec_y", on && col == 0);
+        put_flag("fp_sec_g", on && col == 1);
+        put_flag("fp_sec_p", on && col == 2);
+    }
+    // practice / qualifying: the session (FP2, Q1), the laps on these tyres, the best lap
+    {
+        std::string sn = session_name(udp_tap::g.session_type);
+        if (sn == "P1" || sn == "P2" || sn == "P3") sn = "F" + sn;
+        else if (sn == "PRACTICE") sn = "FP";
+        else if (sn == "QUALI") sn = "Q";
+        else if (sn == "ONE-SHOT") sn = "OSQ";
+        else if (sn.size() > 4) sn = sn.substr(0, 4);
+        put("fp_sess", sn);
+        put("fp_stint", r.tyre_age >= 0 ? std::to_string(r.tyre_age) : std::string("-"));
+        float best = g_game.best_s > 0.f ? g_game.best_s : g_laps.best_s;
+        put("fp_pb", best > 0.f ? laptime(best) : std::string("-:--.---"));
+    }
+    // the MGU-K: deploying (blue) or harvesting (red) from the live state's ERS power, nothing when idle
+    {
+        bool dep = false, har = false;
+        if (auto me = swofty::live::player(); me && swofty::live::has(*me, SWOFTY_LIVE_HAVE_ERS_POWER)) {
+            dep = me->ers_deploy > 1000.f;              // W
+            har = !dep && me->ers_harvest_k > 1000.f;   // the MGU-K's own harvest
+        }
+        put_flag("fp_k_dep", F && dep);
+        put_flag("fp_k_har", F && har);
+    }
+    // ERS SOC: the number and 20 segments of 5 %
+    put("soc_n", std::to_string(soc));
+    for (int i = 0; i < 20; i++) {
+        std::snprintf(t, sizeof t, "fp_seg%02d", i);
+        bool lit = F && r.soc >= 0 && soc > i * 5;
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "fp_sob%02d", i);
+        put_flag(t, lit && g_overtake); // 1.2.35: blue in the overtake zone
+    }
+    // the car ahead and the car behind (race): their codes are code_a / code_b; the gaps with 2 decimals, the car
+    // ahead negative and the car behind positive (Ferrari's own signs)
+    {
+        if (r.gap_ms > 0 && r.pos > 1) std::snprintf(t, sizeof t, "-%.2f", r.gap_ms / 1000.0);
+        else std::snprintf(t, sizeof t, "-");
+        put("fp_gap0", t);
+        if (r.gap_b_ms > 0) std::snprintf(t, sizeof t, "+%.2f", r.gap_b_ms / 1000.0);
+        else std::snprintf(t, sizeof t, "-");
+        put("fp_gap1", t);
+        put_flag("fp_gaps", F && st == 'r');
+    }
+}
+
+// ------------------------------------------------------------------ Immersive Pitstops link (1.2.16)
+// When Immersive Pitstops (sedz.immersive-pitstops) is installed too, it publishes its stuck nuts, loose wheels and
+// retirements as a launcher service (ip_link.hpp, the same file in both repos) and the display shows them. Without
+// it the service never appears and nothing here runs: the display is exactly as before. Read only.
+std::atomic<bool (*)(uint32_t, ip_link::Car *)> g_ip_car{nullptr};
+std::atomic<bool (*)()> g_ip_fmode{nullptr}; // 1.2.25: Immersive Pitstops' Ferrari Mode option (1.0.23+)
+
+// ------------------------------------------------------------------ Ferrari Mode (1.2.25, the user's joke)
+// With Immersive Pitstops' Ferrari Mode on and the 2026 Ferrari's own pages showing, the dash plays along: K1 IS
+// AVAILABLE whenever the battery is high, retirements MUST BE THE (a part), the pit page's numbers are off (a pit
+// window a few laps late, a rejoin place a few places out, the wing call the wrong way round, another compound, a
+// slower stop, shuffled wear), and the engineer's BOX CONFIRMED is WE ARE CHECKING. Nothing else changes.
+bool g_meme = false;
+
+uint32_t meme_hash(uint32_t x)
+{
+    x ^= x >> 16;
+    x *= 0x7feb352dU;
+    x ^= x >> 15;
+    x *= 0x846ca68bU;
+    x ^= x >> 16;
+    return x;
+}
+
+const char *meme_part(uint32_t seed)
+{
+    static const char *parts[] = {"ENGINE", "GEARBOX", "TURBO", "PU", "BRAKES", "CLUTCH", "HYDRAULICS", "MGU-K"};
+    return parts[meme_hash(seed) % 8];
+}
+
+// a retirement across the bottom row: RETIRED  VER, or in Ferrari Mode VER: MUST BE THE GEARBOX
+std::string retired_row(int car)
+{
+    if (!g_meme)
+        return "RETIRED  " + car_code(car);
+    auto ses = swofty::live::session();
+    return car_code(car) + ": MUST BE THE " + meme_part(uint32_t(car) * 7919u + (ses ? ses->generation : 0));
+}
+
+inline bool on_page(int p, bool v); // below
+
+void meme_frame(const Reading &r, int soc)
+{
+    auto fm = g_ip_fmode.load();
+    bool on = g_fer && fm && fm();
+    if (on != g_meme) {
+        g_meme = on;
+        swofty::log("[driver-display] Ferrari Mode %s", on ? "on: the dash plays along" : "off");
+    }
+    if (!g_meme)
+        return;
+    char t[48];
+    auto ses = swofty::live::session();
+    uint32_t gen = ses ? ses->generation : 0;
+    // K1 IS AVAILABLE, every 20 s while the battery is at 80 % or more in a race (not in the pit lane, when the
+    // bottom row is free)
+    {
+        static double since = 0.0;
+        since += g_step;
+        bool in_pit = false;
+        if (auto me = swofty::live::player())
+            in_pit = swofty::live::in_pit(*me);
+        if (!g_quali && r.soc >= 0 && soc >= 80 && !in_pit && since >= 20.0 && g_row_left <= 0.0) {
+            row("K1 IS AVAILABLE", 'b', 3.0);
+            since = 0.0;
+        }
+    }
+    // the pit page, a little off (new numbers each lap)
+    uint32_t seed = gen * 131u + uint32_t(r.lap < 0 ? 0 : r.lap);
+    {
+        int a = 0, b = 0;
+        if (std::sscanf(leaf("pw").last.c_str(), "%d-%d", &a, &b) == 2) {
+            int k = 2 + int(meme_hash(seed) % 4);
+            std::snprintf(t, sizeof t, "%d-%d", a + k, b + k);
+            put("pw", t);
+        }
+        int p = 0;
+        if (std::sscanf(leaf("rejoin").last.c_str(), "P%d", &p) == 1) {
+            int k = 3 + int(meme_hash(seed + 1) % 6);
+            p = (meme_hash(seed + 2) & 1) ? std::min(22, p + k) : std::max(1, p - k);
+            std::snprintf(t, sizeof t, "P%02d", p);
+            put("rejoin", t);
+        }
+        const std::string &w = leaf("fp_wing").last;
+        if (w == "YES" || w == "NO") {
+            bool fix = w == "NO"; // the wrong way round
+            put("fp_wing", fix ? "YES" : "NO");
+            put_flag("fp_wingfix", g_fps == 'p' && fix);
+        }
+        static const char *names[] = {"SOFT", "MEDIUM", "HARD", "INTER", "WET"};
+        static const char tags[] = {'s', 'm', 'h', 'i', 'w'};
+        const std::string &tyre = leaf("tyre").last;
+        int real = -1;
+        for (int i = 0; i < 5; i++)
+            if (tyre == names[i])
+                real = i;
+        if (real >= 0) {
+            int fake = (real + 1 + int(meme_hash(seed + 3) % 4)) % 5;
+            put("tyre", names[fake]);
+            for (int i = 0; i < 5; i++) {
+                char k[8];
+                std::snprintf(k, sizeof k, "ty_%c", tags[i]);
+                put_flag(k, on_page(2, i == fake));
+            }
+        }
+        float pst = 0.f;
+        if (std::sscanf(leaf("pst").last.c_str(), "%f", &pst) == 1 && pst > 0.f) {
+            std::snprintf(t, sizeof t, "%.2f", double(pst) * (1.6 + (meme_hash(seed + 4) % 15) / 10.0));
+            put("pst", t);
+        }
+        // the wear shuffled round the corners, each a few points out
+        static const char *corners[] = {"fl", "fr", "rl", "rr"};
+        int wear[4];
+        bool known = true;
+        for (int i = 0; i < 4; i++) {
+            std::snprintf(t, sizeof t, "w_%s", corners[i]);
+            if (std::sscanf(leaf(t).last.c_str(), "%d", &wear[i]) != 1)
+                known = false;
+        }
+        if (known) {
+            int shift = 1 + int(meme_hash(seed + 5) % 3);
+            for (int i = 0; i < 4; i++) {
+                int v = wear[(i + shift) % 4] + int(meme_hash(seed + 6 + uint32_t(i)) % 15) - 4;
+                v = std::max(0, std::min(100, v));
+                char k[16];
+                std::snprintf(k, sizeof k, "w_%s", corners[i]);
+                std::snprintf(t, sizeof t, "%d%%", v);
+                put(k, t);
+                char band = v >= int(wear_red) ? 'r' : v >= int(wear_amber) ? 'a' : 'g';
+                for (char c : {'g', 'a', 'r'}) {
+                    std::snprintf(k, sizeof k, "w%c_%s", c, corners[i]);
+                    put_flag(k, on_page(2, band == c));
+                }
+            }
+        }
+    }
+}
+
+void ip_messages()
+{
+    auto fn = g_ip_car.load();
+    if (!fn)
+        return;
+    auto pl = swofty::live::player(); // the live state's player (the UDP index is unknown without UDP)
+    int me = pl ? int(pl->vehicle) : -1;
+    constexpr int kCars = 32;
+    static uint32_t gen = ~0u;
+    static ip_link::Car was[kCars];
+    auto ses = swofty::live::session();
+    uint32_t g = ses ? ses->generation : 0;
+    if (g != gen) {
+        gen = g;
+        for (auto &w : was)
+            w = ip_link::Car{};
+    }
+    for (int i = 0; i < kCars; i++) {
+        ip_link::Car c{};
+        c.size = sizeof c;
+        if (!fn(uint32_t(i), &c))
+            continue;
+        ip_link::Car &w = was[i];
+        if (i == me) {
+            if (c.stuck) { // the full screen for as long as the nut is stuck, with the time in the box
+                char t[32];
+                std::snprintf(t, sizeof t, "IN THE BOX  %.1f s", double(c.box_secs));
+                g_msg_title = "STUCK WHEEL NUT";
+                g_msg_sub = t;
+                g_msg_tone = 2; // amber
+                g_msg_left = 0.3;
+                if (!w.stuck)
+                    swofty::log("[driver-display] immersive pitstops: the player's stuck wheel nut");
+            }
+            if (c.wheel_off && !w.wheel_off) {
+                g_msg_title = "WHEEL OFF";
+                g_msg_sub = "";
+                g_msg_tone = 1; // red
+                g_msg_left = 3.0;
+                swofty::log("[driver-display] immersive pitstops: the player's loose wheel came off");
+            }
+            if (c.retired && !w.retired) {
+                g_msg_title = "RETIRED";
+                g_msg_sub = ""; // no reason (1.2.17, the user's choice); Ferrari Mode: MUST BE THE (a part)
+                if (g_meme) {
+                    auto ses = swofty::live::session();
+                    g_msg_sub = std::string("MUST BE THE ") + meme_part(uint32_t(i) * 104729u + (ses ? ses->generation : 0));
+                }
+                g_msg_tone = 1;
+                g_msg_left = 6.0;
+                swofty::log("[driver-display] immersive pitstops: the player's car retired (reason %d)", int(c.retired));
+            }
+            // the loose wheel across the bottom row until the pit lane (kept up each frame)
+            auto car = swofty::live::car(uint32_t(i));
+            if (c.loose && !c.wheel_off && !c.retired && !(car && swofty::live::in_pit(*car)))
+                row("LOOSE WHEEL  BOX NOW", 'r', 0.3);
+            if (c.loose && !w.loose)
+                swofty::log("[driver-display] immersive pitstops: the player's loose wheel");
+        } else {
+            if (c.stuck && !w.stuck) {
+                row("STUCK NUT  " + car_code(i), 'a');
+                swofty::log("[driver-display] immersive pitstops: car %d stuck wheel nut", i);
+            }
+            if (c.loose && !w.loose) {
+                row("LOOSE WHEEL  " + car_code(i), 'a');
+                swofty::log("[driver-display] immersive pitstops: car %d loose wheel", i);
+            }
+        }
+        w = c;
+    }
+}
+
 void race_messages(double dt)
 {
     auto &G = udp_tap::g;
@@ -1294,7 +2049,7 @@ void race_messages(double dt)
     if (G.rtmt_seq != sr) {
         sr = G.rtmt_seq;
         if (G.rtmt_car != me) {
-            row("RETIRED  " + car_code(G.rtmt_car), 'a');
+            row(retired_row(int(G.rtmt_car)), 'a');
             swofty::log("[driver-display] event: car %d retired", int(G.rtmt_car));
         }
     }
@@ -1310,7 +2065,7 @@ void race_messages(double dt)
         if (!udp_events())
             for (int v : out)
                 if (v != mine) {
-                    row("RETIRED  " + car_code(v), 'a');
+                    row(retired_row(v), 'a');
                     swofty::log("[driver-display] race control: car %d retired (no UDP)", v);
                 }
     }
@@ -1334,6 +2089,8 @@ void race_messages(double dt)
                         tag.clear(); // wing damage without a call to pit: the dash's own alert has it
                 }
             }
+            if (g_meme && tag == "BOX CONFIRMED")
+                tag = "WE ARE CHECKING"; // Ferrari Mode (1.2.25)
             if (!tag.empty() && bool(radio_tags))
                 row(tag, t->colour, 4.0);
             swofty::log("[driver-display] radio: %s -> %s", stem.c_str(), tag.empty() ? "(no tag)" : tag.c_str());
@@ -1347,6 +2104,7 @@ void race_messages(double dt)
             swofty::log("[driver-display] event: contact with car %d", a == me ? b : a);
         }
     }
+    ip_messages(); // 1.2.16: only with Immersive Pitstops installed
     if (g_msg_left > 0.0)
         g_msg_left -= dt;
     if (G.event_seq != sev) {
@@ -1939,6 +2697,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
     // 1.2.0: on the race page the safety car layout takes the bar's place (PIT NOW, what is out, the SC delta; the
     // bottom row stays the race layout's); the car and pit pages keep the bar
     bool fcy = !full && (flag_kind == 2 || flag_kind == 3);
+    g_fcy = fcy;
     g_sc_scr = fcy && g_page == 0 && !g_quali;
     put_flag("sc_scr", g_sc_scr);
     // the yellow safety car screen (1.2.0, the user's mock-up): SC / VSC DELTA (the game's safetyCarDelta: + is
@@ -2004,6 +2763,7 @@ void popups(const Reading &r, const std::string &mode, double dt)
     static double blink = 0.0;
     blink += dt;
     bool lit = std::fmod(blink, 0.6) < 0.4;
+    g_track_flag = r.red_flag ? 'r' : (yellow || r.sc == 1 || r.sc == 2) ? 'y' : (r.sc == 0 && blue_flag) ? 'b' : 'g';
     put_flag("strip_red", r.red_flag && lit);
     put_flag("strip_yellow", !r.red_flag && (yellow || r.sc == 1 || r.sc == 2) && lit);
     put_flag("strip_blue", !r.red_flag && !yellow && r.sc == 0 && blue_flag && lit);
@@ -2229,6 +2989,12 @@ void pit_page(const Reading &r)
         std::snprintf(k, sizeof k, "wing_%c", c);
         put_flag(k, on_page(2, wing == c));
     }
+    // 1.2.22: the Ferrari pit page's REPAIR WING: yes once the front wing's damage is in the red band
+    put("fp_wing", wing == 'r' ? "YES" : (wing == 'g' || wing == 'a') ? "NO" : "-");
+    put_flag("fp_wingfix", g_team == 'f' && g_fps == 'p' && wing == 'r');
+    put_flag("mc_wing_yes", g_team == 'm' && g_fps == 'p' && wing == 'r'); // 1.2.27: the McLaren's, orange
+    put_flag("mc_wing_no", g_team == 'm' && g_fps == 'p' && wing != 'r');
+    put_flag("me_wing_yes", g_team == 'e' && g_fps == 'p' && wing == 'r'); // 1.2.31: the Mercedes's cell orange
     // tyre wear per corner, by the wear limits in the settings
     static const char *corners[] = {"fl", "fr", "rl", "rr"};
     for (int i = 0; i < 4; i++) {
@@ -2303,8 +3069,29 @@ void aero(double dt)
     // an empty grey outline before the zone, green fill when ready, purple (the game's colour) when active
     mid = mid && !g_sc_scr; // 1.2.0: the safety car screen has the lap there
     put_flag("badge_n", mid && colour == 'n');
-    put_flag("badge_g", mid && colour == 'g');
-    put_flag("badge_p", mid && colour == 'p');
+    put_flag("badge_g", mid && colour == 'g' && !g_fp);
+    put_flag("badge_p", mid && colour == 'p' && !g_fp);
+    // 1.2.22: the Ferrari pages' mode bar: the badge's text on its colour (purple active, green ready, grey near)
+    bool tm = g_fp && !badge.empty() && badge != "-";
+    // 1.2.35: the team pages' badge says STRAIGHT MODE whatever the game's text (STRAIGHT ACTIVE, STRAIGHT 120M
+    // overflowed the boxes), purple while it's active, grey otherwise (the user's choice)
+    put("tm_badge", badge.rfind("STRAIGHT", 0) == 0 ? std::string("STRAIGHT") : badge); // 1.2.41: one word (the user)
+    for (char tc : {'f', 'm', 'e', 'b', 'a', 'w', 'u', 'h', 'l'}) {
+        bool on = tm && g_team == tc;
+        std::string p = tc == 'f'   ? "fp_mode"
+                        : tc == 'm' ? "mc_mode"
+                        : tc == 'e' ? "me_mode"
+                        : tc == 'b' ? "rb_mode"
+                        : tc == 'a' ? "am_mode"
+                        : tc == 'w' ? "wi_mode"
+                        : tc == 'u' ? "au_mode"
+                        : tc == 'h' ? "hs_mode"
+                                    : "al_mode";
+        put_flag(p.c_str(), on);
+        put_flag((p + "_p").c_str(), on && colour == 'p');
+        put_flag((p + "_g").c_str(), false);
+        put_flag((p + "_n").c_str(), on && colour != 'p');
+    }
     put_flag("badge_dark", mid && colour == 'g');
     put_flag("badge_light", mid && (colour == 'n' || colour == 'p'));
     (void)panel;
@@ -2323,17 +3110,51 @@ void on_frame(double dt, void *)
     if (since < 0.05) // 20 Hz
         return;
     g_step = since;
+    g_refresh_left = kRefreshPerTick; // 1.2.33
+    g_sets_left = kSetsPerTick;       // 1.2.36
     since = 0.0;
     {
-        // the 2026 Ferrari (its wheel's screen bends the display): by the car's team badge
-        bool fer = false;
+        // a team's own pages (1.2.18 the 2026 Ferrari, 1.2.27 the 2026 McLaren): by the car's team badge, while the
+        // team pages setting is on
+        char team = 0;
         if (auto me = swofty::live::player())
-            if (auto key = swofty::live::team_badge(me->vehicle))
-                fer = *key == "ferrari_26";
-        fer = fer && bool(ferrari_fix);
-        if (fer != g_fer) {
-            swofty::log("[driver-display] Ferrari wheel correction %s", fer ? "on" : "off");
-            g_fer = fer;
+            if (auto key = swofty::live::team_badge(me->vehicle)) {
+                static std::string seen_key;
+                if (*key != seen_key) { // 1.3.1: the player's team badge, for adding teams
+                    seen_key = *key;
+                    swofty::log("[driver-display] player's team badge: %s", key->c_str());
+                }
+                // 1.3.2: the 2025 cars too. The game's badge keys (overrides.osd.timing_tower.team_badges_hud): the
+                // 2025 teams plain (ferrari, red_bull, aston_martin), the 2026 ones with _26; matched without it
+                std::string k = *key;
+                if (k.size() > 3 && k.compare(k.size() - 3, 3, "_26") == 0)
+                    k.resize(k.size() - 3);
+                team = k == "ferrari"    ? 'f'
+                       : k == "mclaren"  ? 'm'
+                       : k == "mercedes" ? 'e'
+                       : (k == "red_bull" || k == "redbull") ? 'b'
+                       : (k == "aston_martin" || k == "astonmartin" || k == "force_india" || k == "forceindia") ? 'a'
+                       : k == "williams" ? 'w' // 1.3.4
+                       // 1.3.7: the Audi (alfa_romeo_26) and the 2025 Sauber (alfa_romeo)
+                       : (k == "alfa_romeo" || k == "alfaromeo" || k == "sauber" || k == "audi") ? 'u'
+                       : k == "haas" ? 'h' // 1.3.9
+                       : (k == "alpine" || k == "renault") ? 'l' // 1.3.10
+                       : 0;
+            }
+        // 1.3.0: the team pages are always on (the Team pages setting is gone)
+        if (team != g_team) {
+            swofty::log("[driver-display] team pages: %s", team == 'f'   ? "Ferrari"
+                                                           : team == 'm' ? "McLaren"
+                                                           : team == 'e' ? "Mercedes"
+                                                           : team == 'b' ? "Red Bull"
+                                                           : team == 'a' ? "Aston Martin"
+                                                           : team == 'w' ? "Williams"
+                                                           : team == 'u' ? "Audi"
+                                                           : team == 'h' ? "Haas"
+                                                           : team == 'l' ? "Alpine"
+                                                                         : "off");
+            g_team = team;
+            g_fer = team == 'f';
         }
         put_flag("all", true); // the switch of everything always shown (its _n / _f copies)
     }
@@ -2393,10 +3214,28 @@ void on_frame(double dt, void *)
                     for (auto &c : x) c = char(std::tolower(static_cast<unsigned char>(c)));
                     return x;
                 };
+                // 1.3.2: the badge keys that name a team differently from the logo set (aston_martin_26 is the logo
+                // set's forceindia_26), and the 2025 cars' plain keys for the teams whose logo didn't change
+                std::string want = squash(*key);
+                if (want.size() > 2 && want.compare(want.size() - 2, 2, "26") == 0)
+                    want.resize(want.size() - 2);
+                static const std::pair<const char *, const char *> kAlias[] = {
+                    {"astonmartin", "forceindia"}, {"alpine", "renault"}, {"alphatauri", "tororosso"},
+                    {"alfaromeo", "sauber"},       {"gmcadillac", "gmcadillac"}};
+                bool y2025 = squash(*key) == want; // no _26
+                for (auto &[from, to] : kAlias)
+                    if (want == from)
+                        want = to;
+                if (y2025 && want == "sauber")
+                    want.clear(); // the 2025 Kick Sauber: the 2026 set only has Audi's logo
                 boot_slice = -1;
-                for (int i = 0; i < int(std::size(kTeamLogoKeys)); i++)
-                    if (squash(kTeamLogoKeys[i]) == squash(*key))
+                for (int i = 0; i < int(std::size(kTeamLogoKeys)); i++) {
+                    std::string k = squash(kTeamLogoKeys[i]);
+                    if (k.size() > 2 && k.compare(k.size() - 2, 2, "26") == 0)
+                        k.resize(k.size() - 2);
+                    if (!want.empty() && k == want)
                         boot_slice = i;
+                }
                 boot_left = boot_slice >= 0 ? 4.0 : 0.0; // 3 s of logo, then 1 s of black (1.2.0)
                 boot_armed = due = false;
                 swofty::log("[driver-display] boot screen: team %s, logo slice %d (%s)", key->c_str(), boot_slice,
@@ -2481,6 +3320,7 @@ void on_frame(double dt, void *)
             cur = 0.f;
         cur_held = cur;
         put("cur", hold > 0.0 && last > 0.f ? laptime(last) : laptime(cur));
+        put("fp_last", last > 0.f ? laptime(last) : std::string("-:--.---")); // 1.2.37: the last lap alone
     }
     {
         int rpm = r.rpm < 0 ? 0 : r.rpm;
@@ -2683,6 +3523,11 @@ void on_frame(double dt, void *)
         for (int i = 0; i < 4; i++)
             r.wear[i] = udp_tap::g.wear[i];
     page_input();
+    // 1.2.22: the Ferrari's layout (its own pages: every page)
+    // 1.2.40: g_fcy, not g_sc_scr: g_sc_scr is set later in the tick from the page, so switching back to page 0
+    // under a SC drew the race layout for one tick before the SC one (the user's flicker)
+    g_fps = !g_team ? 0 : g_page == 1 ? 'd' : g_page == 2 ? 'p' : g_quali ? 'q' : g_fcy ? 's' : 'r';
+    g_fp = g_fps != 0;
     put_flag("p0", g_page == 0);
     put_flag("p0r", g_page == 0 && !g_quali);
     put_flag("p0q", g_page == 0 && g_quali);
@@ -2700,6 +3545,8 @@ void on_frame(double dt, void *)
     put_flag("soc_low", !g_pop_on && !g_overtake && r.soc >= 0 && soc < 15);
     put_flag("soc_ok", !g_pop_on && !g_overtake && r.soc >= 0 && soc >= 15);
     put_flag("soc_b", !g_pop_on && g_overtake && r.soc >= 0);
+    fp_page(r, soc); // 1.2.18: the Ferrari's own page 0
+    meme_frame(r, soc); // 1.2.25: Ferrari Mode (with Immersive Pitstops)
     // tyre temperatures (the game's packets), white: the launcher exposes no optimum windows (1.10)
     static const char *cn[] = {"fl", "fr", "rl", "rr"};
     bool temps = udp_tap::fresh(udp_tap::g.tel_tick);
@@ -2709,7 +3556,7 @@ void on_frame(double dt, void *)
         bool known = c > 0;
         // with the degree sign: the game's own tyre values draw it in OSD_19_bold (Wheel OSD screenshot), the style
         // these use since 0.4.18 (0.4.11's OSD_24_bold drew a box for it)
-        std::snprintf(t, sizeof t, known ? "%d\xC2\xB0" : "--", c);
+        std::snprintf(t, sizeof t, known ? "%d" : "--", c); // 1.2.28: no degree sign (the user: more room)
         std::snprintf(k, sizeof k, "t_%s", cn[i]);
         put(k, t);
     }
@@ -2797,7 +3644,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.2.15: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.4.0: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -2813,6 +3660,19 @@ SWOFTY_ON_LOAD
                 g_to_human = true;
         });
     swofty::log("[driver-display] player control events: %s", r == swofty::events::Result::ok ? "on" : "not available");
+    // 1.2.16: Immersive Pitstops' stuck nuts, loose wheels and retirements, when it's installed (its service)
+    auto ipr = swofty::services::when<ip_link::State>([](const ip_link::State &t) {
+        if (t.size >= offsetof(ip_link::State, ferrari_mode) && t.car) {
+            g_ip_car = t.car;
+            swofty::log("[driver-display] immersive pitstops: linked (stuck nuts, loose wheels, retirements)");
+        }
+        if (t.size >= sizeof(ip_link::State) && t.ferrari_mode) { // 1.2.25: Immersive Pitstops 1.0.23+
+            g_ip_fmode = t.ferrari_mode;
+            swofty::log("[driver-display] immersive pitstops: Ferrari Mode linked");
+        }
+    });
+    if (ipr != swofty::services::Result::ok && ipr != swofty::services::Result::late)
+        swofty::log("[driver-display] immersive pitstops: no services on this core (nothing linked)");
     // race control (launcher 1.10): retirements while the game's UDP output is off
     namespace rc = swofty::race_control;
     auto rr = swofty::events::on<rc::events::CarStatus>().after([](const rc::events::CarStatus &e, const swofty::events::Context &) {

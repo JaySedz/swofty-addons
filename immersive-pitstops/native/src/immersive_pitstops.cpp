@@ -52,7 +52,10 @@
 #include <string_view>
 #include <vector>
 
+#include "ip_link.hpp"
+
 #include <swofty/events.hpp>
+#include <swofty/services.hpp>
 #include <swofty/hud.hpp>
 #include <swofty/live.hpp>
 #include <swofty/mem.hpp>
@@ -73,10 +76,11 @@ SWOFTY_SETTING(int, retire_chance, 25);    // % of stuck wheel nuts that end the
 SWOFTY_SETTING(float, loose_chance, 0.3f); // % of your normal race stops that leave a loose wheel (0.1 steps, 1.0.17)
 SWOFTY_SETTING(bool, loose_test, false);   // every normal race stop leaves a loose wheel (testing, 1.0.17)
 SWOFTY_SETTING(float, ai_loose_chance, 0.3f); // 0-10 % in 0.1 steps (1.0.18)
+SWOFTY_SETTING(bool, ai_loose_test, false); // every AI normal race stop leaves a loose wheel (testing, 1.0.24)
 SWOFTY_SETTING(bool, call_stop, true);
 SWOFTY_SETTING(int, stuck_chance, 1);
 SWOFTY_SETTING(std::string_view, stop_times, "default"); // default / fast / slow: how each stop's time varies (1.0.15)
-SWOFTY_SETTING(bool, ferrari_mode, false); // 1.0.14: Ferrari's stuck nut and loose wheel chances at 50 % (a joke)  // % of stops the plugin turns into a stuck wheel nut (1.0.13)  // stops you don't call with Box This Lap find the crew in the garage  // % of AI stops whose loose wheel comes off on the out-lap
+SWOFTY_SETTING(std::string_view, ferrari_mode, "off"); // off / light / full (1.0.27; a toggle since 1.0.14, a joke)  // % of stops the plugin turns into a stuck wheel nut (1.0.13)  // stops you don't call with Box This Lap find the crew in the garage  // % of AI stops whose loose wheel comes off on the out-lap
 SWOFTY_SETTING(bool, pit_log, false);      // log each stop's timer and limit (for testing)
 
 namespace {
@@ -107,6 +111,35 @@ std::atomic<bool> g_retire_now[kCars];   // the crew finished first: retire at o
 std::atomic<bool> g_off{false};          // a check failed: hands off until the session changes
 std::atomic<void *> g_pit_system{nullptr}; // the PitLaneSystem (self of Game_Pitlane_SetVehicleStatus)
 
+// 1.0.21: what the plugin did to each car, for Driver Display (ip_link.hpp). Read-only for the other addon: nothing
+// here changes what this addon does. Written where the events happen, reset per session and car rebuild.
+namespace iplink {
+std::atomic<uint8_t> g_loose[kCars];     // released with a loose wheel, not yet fixed / off / retired
+std::atomic<uint8_t> g_wheel_off[kCars]; // the loose wheel came off (until the car's next stop)
+std::atomic<uint8_t> g_retired[kCars];   // ip_link::retire_*
+void reset(uint32_t car)
+{
+    if (car >= kCars)
+        return;
+    g_loose[car].store(0);
+    g_wheel_off[car].store(0);
+    g_retired[car].store(ip_link::retire_none);
+}
+// set the reason before the retirement is posted; put it back if the post fails
+void retiring(uint32_t car, uint8_t why)
+{
+    if (car < kCars) {
+        g_retired[car].store(why);
+        g_loose[car].store(0);
+    }
+}
+void not_retired(uint32_t car)
+{
+    if (car < kCars)
+        g_retired[car].store(ip_link::retire_none);
+}
+} // namespace iplink
+
 struct Stop {
     uint32_t seen = 0;      // g_stop value this state belongs to
     float in_box = 0;       // seconds in the box, from the pit lane's own dt
@@ -133,10 +166,15 @@ uint32_t rnd()
 
 // Ferrari Mode (1.0.14): a car is a Ferrari when its team badge (the launcher's live data, e.g. "ferrari_26") says so.
 constexpr int kFerrariChance = 50;
-bool ferrari(uint32_t car)
+// 1.0.27: Light = only the crew never ready for you in a Ferrari; Full = that plus Ferrari's stuck nut and loose wheel
+// chances at 50 % (the 1.0.14-1.0.26 Ferrari Mode).
+int ferrari_level()
 {
-    if (!bool(ferrari_mode))
-        return false;
+    std::string_view m = ferrari_mode;
+    return m == "full" ? 2 : m == "light" ? 1 : 0;
+}
+bool is_ferrari_car(uint32_t car)
+{
     auto b = swofty::live::team_badge(car);
     if (!b)
         return false;
@@ -145,6 +183,10 @@ bool ferrari(uint32_t car)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return k.find("ferrari") != std::string::npos;
 }
+// the crew never ready (Light and Full)
+bool ferrari(uint32_t car) { return ferrari_level() >= 1 && is_ferrari_car(car); }
+// the 50 % stuck nut and loose wheel chances (Full only)
+bool ferrari_full(uint32_t car) { return ferrari_level() == 2 && is_ferrari_car(car); }
 
 // Alerts for your own stop (1.0.10): the HUD alert box isn't seen while your car is in the pit lane (2026-11-24: CREW
 // NOT READY and STUCK WHEEL NUT were shown at the pit entry and as the crew started, and not seen), so they wait until
@@ -241,25 +283,60 @@ int32_t rel32(uintptr_t at)
     return r;
 }
 
+// 1.0.22 (EA app): the EA copy's code is protected, and a function's address can be a jump stub into its body
+// (`jmp rel32` or `jmp [rip+x]`). Step through up to 4 of them; on Steam a function starts with its own code and this
+// returns the address unchanged. `hops` counts the stubs passed.
+uintptr_t through_jumps(uintptr_t a, int *hops = nullptr)
+{
+    int n = 0;
+    for (; a && n < 4; ++n) {
+        uint8_t b[2] = {};
+        if (!swofty::mem::read(a, b))
+            break;
+        if (b[0] == 0xE9) {
+            a = a + 5 + int64_t(rel32(a + 1));
+        } else if (b[0] == 0xFF && b[1] == 0x25) {
+            uintptr_t t = 0;
+            if (!swofty::mem::read(a + 6 + int64_t(rel32(a + 2)), t) || !t)
+                break;
+            a = t;
+        } else {
+            break;
+        }
+    }
+    if (hops)
+        *hops = n;
+    return a;
+}
+
 // From the launcher's bindings (0.2.17): Game_Game_RetireLocalPlayer (the pause menu's Retire) calls
 // Game::setLocalPlayersStatuses, which loads the message bus holder (`mov rcx, [rip+g_Game_MessageBus]`) and then the
 // message's type (`lea rdx, [rip+vtable]`) a few instructions later. Both anchors are the launcher's, kept up to date
 // with the game; only the shape of those two instructions is assumed. Checked on the 2026-11-16 build: the same bus
 // and vtable as Terminal Damage's pattern.
-bool find_by_bindings()
+// follow: step through jump stubs (1.0.22, for protected copies). Tried without first (1.0.25): on Steam, following
+// the binding's leading jump skipped the call the search needs.
+bool find_by_bindings(bool follow)
 {
     uintptr_t retire = uintptr_t(swofty::api->resolve("Game_Game_RetireLocalPlayer"));
     uintptr_t holder = uintptr_t(swofty::api->resolve("g_Game_MessageBus"));
     if (!retire || !holder) {
+        if (follow)
+            return false;
         swofty::log("[immersive-pitstops] retirement: launcher bindings %s%s missing (an older launcher)",
                     retire ? "" : "Game_Game_RetireLocalPlayer ", holder ? "" : "g_Game_MessageBus");
         return false;
     }
+    int hops = 0, call_hops = 0;
+    if (follow)
+        retire = through_jumps(retire, &hops);
     uint8_t op = 0;
     for (uintptr_t c = retire; c < retire + 0x100; ++c) {
         if (!swofty::mem::read(c, op) || op != 0xE8)
             continue;
         uintptr_t fn = c + 5 + int64_t(rel32(c + 1));
+        if (follow)
+            fn = through_jumps(fn, &call_hops);
         uint8_t b[3];
         for (uintptr_t i = fn; i < fn + 0x600; ++i) {
             if (!swofty::mem::read(i, b) || b[0] != 0x48 || b[1] != 0x8B || b[2] != 0x0D || // mov rcx, [rip+x]
@@ -275,12 +352,16 @@ bool find_by_bindings()
                 if (!good_vtable(reinterpret_cast<const void *>(vt)))
                     break; // not a message type in the game's image: leave retirements to the pattern / off
                 g_status_vtable = reinterpret_cast<const void *>(vt);
+                if (hops || call_hops)
+                    swofty::log("[immersive-pitstops] retirement: reached through %d jump stub(s) (a protected game copy, "
+                                "such as the EA app's)", hops + call_hops);
                 return true;
             }
         }
     }
-    swofty::log("[immersive-pitstops] retirement: the status request isn't where the launcher's bindings lead on this "
-                "build");
+    if (follow)
+        swofty::log("[immersive-pitstops] retirement: the status request isn't where the launcher's bindings lead on this "
+                    "build (also tried through %d jump stub(s)); trying the byte pattern", hops);
     return false;
 }
 
@@ -289,16 +370,19 @@ void find_status_request()
     if (!swofty::api || !swofty::api->scan || !swofty::api->resolve)
         return;
     g_post = reinterpret_cast<uint64_t (*)(void *, void *)>(swofty::api->resolve("Ne_Post_BusMessage"));
-    if (find_by_bindings()) {
+    if (find_by_bindings(false) || find_by_bindings(true)) {
         swofty::log("[immersive-pitstops] retirement: status request found from the launcher's bindings (bus post %s)",
                     g_post ? "bound" : "NOT BOUND");
         return;
     }
-    // fallback for launchers without those bindings: Terminal Damage's byte pattern
+    // fallback: Terminal Damage's byte pattern. ".xtls" is the Steam section name; the launcher maps it to the running
+    // build's own section (the EA app copy's are named differently).
     uintptr_t site = 0;
     int n = swofty::api->scan(".xtls", kStatusRequestSite, &site);
     if (n != 1 || !site) {
-        swofty::log("[immersive-pitstops] retirement off: the status request pattern has %d hits on this build", n);
+        swofty::log("[immersive-pitstops] retirement off: the status request pattern has %d hits on this build: the addon can't retire cars "
+                    "(stuck wheel nuts never end a race)",
+                    n);
         return;
     }
     int32_t rel = 0;
@@ -347,6 +431,8 @@ void find()
                     fn ? "" : "Game_PitLane_EnterLimitZone ", holder ? "" : "g_Game_MessageBus");
         return;
     }
+    int hops = 0;
+    fn = through_jumps(fn, &hops);
     uint8_t b[3];
     for (uintptr_t i = fn; i < fn + 0x800; ++i) {
         if (!swofty::mem::read(i, b) || b[0] != 0x48 || b[1] != 0x8B || b[2] != 0x05 || // mov rax, [rip+x]
@@ -358,7 +444,8 @@ void find()
             uintptr_t vt = j + 7 + int64_t(rel32(j + 3)), first = 0;
             if (swofty::mem::read(vt, first) && first && good_vtable(reinterpret_cast<const void *>(vt))) {
                 g_vt = reinterpret_cast<const void *>(vt);
-                swofty::log("[immersive-pitstops] crew hold: the crew's call-out message found from the launcher's bindings");
+                swofty::log("[immersive-pitstops] crew hold: the crew's call-out message found from the launcher's bindings%s",
+                            hops ? " (through a jump stub)" : "");
                 return;
             }
             break;
@@ -496,6 +583,7 @@ void retire(uint32_t car, Stop &st, const char *when)
     // Turn back on once Terminal Damage is updated for that build.
     if (kTdHandOff && st.player && td_state() == TD_RUNNING && g_pit_system.load() && orig_set_status) {
         int corner = stuck_corner(car);
+        iplink::retiring(car, ip_link::retire_stuck_nut);
         if (loose::tear_off(car, corner)) {
             st.retired = true; // held in the box as before while Terminal Damage takes over
             st.since_retire = 0;
@@ -509,7 +597,9 @@ void retire(uint32_t car, Stop &st, const char *when)
         swofty::log("[immersive-pitstops] car %u: Terminal Damage is running but the wheel couldn't be taken off; the "
                     "game's own retirement instead", car);
     }
+    iplink::retiring(car, ip_link::retire_stuck_nut);
     if (!post_retired(car)) {
+        iplink::not_retired(car);
         swofty::log("[immersive-pitstops] car %u: retirement message could not be sent; the stop ends normally", car);
         st.retired = false;
         g_wants_retire[car].store(false);
@@ -731,8 +821,11 @@ void td_tick(uintptr_t m, uint32_t car, float dt)
                     "own retirement", car, kTdPush, td);
     }
     g_td[car].store(td_fallback);
-    if (!post_retired(car))
+    iplink::retiring(car, ip_link::retire_stuck_nut);
+    if (!post_retired(car)) {
+        iplink::not_retired(car);
         swofty::log("[immersive-pitstops] car %u: retirement message could not be sent", car);
+    }
 }
 
 void hold_tick(float dt);
@@ -973,7 +1066,7 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
         // a hit, hands the game a rear wheel's "wheel on" sequence (the 60 s stuck nut in erp/) instead: the name
         // passed to PitStopInstance::playSequence is what it looks up (0x1403b3777 calls the lookup with it).
         bool ours = false;
-        bool is_ferrari = car >= 0 && ferrari(uint32_t(car));
+        bool is_ferrari = car >= 0 && ferrari_full(uint32_t(car));
         int stuck_pc = is_ferrari ? kFerrariChance : int(stuck_chance);
         // 1.0.8: only while the box hold can run (a long stuck nut needs it; without it the pit lane would release the
         // car mid-animation at ~20 s): off for the session when the pit lane record can't be confirmed (EA app)
@@ -1296,6 +1389,8 @@ struct Ai {
     int corner = 0;
     double t = 0, delay = 0;
 };
+// (1.0.24-1.0.25 broke an AI car's front wing to call it in for a stop; it didn't box. Back to the wheel coming off
+// until the launcher can call an AI car in.)
 Ai g_ai[kCars];                       // flow thread only
 std::atomic<bool> g_ai_reset{false};  // a new session: clear g_ai on the flow thread
 std::atomic<int> g_ai_rolled[kCars]; // set by the pit event (game thread): corner + 1
@@ -1379,12 +1474,15 @@ void frame(double dt, void *)
         int ps = g_state.load();
         if (ps == pending || ps == loose || ps == pitting) {
             g_state.store(none);
+            if (int c = g_car.load(); c >= 0)
+                iplink::g_loose[c].store(0);
             swofty::hud::toast("RED FLAG", "The crew fix the loose wheel", 5.0f);
             swofty::log("[immersive-pitstops] loose wheel: red flag; car %d's wheel is fixed", g_car.load());
         }
         for (uint32_t i = 0; i < kCars; ++i)
             if (g_ai[i].state == 1 || g_ai[i].state == 2) {
                 g_ai[i] = Ai{};
+                iplink::g_loose[i].store(0);
                 swofty::log("[immersive-pitstops] loose wheel: red flag; AI car %u's wheel is fixed", i);
             }
     }
@@ -1392,6 +1490,7 @@ void frame(double dt, void *)
     for (uint32_t i = 0; i < kCars; ++i)
         if (g_rebuilt[i].exchange(false)) {
             g_ai[i] = Ai{};
+            iplink::reset(i);
             if (int(i) == g_car.load() && g_state.load() != none) {
                 g_state.store(none);
                 swofty::log("[immersive-pitstops] loose wheel: car %u was rebuilt (a restart); forgotten", i);
@@ -1402,11 +1501,13 @@ void frame(double dt, void *)
         uint32_t pit = g_status[car].load();
         if (st == fixed) {
             g_state.store(none);
+            iplink::g_loose[car].store(0);
             swofty::log("[immersive-pitstops] loose wheel: car %u pitted; the wheel is on properly now", car);
         } else if (st == pending && (pit == 6 || pit == 7 || pit == 14 || pit == 1)) {
             g_state.store(loose);
             g_crossed.store(false);
             g_crossed_for = 0;
+            iplink::g_loose[car].store(1);
             swofty::hud::toast("LOOSE WHEEL", "The wheel isn't on properly. Box this lap!", 8.0f);
             swofty::log("[immersive-pitstops] loose wheel: car %u released with a loose %s wheel; box this lap", car,
                         kCorner[g_corner.load()]);
@@ -1419,6 +1520,8 @@ void frame(double dt, void *)
             g_state.store(missed);
             g_missed_for = 0;
             g_tear[car].store(g_corner.load() + 1);
+            iplink::g_loose[car].store(0);
+            iplink::g_wheel_off[car].store(1);
             g_tear_lap = -1;
             g_prev_lap = -1;
             g_fb_quiet = -1;
@@ -1446,6 +1549,8 @@ void frame(double dt, void *)
                         g_state.store(loose);
                         g_crossed.store(false);
                         g_crossed_for = 0;
+                        iplink::g_loose[car].store(1);
+                        iplink::g_wheel_off[car].store(0);
                         swofty::hud::toast("LOOSE WHEEL", "The wheel still isn't on properly. Box this lap!", 6.0f);
                         swofty::log("[immersive-pitstops] loose wheel: car %d flashed back before the line (lap %d, the "
                                     "wheel came off on %d): loose again", car, lap, g_tear_lap);
@@ -1466,8 +1571,11 @@ void frame(double dt, void *)
                 g_state.store(done);
                 swofty::log("[immersive-pitstops] loose wheel: car %u still running %.0f s after its wheel came off; "
                             "retiring it", car, g_missed_for);
+                iplink::retiring(uint32_t(car), ip_link::retire_loose_wheel);
                 if (post_retired(uint32_t(car)))
                     swofty::hud::toast("RETIRED", "Loose wheel: the team retires the car", 6.0f);
+                else
+                    iplink::not_retired(uint32_t(car));
             }
         }
     }
@@ -1483,10 +1591,13 @@ void frame(double dt, void *)
         if (a.state == 1 && g_status[i].load() == 1) {
             a.state = 2;
             a.t = 0;
+            iplink::g_loose[i].store(1);
         } else if (a.state == 2 && (a.t += dt) >= a.delay) {
             a.state = 3;
             a.t = 0;
             g_tear[i].store(a.corner + 1);
+            iplink::g_loose[i].store(0);
+            iplink::g_wheel_off[i].store(1);
         } else if (a.state == 3 && (a.t += dt) >= 30.0) {
             a.state = 4;
             auto c = swofty::live::car(i);
@@ -1494,7 +1605,9 @@ void frame(double dt, void *)
             if (!status || *status == swofty::race_control::Status::running) {
                 swofty::log("[immersive-pitstops] loose wheel: AI car %u still running 30 s after its wheel came off; "
                             "retiring it", i);
-                post_retired(i);
+                iplink::retiring(i, ip_link::retire_loose_wheel);
+                if (!post_retired(i))
+                    iplink::not_retired(i);
             }
         }
     }
@@ -1595,15 +1708,50 @@ bool call::tick(uintptr_t, uint32_t car, float)
     return true;
 }
 
+// Driver Display reads this (any thread): atomics only, at most out->size bytes written.
+bool link_car(uint32_t car, ip_link::Car *out)
+{
+    if (!out || car >= kCars || g_off.load())
+        return false;
+    ip_link::Car c{};
+    c.size = sizeof(ip_link::Car);
+    bool in_box = g_status[car].load() == kInPitBox;
+    c.stuck = in_box && crew::g_stuck_seq[car].load() ? 1 : 0;
+    if (in_box) {
+        uint64_t at = g_box_at[car].load(), now = GetTickCount64();
+        c.box_secs = at && now >= at ? float(double(now - at) / 1000.0) : 0.0f;
+    }
+    c.loose = iplink::g_loose[car].load();
+    c.wheel_off = iplink::g_wheel_off[car].load();
+    c.retired = iplink::g_retired[car].load();
+    uint32_t n = out->size < sizeof(c) ? out->size : uint32_t(sizeof(c));
+    std::memcpy(out, &c, n);
+    if (n >= sizeof(uint32_t))
+        out->size = n;
+    return true;
+}
+// 1.0.23: the Ferrari Mode setting, for Driver Display's Ferrari pages (read only; any thread)
+// Driver Display's Ferrari jokes go with Full only (Light is just the crew)
+bool link_ferrari_mode() { return ferrari_level() >= 1; } // DD Ferrari jokes with Light and Full (1.0.28)
+const ip_link::State g_link_state{sizeof(ip_link::State), &link_car, &link_ferrari_mode};
+
 } // namespace
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[immersive-pitstops] loaded 1.0.20: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
+    swofty::log("[immersive-pitstops] loaded 1.0.29: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
                 "(when the crew finish, the game's retirement); log %s", bool(hold_box) ? "on" : "off", int(max_hold),
                 int(retire_chance), bool(pit_log) ? "on" : "off");
     find_status_request();
     hold::find();
+    { // 1.0.21: share the pit events with Driver Display (only it reads them; nothing changes here)
+        auto pr = swofty::services::publish(g_link_state);
+        swofty::log("[immersive-pitstops] Driver Display link: %s",
+                    pr == swofty::services::Result::ok            ? "published"
+                    : pr == swofty::services::Result::late        ? "published (late)"
+                    : pr == swofty::services::Result::unavailable ? "services not available on this launcher (no link)"
+                                                                  : "refused (no link)");
+    }
     auto r = swofty::events::on<swofty::sessions::events::Pit>().after(
         [](const swofty::sessions::events::Pit &e, const swofty::events::Context &) {
             if (e.car >= kCars)
@@ -1623,6 +1771,8 @@ SWOFTY_ON_LOAD
             }
             if (e.status == kInPitBox && e.previous != kInPitBox) {
                 g_box_at[e.car].store(GetTickCount64());
+                iplink::g_loose[e.car].store(0); // fixed at this stop
+                iplink::g_wheel_off[e.car].store(0);
                 g_stop[e.car].fetch_add(1);
                 g_wants_retire[e.car].store(false);
                 g_retire_now[e.car].store(false);
@@ -1646,9 +1796,9 @@ SWOFTY_ON_LOAD
                                !crew::g_stuck_seq[e.car].load()) { // 1.0.17: not after any stuck nut
                         // 1.0.17: a decimal chance (0.1 steps), rolled in hundredths of a percent
                         float chance = bool(loose_test) ? 100.0f
-                                       : ferrari(e.car) ? float(kFerrariChance) : float(loose_chance);
+                                       : ferrari_full(e.car) ? float(kFerrariChance) : float(loose_chance);
                         int roll = int(rnd() % 10000);
-                        if (ferrari(e.car) && !bool(loose_test))
+                        if (ferrari_full(e.car) && !bool(loose_test))
                             swofty::log("[immersive-pitstops] car %u (Ferrari Mode): loose wheel at %d %%", e.car, kFerrariChance);
                         bool hit = roll < int(chance * 100.0f + 0.5f);
                         swofty::log("[immersive-pitstops] car %u: loose wheel roll %.2f against %.1f %%%s", e.car, roll / 100.0,
@@ -1660,9 +1810,16 @@ SWOFTY_ON_LOAD
                         }
                     }
                 } else if (!g_stops[e.car].rolled && !g_wants_retire[e.car].load() && !crew::g_stuck_seq[e.car].load() &&
-                           ![&] { auto c = swofty::live::car(e.car); return c && swofty::pitlane::safety_car(*c); }()) {
+                           ![&] { auto c = swofty::live::car(e.car); return c && swofty::pitlane::safety_car(*c); }() &&
+                           [&] { // 1.0.25: a real stop came in through the pit lane (status 3) in the last minute; the
+                                 // safety car parks straight into its box (1 -> 4) as the session loads
+                               uint64_t at = crew::g_box3_at[e.car].load(), now = GetTickCount64();
+                               return at && now >= at && now - at < 60000;
+                           }()) {
                     // an AI car: a very rare wheel left loose comes off on its out-lap
-                    float chance = ferrari(e.car) ? float(kFerrariChance) : float(ai_loose_chance);
+                    float chance = bool(ai_loose_test) ? 100.0f
+                                   : ferrari_full(e.car)   ? float(kFerrariChance)
+                                                           : float(ai_loose_chance);
                     float roll = float(rnd() % 10000) / 100.0f;
                     if (roll < chance) {
                         int corner = loose::random_corner();
@@ -1683,6 +1840,7 @@ SWOFTY_ON_LOAD
             g_retire_now[i].store(false);
             g_td[i].store(td_none);
             g_td_seen[i].store(0);
+            iplink::reset(i);
         }
         g_off.store(false);
         // a new session builds the cars again, so the loose wheel's settings are gone with it
@@ -1761,6 +1919,7 @@ SWOFTY_ON_LOAD
         [](const swofty::cars::events::Built &e, const swofty::events::Context &) {
             if (e.car.index() < kCars) {
                 loose::g_rebuilt[e.car.index()].store(true);
+                iplink::reset(e.car.index());
                 g_td[e.car.index()].store(td_none); // a restart: the car is racing again
                 g_td_seen[e.car.index()].store(0);
             }

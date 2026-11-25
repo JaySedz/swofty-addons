@@ -116,6 +116,58 @@ Ticked: confirmed in a test (the version in brackets). Unticked: still to check 
 - [ ] 1.2.12 rev lights: "a created player driver (career player driver 0x4....)" for a created driver, the greens as
       in 1.2.11; as Leclerc (a real driver) "the player isn't a created driver" and the game's own lights (his
       greens flash briefly: the game's style); no car other than the player's changed at a session load.
+- [ ] 1.3.0: no "Team pages" option in the addon settings; the four teams' pages switch on by themselves ("team
+      pages: 2026 <team>" in the log); other cars on the standard pages; no "set queue full" lines.
+- [ ] 1.2.37 2026 Red Bull: "team pages: 2026 Red Bull"; the five layouts as the mock-ups; the light top left
+      follows the flags (race / practice) and the compound (pit page); tyre cells blue / green / orange by
+      temperature, wear colours on the pit page; SOC column light blue in the overtake zone. SC / VSC layouts on
+      every team (none tested yet).
+- [ ] 1.2.35: Mercedes car page without lap time / delta; tyre cells' line midway; lap time inside its cell; the
+      bottom row's small values a little lower; POS and LAP left-aligned together. Every team's badge reads STRAIGHT
+      MODE, purple when active and grey otherwise. In the overtake zone every team's battery bar turns blue (Mercedes
+      now green otherwise).
+- [ ] 1.2.33: no "[hud] set queue full" lines in the log (1.2.31 had ~400 every 2 s, which froze the display); the
+      display keeps updating on every team's pages and on other cars.
+- [ ] 1.2.31 2026 Mercedes: "team pages: 2026 Mercedes" in the log; the five layouts as the mock-ups; values inside
+      their cells (right-hand ones not past their cell's edge); RPM strip lights from the left with the revs; the
+      current gear lit in the column; SOC column; cell tints (delta, tyres, best lap, repair wing, SC yellow).
+- [ ] 1.2.28 McLaren: right-hand values (delta, speed, interval gaps, tyres, sectors, est. pit exit) on the right
+      where the mock-ups have them; the lap time no longer overlaps; bigger mode badge; tyre temperatures without
+      the degree sign on every page and car; the SC / VSC layout (not tested in 1.2.27).
+- [ ] 1.2.27 2026 McLaren: "team pages: 2026 McLaren" in the log; all five layouts as the mock-ups (race, practice /
+      qualifying, SC / VSC, car page, pit page); values inside their places, colours (delta, compound, YES, dark on
+      yellow); SOC bar 13 segments, RPM bar filling with revs; interval list; pop-up / banner in the centre. The
+      Ferrari pages unchanged; other cars unchanged.
+- [ ] 1.2.25 Ferrari Mode (Immersive Pitstops 1.0.23+ with Ferrari Mode on, 2026 Ferrari): "Ferrari Mode linked" and
+      "Ferrari Mode on" in the log; K1 IS AVAILABLE banner at SOC >= 80 % in a race; RETIRED / MUST BE THE ...; pit
+      page numbers off; BOX CONFIRMED -> WE ARE CHECKING. Option off or another car: nothing different.
+- [ ] 1.2.24 Ferrari pages: the pop-up (brake bias, diff, mix, ERS mode) is a box in the upper centre, the bottom-row
+      messages / fastest lap / SC bar a banner across the lower centre, both white text; ahead / behind codes no
+      longer run into their gaps. Other cars: pop-up and bottom row where they were.
+- [ ] 1.2.23 (launcher 1.10.41+): on the EA app copy, the dash fills in (live data, telemetry); the log's udp tap line
+      (tapped, or the no-UDP fallbacks), rev lights line, Ferrari screen straight.
+- [ ] 1.2.22 2026 Ferrari, every page in the Ferrari frame (ferrari-pages-preview.png for the intent): race, car
+      page (the car fits its box, damage colours), pit page (pit window green when open, tyre colour, wear colours,
+      REPAIR WING), practice / qualifying (session badge, sectors coloured, stint lap, personal best), race under a
+      SC / VSC (yellow banner, delta, gear box). Values sit inside their boxes (1.2.21 had them too high). The mode
+      bar under the gear shows STRAIGHT MODE etc. Other cars: every page unchanged.
+- [ ] 1.2.21 Ferrari page: the gear in the centre; all values white; REV / TO GO on red boxes, the delta box green
+      (gaining) / red (losing) / grey (none), the sector box purple / green / amber, the mode on blue; car ahead and
+      behind beside the gear.
+- [ ] 1.2.20 2026 Ferrari: the wheel screen is flat and nothing is cut off at the top (Ferrari Screen Fix uninstalled);
+      the Ferrari race page and pages 1 / 2 line up; with "2026 Ferrari race page" off, the normal race page, straight.
+      Other cars unchanged. Log: no archive warning for ferrari.erp.
+- [ ] 1.2.19 Ferrari page readable from the cockpit view: values inside their boxes, the top row not cut off,
+      the car ahead / behind codes and gaps readable; no brake temperatures, TW or ENG.
+- [ ] 1.2.18 2026 Ferrari, page 0: the Ferrari layout (outlines and labels line up with their values on the bent
+      screen; nothing from the old race page or the bottom middle cell left over); KPH / MPH by the setting; REV, TO
+      GO red, TW blue, brake temperatures green; sector badge colour after each sector; MGU-K bar blue on deploy, red
+      on harvest; four gap rows in a race; SOC bar follows the %; qualifying: TO GO = time left, delta box = to PB,
+      no gaps. Pages 1 / 2 on the Ferrari and every page on other cars unchanged.
+- [ ] 1.2.16 with Immersive Pitstops 1.0.21: "immersive pitstops: linked" in the log; player stuck nut = amber
+      STUCK WHEEL NUT screen with a rising time; loose wheel = red bottom row until the pit lane; WHEEL OFF / RETIRED
+      screens; AI STUCK NUT / LOOSE WHEEL rows; RETIRED shows no reason (1.2.17); the loose wheel row reads LOOSE WHEEL  BOX NOW. Without Immersive Pitstops: no
+      "linked" line, the display as in 1.2.15. With only Immersive Pitstops: its toasts as before.
 - [ ] 1.2.15 "Start lights screen" off: at the race start the wheel stays on its normal page (no black lights screen, no
       green GO); on (the default) as before. The package's ui/tex holds 465 files (85 unused ones gone).
 - [ ] 1.2.13 2026 Ferrari: the bottom-row bars (amber, blue, red, the safety car's yellow on the car / pit page, the

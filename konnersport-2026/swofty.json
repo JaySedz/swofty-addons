@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.konnersport-2026",
   "name": "Konnersport 2026",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "author": "Sedz",
   "description": "Adds Konnersport as a 12th AI team to the 2026 season: Aiden Jackson and Callie Mayer, with R&D, a driver market and reserves in Driver Career, and 24 cars in Grand Prix. My Team grids are not changed.",
   "license": "MIT",
@@ -38,24 +38,12 @@
           "label": "Template 05"
         },
         {
-          "value": "06",
-          "label": "Template 06"
-        },
-        {
           "value": "07",
           "label": "Template 07"
         },
         {
-          "value": "08",
-          "label": "Template 08"
-        },
-        {
           "value": "09",
           "label": "Template 09"
-        },
-        {
-          "value": "10",
-          "label": "Template 10"
         },
         {
           "value": "11",
@@ -70,68 +58,32 @@
           "label": "Template 13"
         },
         {
-          "value": "14",
-          "label": "Template 14"
-        },
-        {
           "value": "15",
           "label": "Template 15"
-        },
-        {
-          "value": "16",
-          "label": "Template 16"
         },
         {
           "value": "17",
           "label": "Template 17"
         },
         {
-          "value": "18",
-          "label": "Template 18"
-        },
-        {
           "value": "19",
           "label": "Template 19"
-        },
-        {
-          "value": "20",
-          "label": "Template 20"
         },
         {
           "value": "21",
           "label": "Template 21"
         },
         {
-          "value": "22",
-          "label": "Template 22"
-        },
-        {
           "value": "23",
           "label": "Template 23"
-        },
-        {
-          "value": "24",
-          "label": "Template 24"
         },
         {
           "value": "25",
           "label": "Template 25"
         },
         {
-          "value": "26",
-          "label": "Template 26"
-        },
-        {
-          "value": "27",
-          "label": "Template 27"
-        },
-        {
           "value": "28",
           "label": "Template 28"
-        },
-        {
-          "value": "30",
-          "label": "Template 30"
         },
         {
           "value": "33",

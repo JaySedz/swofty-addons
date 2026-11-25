@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "1.0.20",
+  "version": "1.0.29",
   "author": "Sedz",
-  "description": "Makes pit stops less predictable: every stop's time varies, a stuck wheel nut can hold a car in its box (and sometimes end its race), a wheel left loose has to be fixed next lap or it comes off, the crew aren't ready if you come in without calling Box This Lap, and crossing the pit exit line costs a time penalty. For you and the AI teams.",
+  "description": "Makes pit stops less predictable: every stop's time varies, a stuck wheel nut can hold a car in its box (and sometimes end its race), a wheel left loose has to be fixed next lap or it comes off, the crew aren't ready if you come in without calling Box This Lap, and crossing the pit exit line costs a time penalty. For you and the AI teams. Needs launcher 1.10.41 or later. Tested on Steam; the EA app copy should work but is untested.",
   "license": "MIT",
   "icon": "icon.png",
   "repository": "https://github.com/JaySedz/swofty-addons/tree/main/immersive-pitstops",
@@ -19,7 +19,7 @@
   ],
   "compat": {
     "game": "f1_25",
-    "launcher": ">=1.10.0",
+    "launcher": ">=1.10.41",
     "platforms": [
       "steam"
     ]
@@ -99,10 +99,24 @@
     },
     {
       "id": "ferrari_mode",
-      "type": "toggle",
+      "type": "choice",
       "label": "Ferrari Mode",
-      "description": "Increases Ferrari's chances of a pit stop error (a stuck wheel nut or a loose wheel) to 50 %, and Ferrari's crew are never ready when you come in, called or not. Off by default.",
-      "default": false,
+      "description": "Light: in a Ferrari your crew are never ready when you come in, called or not, so your stops are a bit slower. Full: that, and Ferrari's cars get a stuck wheel nut or a loose wheel on 50 % of their stops. Off by default.",
+      "values": [
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "full",
+          "label": "Full"
+        }
+      ],
+      "default": "off",
       "binds": "native"
     },
     {
@@ -118,6 +132,14 @@
       "type": "toggle",
       "label": "Loose wheel every stop (testing)",
       "description": "Every one of your normal race stops leaves a loose wheel, whatever the Loose wheel chance is set to. Off by default.",
+      "default": false,
+      "binds": "native"
+    },
+    {
+      "id": "ai_loose_test",
+      "type": "toggle",
+      "label": "AI loose wheel every stop (testing)",
+      "description": "Every AI normal race stop leaves a loose wheel, whatever the AI loose wheel chance is set to. Off by default.",
       "default": false,
       "binds": "native"
     },
