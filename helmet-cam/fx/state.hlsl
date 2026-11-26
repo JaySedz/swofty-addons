@@ -1,4 +1,4 @@
-// Helmet Cam 0.1.6: whether the helmet shows, with a memory, so the launcher's view tracking can blip without a flash.
+// Helmet Cam 0.1.9: whether the helmet shows, with a memory, so the launcher's view tracking can blip without a flash.
 //
 // The core's view reads "unknown" for a frame or a few at lights out and around in-game menus. A pass limited to the
 // cockpit view is cut hard in those frames (0.1.5 flashed). These passes run in every view instead and keep a fade
@@ -8,12 +8,14 @@
 // - unknown: hold for 0.35 s after the last confirmed cockpit frame (lights out, a menu opening), then fade out
 // The visor pass reads the fade and leaves the picture untouched at 0.
 //
-// state_a (persistent, 3 x 1, r32f) holds last frame's values; "update" writes this frame's to state_b, "keep" copies
-// them back to state_a. Texels: 0 fade, 1 time of the last confirmed cockpit frame, 2 time of this frame.
+// state_a (3 x 1, r32f) holds the values from the last time this slot ran; "update" writes this frame's to state_b,
+// "keep" copies them back to state_a. Texels: 0 fade, 1 time of the last confirmed cockpit frame, 2 time of this frame.
 //
-// 0.1.8: "update" lists the `previous` picture as an input it never reads. The core (launcher 1.10.x) clears
-// persistent textures whenever the view serial differs from the one it last recorded, and it records the serial only
-// while some pass reads `previous`. Without it, state_a was wiped every frame and the helmet never showed (0.1.7).
+// 0.1.9: state_a is NOT persistent. The core (launcher 1.10.x) clears persistent textures on every view change, and
+// at lights out the view goes cockpit -> unknown -> cockpit in about 50 ms, so a persistent memory was lost exactly
+// when it was needed (0.1.8 still flashed). Non-persistent textures are per frame slot (8 slots, used in turn) and
+// are only cleared when made. Each slot keeps its own copy of the memory, a few frames old, so dt is the time since
+// this slot last ran (up to about 0.27 s at 30 fps).
 #include "swofty/postfx.hlsli"
 
 #define HOLD_S 0.35
@@ -31,9 +33,8 @@ float4 update(float2 uv, uint2 pixel)
     bool valid = swofty_view_valid != 0;
     bool cockpit = valid && swofty_view == SWOFTY_VIEW_COCKPIT && (swofty_view_flags & blocked) == 0;
 
-    // 0.1.8: the memory is wiped (the core clears persistent textures on a view change; 0.1.7 found it wiped every
-    // frame) or this is the first frame: no memory to go on, so the current view decides at once (as 0.1.5 did).
-    // The helmet never vanishes for want of state.
+    // A new slot texture (first frames, a resolution change): no memory to go on, so the current view decides at
+    // once (as 0.1.5 did). The helmet never vanishes for want of state.
     if (last_t <= 0)
     {
         float now = cockpit ? 1.0 : 0.0;
@@ -47,7 +48,7 @@ float4 update(float2 uv, uint2 pixel)
         last_cockpit = cockpit ? t : -100;
         last_t = t;
     }
-    float dt = clamp(t - last_t, 0.0, 0.1);
+    float dt = clamp(t - last_t, 0.0, 0.3); // per slot: about 8 frames
     if (cockpit)
         last_cockpit = t;
 

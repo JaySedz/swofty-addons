@@ -9,11 +9,12 @@ calls to Windows' `sendto`. **It passes the game's own packets through unchanged
 sends and receives nothing of its own, so SimHub and other telemetry apps keep receiving everything. The source
 is linked in the addon's repository field. See "Reading the game's UDP packets" below.
 
-**Status: 1.4.0. Needs launcher 1.10.41 or newer.** Tested on the Steam copy of the game. The EA app copy gets live
+**Status: 1.5.5. Needs launcher 1.10.41 or newer.** Tested on the Steam copy of the game. The EA app copy gets live
 race data from launcher 1.10.40 and the telemetry feed from 1.10.41, the data the dash was missing there, and the
 one game function the dash hooks (the wheel LEDs) is bound on the EA build too; it hasn't been tested on EA yet
 (reports welcome: the log's "[driver-display] udp tap" and "rev lights" lines say what it found). Turn off Wheel Dash (`ross.wheel-dash`) and Wheel OSD (`ashton.wheel-osd`) while using it:
-they replace the same wheel display files. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
+they replace the same wheel display files. With a mod that replaces the 2025 or 2026 Ferrari's car model, set
+"Ferrari wheel screen fix" to Off (it rewrites the stock wheel screen's mapping in that model). With Spool Up: 2026 Race Starts, the wheel shows a blue CHARGE TURBO screen while its turbo gauge is up (green TURBO FULL when spooled; the start lights replace it). With Pirelli Rainbow Tyres, the wheel names the rainbow compounds (HYPER, ULTRA, SUPER, SOFT, MEDIUM, HARD, S-HARD) on its own. Turn the game's UDP telemetry on (Settings > Telemetry) for brake bias,
 fuel mix, the differential, tyre temperatures and wear, the page button and the game's exact lap times.
 
 ## The screen
@@ -73,7 +74,7 @@ repair) is the MFD's own data and nothing outside it can read it, so the page ca
   without it nothing here runs): your stuck wheel nut as an amber full screen with the time in the box, a loose wheel
   across the bottom row in red (LOOSE WHEEL  BOX NOW) until the pit lane, WHEEL OFF and RETIRED full
   screens in red, and AI cars' stuck nuts and loose wheels on the bottom row. Read only: it reads what Immersive Pitstops shares through the launcher's services.
-- **Team pages** (1.3.0): Ferrari, McLaren, Mercedes, Red Bull, Aston Martin (1.3.1), Williams (1.3.4), Audi / the 2025 Sauber (1.3.7), Haas (1.3.9) and Alpine (1.3.10), on both the 2025 and 2026 cars (1.3.2), show their own team's dash on every page
+- **Team pages** (1.3.0): Ferrari, McLaren, Mercedes, Red Bull, Aston Martin (1.3.1), Williams (1.3.4), Audi / the 2025 Sauber (1.3.7), Haas (1.3.9), Alpine (1.3.10), Cadillac (1.4.2) and Racing Bulls (1.4.3), on both the 2025 and 2026 cars (1.3.2), show their own team's dash on every page
   (race, practice / qualifying, safety car / VSC, car, pit), in their team's style; other teams follow in later
   updates, and every other car keeps the standard pages. On the team pages the battery bar turns blue in the
   overtake zone, and the mode badge reads STRAIGHT (purple while active). Setting "Team pages speed unit": KPH or MPH.

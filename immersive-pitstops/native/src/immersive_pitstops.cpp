@@ -46,6 +46,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <mutex>
 #include <random>
 #include <string>
@@ -56,6 +57,9 @@
 
 #include <swofty/events.hpp>
 #include <swofty/services.hpp>
+#include <swofty/telemetry.hpp>
+#include <swofty/storage.hpp>
+#include <swofty/json.hpp>
 #include <swofty/hud.hpp>
 #include <swofty/live.hpp>
 #include <swofty/mem.hpp>
@@ -72,15 +76,12 @@ constexpr bool hold_box = true;    // keep the failsafe off while a car's crew w
 constexpr int max_hold = 120;      // seconds in the box after which the game's failsafe is let back in
 constexpr int uncalled_delay = 0;  // extra seconds in the box before the crew of an uncalled stop run out (1.0.1: 0;
                                    // their run-out from the garage is the penalty)
-SWOFTY_SETTING(int, retire_chance, 25);    // % of stuck wheel nuts that end the car's race
-SWOFTY_SETTING(float, loose_chance, 0.3f); // % of your normal race stops that leave a loose wheel (0.1 steps, 1.0.17)
-SWOFTY_SETTING(bool, loose_test, false);   // every normal race stop leaves a loose wheel (testing, 1.0.17)
-SWOFTY_SETTING(float, ai_loose_chance, 0.3f); // 0-10 % in 0.1 steps (1.0.18)
-SWOFTY_SETTING(bool, ai_loose_test, false); // every AI normal race stop leaves a loose wheel (testing, 1.0.24)
-SWOFTY_SETTING(bool, call_stop, true);
-SWOFTY_SETTING(int, stuck_chance, 1);
-SWOFTY_SETTING(std::string_view, stop_times, "default"); // default / fast / slow: how each stop's time varies (1.0.15)
-SWOFTY_SETTING(std::string_view, ferrari_mode, "off"); // off / light / full (1.0.27; a toggle since 1.0.14, a joke)  // % of stops the plugin turns into a stuck wheel nut (1.0.13)  // stops you don't call with Box This Lap find the crew in the garage  // % of AI stops whose loose wheel comes off on the out-lap
+// 1.0.43: the chances, crew readiness and stop times are on the Pit Stops page only (config.json "all" and per team,
+// see cfg); the addon settings keep the testing switches and the log.
+SWOFTY_SETTING(bool, loose_test, false);            // every normal race stop of yours leaves a loose wheel (1.0.17)
+SWOFTY_SETTING(bool, ai_loose_test, false);         // every AI normal race stop leaves a loose wheel (1.0.24)
+SWOFTY_SETTING(bool, wrong_tyres_test, false);      // every race stop of yours gets the wrong tyres (1.0.37)
+SWOFTY_SETTING(bool, ai_wrong_tyres_test, false);   // every AI race stop gets the wrong tyres (1.0.40)
 SWOFTY_SETTING(bool, pit_log, false);      // log each stop's timer and limit (for testing)
 
 namespace {
@@ -164,15 +165,314 @@ uint32_t rnd()
     return r();
 }
 
-// Ferrari Mode (1.0.14): a car is a Ferrari when its team badge (the launcher's live data, e.g. "ferrari_26") says so.
-constexpr int kFerrariChance = 50;
-// 1.0.27: Light = only the crew never ready for you in a Ferrari; Full = that plus Ferrari's stuck nut and loose wheel
-// chances at 50 % (the 1.0.14-1.0.26 Ferrari Mode).
-int ferrari_level()
+// 1.0.42: the Pit Stops page (the launcher helper, bin/immersive-pitstops-helper.exe) writes config.json into this
+// addon's storage (swofty/addons/sedz.immersive-pitstops/): team-by-team values and Ferrari Mode. A team without a
+// value uses the addon setting (your car: Loose wheel chance etc.; an AI car: the AI ones). The page also writes it
+// into the running game's folder, so it is read again every 2 s (cfg::poll from frame()).
+//
+// 1.0.43: "all" holds every team's values (the addon settings up to 1.0.42); a team in "teams" (or "myteam") has its
+// own, each value it leaves out taken from "all".
+// {"version":1,
+//  "all": {"stuck": 1, "loose": 0.3, "wrong": 0.3, "retire": 25, "crew": "called", "times": "default"},
+//  "teams": {"mclaren": {same keys}, ...},
+//  "myteam": {same keys},
+//  "ferrari": {"mode": "off"|"light"|"full", "crew": bool, "misinfo": bool, "wrong": bool, "stuck_loose": bool,
+//              "dd": bool, "wrong_chance": 50, "stuck_loose_chance": 50}}
+// A Ferrari feature left out follows the mode: Light = crew, misinfo, wrong, dd; Full = those and stuck_loose.
+namespace cfg {
+struct Team {
+    float stuck = 1, loose = 0.3f, wrong = 0.3f, retire = 25; // the page's defaults
+    int crew = 1;                                             // 1 ready when called, 2 always, 3 never
+    std::string times = "default";                            // default / fast / slow
+};
+enum Feature { kCrew, kMisinfo, kWrong, kStuckLoose, kDd, kFeatures };
+struct Config {
+    Team all;
+    std::map<std::string, Team> teams;
+    Team myteam;
+    bool myteam_own = false;
+    int mode = 0;                                   // 0 off, 1 light, 2 full
+    int feature[kFeatures] = {-1, -1, -1, -1, -1}; // -1 the mode's, 0 off, 1 on
+    float wrong_chance = 50, stuck_loose_chance = 50;
+    bool identical = false; // 1.0.44: McLaren's identical stops ("mclaren": {"identical": true})
+};
+std::mutex g_mu;
+Config g_cfg;
+std::string g_text;
+double g_poll = 1e9; // seconds since the last read (read at once)
+
+Team team_of(const swofty::json::Value &v, const Team &base)
 {
-    std::string_view m = ferrari_mode;
-    return m == "full" ? 2 : m == "light" ? 1 : 0;
+    Team t = base;
+    if (!v.is_object())
+        return t;
+    auto num = [&](const char *k, float &out, float lo, float hi) {
+        if (v[k].is_number())
+            out = std::clamp(float(v[k].as_double()), lo, hi);
+    };
+    num("stuck", t.stuck, 0, 100);
+    num("loose", t.loose, 0, 100);
+    num("wrong", t.wrong, 0, 100);
+    num("retire", t.retire, 0, 100);
+    std::string_view c = v["crew"].as_string("");
+    if (c == "called" || c == "always" || c == "never")
+        t.crew = c == "called" ? 1 : c == "always" ? 2 : 3;
+    std::string_view tm = v["times"].as_string("");
+    if (tm == "default" || tm == "fast" || tm == "slow")
+        t.times = std::string(tm);
+    return t;
 }
+
+void parse(const std::string &text)
+{
+    swofty::json::Error err;
+    swofty::json::Value v = swofty::json::parse(text, &err);
+    if (!err.ok() || !v.is_object()) {
+        swofty::log("[immersive-pitstops] config.json is not valid JSON (%s); keeping the previous page settings",
+                    err.message.c_str());
+        return;
+    }
+    Config c;
+    c.all = team_of(v["all"], Team{});
+    if (auto *o = v["teams"].if_object())
+        for (auto &[k, t] : *o)
+            c.teams[std::string(k)] = team_of(t, c.all);
+    c.myteam_own = v["myteam"].is_object() && v["myteam"].size() > 0;
+    c.myteam = team_of(v["myteam"], c.all);
+    const swofty::json::Value &f = v["ferrari"];
+    std::string_view m = f["mode"].as_string("off");
+    c.mode = m == "full" ? 2 : m == "light" ? 1 : 0;
+    const char *names[kFeatures] = {"crew", "misinfo", "wrong", "stuck_loose", "dd"};
+    for (int i = 0; i < kFeatures; ++i)
+        if (f[names[i]].is_bool())
+            c.feature[i] = f[names[i]].as_bool() ? 1 : 0;
+    if (f["wrong_chance"].is_number())
+        c.wrong_chance = std::clamp(float(f["wrong_chance"].as_double()), 0.0f, 100.0f);
+    if (f["stuck_loose_chance"].is_number())
+        c.stuck_loose_chance = std::clamp(float(f["stuck_loose_chance"].as_double()), 0.0f, 100.0f);
+    c.identical = v["mclaren"]["identical"].as_bool(false);
+    size_t n = c.teams.size();
+    int mode = c.mode;
+    Team c_all_copy = c.all;
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_cfg = std::move(c);
+    }
+    Team a = c_all_copy;
+    swofty::log("[immersive-pitstops] page settings read: all teams stuck nut %.0f %%, retirement %.0f %%, loose wheel "
+                "%.1f %%, wrong tyres %.1f %%, crew %s, stop times %s; %zu team(s) with their own; Ferrari Mode %s",
+                a.stuck, a.retire, a.loose, a.wrong, a.crew == 3 ? "never ready" : a.crew == 2 ? "always ready"
+                                                                                              : "ready when called",
+                a.times.c_str(), n, mode == 2 ? "Full" : mode == 1 ? "Light" : "off");
+}
+
+// flow thread, every frame: read config.json again every 2 s
+void poll(double dt)
+{
+    if ((g_poll += dt) < 2.0)
+        return;
+    g_poll = 0;
+    std::string text;
+    if (swofty::storage::read("config.json", text) != swofty::storage::Result::ok)
+        text.clear();
+    if (text == g_text)
+        return;
+    g_text = text;
+    if (text.empty()) {
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_cfg = Config{};
+        return;
+    }
+    parse(text);
+}
+
+// A car's team key, as the page names them: the team badge (the launcher's live data: "williams_26", "red_bull",
+// "alfa_romeo_26" ...) without "_26" and underscores, mapped as Driver Display maps it; "myteam" for a MyTeam car.
+std::string team_key(uint32_t car)
+{
+    SwoftyParticipant p{};
+    p.version = 2;
+    if (swofty::telemetry::participant(car, &p) == swofty::telemetry::Result::ok && p.my_team)
+        return "myteam";
+    auto b = swofty::live::team_badge(car);
+    if (!b)
+        return "";
+    std::string k;
+    for (char c : *b)
+        if (c != '_')
+            k += char(std::tolower(static_cast<unsigned char>(c)));
+    if (k.size() > 2 && k.compare(k.size() - 2, 2, "26") == 0)
+        k.resize(k.size() - 2);
+    if (k == "mclaren" || k == "mercedes" || k == "ferrari" || k == "williams" || k == "haas" || k == "alpine" ||
+        k == "cadillac")
+        return k;
+    if (k == "redbull")
+        return "redbull";
+    if (k == "astonmartin" || k == "forceindia")
+        return "astonmartin";
+    if (k == "alfaromeo" || k == "sauber" || k == "audi" || k == "kicksauber")
+        return "audi";
+    if (k == "renault")
+        return "alpine";
+    if (k == "gmcadillac")
+        return "cadillac";
+    if (k == "racingbulls" || k == "alphatauri" || k == "tororosso" || k == "rb" || k == "vcarb")
+        return "racingbulls";
+    return k;
+}
+
+// 1.0.50: once per session, each car's team badge and the page row it uses, to check the 2025 cars' badges map to the
+// right rows. Flow thread (frame); written once the cars have their badges, or after 30 s with whatever is known.
+std::atomic<bool> g_teams_logged{false};
+double g_teams_wait = 0;
+void log_teams(double dt)
+{
+    if (g_teams_logged.load() || (g_teams_wait += dt) < 3.0)
+        return;
+    static const char *kRows[] = {"mclaren", "mercedes", "redbull",   "ferrari", "williams", "racingbulls",
+                                  "astonmartin", "haas", "audi", "alpine", "cadillac", "myteam"};
+    std::string line;
+    int cars = 0, missing = 0;
+    for (uint32_t c = 0; c < kCars; ++c) {
+        auto lc = swofty::live::car(c);
+        if (!lc)
+            continue;
+        if (swofty::pitlane::safety_car(*lc))
+            continue;
+        auto b = swofty::live::team_badge(c);
+        if (!b || b->empty()) {
+            ++missing;
+            continue;
+        }
+        std::string k = team_key(c);
+        bool row = false;
+        for (auto *r : kRows)
+            row = row || k == r;
+        char buf[128];
+        std::snprintf(buf, sizeof buf, "%s %u %s (%s)%s", cars ? "," : "", c, k.c_str(), b->c_str(),
+                      row ? "" : " NO ROW: All teams");
+        line += buf;
+        ++cars;
+    }
+    if (!cars || (missing && g_teams_wait < 30.0))
+        return;
+    g_teams_logged.store(true);
+    swofty::log("[immersive-pitstops] teams (car, page row, team badge):%s%s", line.c_str(),
+                missing ? " (some cars had no badge yet)" : "");
+}
+void new_session()
+{
+    g_teams_logged.store(false);
+    g_teams_wait = 0;
+}
+
+Team team(uint32_t car)
+{
+    std::string k = team_key(car);
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (k == "myteam")
+        return g_cfg.myteam_own ? g_cfg.myteam : g_cfg.all;
+    auto it = g_cfg.teams.find(k);
+    return it == g_cfg.teams.end() ? g_cfg.all : it->second;
+}
+
+int mode()
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    return g_cfg.mode;
+}
+
+// A Ferrari Mode feature, on for this car: Ferrari Mode on, the feature on (its own switch, else the mode's), and the
+// car a Ferrari.
+bool identical()
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    return g_cfg.identical;
+}
+
+bool feature_on(Feature f)
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!g_cfg.mode)
+        return false;
+    // 1.0.45: the mode only (1.0.42-1.0.44's per-feature switches and chances are ignored)
+    return f == kStuckLoose ? g_cfg.mode == 2 : true;
+}
+float ferrari_chance(Feature) { return 50.0f; } // 1.0.45: always half the stops
+} // namespace cfg
+
+// 1.0.44: McLaren's identical stops (the page's McLaren panel). Both McLarens' stops are numbered (1 for each car's
+// first stop, ...), and whatever one car's stop decides is kept under its number: the crew's speed, a stuck wheel nut
+// (which wheel, how long) and its retirement roll, a loose wheel (which wheel), wrong tyres (which compound). The
+// team-mate's stop with the same number gets the same instead of its own rolls, whichever car stops first. The stop
+// time can still differ a little: the game sets the crew's base time and where the car stops in its box.
+namespace twin {
+enum Kind { kRate, kStuck, kRetire, kLoose, kWrong, kKinds };
+struct Rec {
+    int by[kKinds] = {-1, -1, -1, -1, -1}; // the car that decided each, -1 not yet
+    float rate = 1, len = 0;
+    int stuck = 0;    // 0 none, 1 rear left, 2 rear right
+    bool retire = false;
+    int loose = -1;   // the corner, -1 none
+    int wrong = -1;   // the compound group fitted instead, -1 none
+};
+std::mutex g_mu;
+std::map<int, Rec> g_recs;
+std::atomic<int> g_done[kCars];    // stops finished this session
+std::atomic<bool> g_boxed[kCars];  // in its box this pit lane visit
+
+bool on(uint32_t car) { return car < kCars && cfg::identical() && cfg::team_key(car) == "mclaren"; }
+int number(uint32_t car) { return g_done[car].load() + 1; }
+
+// the team-mate's decision for this stop number, if it made one
+bool get(uint32_t car, Kind k, Rec &out)
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    auto it = g_recs.find(number(car));
+    if (it == g_recs.end() || it->second.by[k] < 0 || it->second.by[k] == int(car))
+        return false;
+    out = it->second;
+    return true;
+}
+// this car's own decision, kept for the team-mate (the first car to decide sets it)
+template <class F> void put(uint32_t car, Kind k, F fill)
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    Rec &r = g_recs[number(car)];
+    if (r.by[k] >= 0)
+        return;
+    r.by[k] = int(car);
+    fill(r);
+}
+// session.pit: a stop is finished when the car leaves its box
+void on_status(uint32_t car, uint32_t status)
+{
+    if (car >= kCars)
+        return;
+    if (status == 4) {
+        g_boxed[car].store(true);
+    } else if ((status == 0 || status == 1 || status == 6 || status == 7 || status == 14) && g_boxed[car].exchange(false)) {
+        g_done[car].fetch_add(1);
+    } else if (status == 0 || status == 1) {
+        // back on track without stopping (a drive-through): its pit lane entry's wrong tyres decision doesn't count
+        std::lock_guard<std::mutex> lk(g_mu);
+        auto it = g_recs.find(number(car));
+        if (it != g_recs.end() && it->second.by[kWrong] == int(car))
+            it->second.by[kWrong] = -1;
+    }
+}
+void reset()
+{
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_recs.clear();
+    for (uint32_t i = 0; i < kCars; ++i) {
+        g_done[i].store(0);
+        g_boxed[i].store(false);
+    }
+}
+} // namespace twin
+
+// A car is a Ferrari when its team badge (the launcher's live data, e.g. "ferrari_26") says so (1.0.14).
 bool is_ferrari_car(uint32_t car)
 {
     auto b = swofty::live::team_badge(car);
@@ -183,10 +483,28 @@ bool is_ferrari_car(uint32_t car)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return k.find("ferrari") != std::string::npos;
 }
-// the crew never ready (Light and Full)
-bool ferrari(uint32_t car) { return ferrari_level() >= 1 && is_ferrari_car(car); }
-// the 50 % stuck nut and loose wheel chances (Full only)
-bool ferrari_full(uint32_t car) { return ferrari_level() == 2 && is_ferrari_car(car); }
+// A Ferrari Mode feature for this car (1.0.42: each feature on the page's Ferrari Mode tab).
+bool fer(uint32_t car, cfg::Feature f) { return cfg::feature_on(f) && is_ferrari_car(car); }
+
+// The per-car values: Ferrari Mode, then the car's team on the page (its own values, else All teams'). 1.0.43: one
+// value for your car and the AI's (the crew does the stop).
+float stuck_pc(uint32_t car)
+{
+    return fer(car, cfg::kStuckLoose) ? cfg::ferrari_chance(cfg::kStuckLoose) : cfg::team(car).stuck;
+}
+float loose_pc(uint32_t car, bool)
+{
+    return fer(car, cfg::kStuckLoose) ? cfg::ferrari_chance(cfg::kStuckLoose) : cfg::team(car).loose;
+}
+float wrong_pc(uint32_t car, bool)
+{
+    return fer(car, cfg::kWrong) ? cfg::ferrari_chance(cfg::kWrong) : cfg::team(car).wrong;
+}
+int retire_pc(uint32_t car) { return int(cfg::team(car).retire + 0.5f); }
+// crew readiness when your stop isn't called: 1 not ready (ready only when called), 2 always ready, 3 never ready
+// (not even when called)
+int crew_mode(uint32_t car) { return fer(car, cfg::kCrew) ? 3 : cfg::team(car).crew; }
+std::string stop_times_of(uint32_t car) { return cfg::team(car).times; }
 
 // Alerts for your own stop (1.0.10): the HUD alert box isn't seen while your car is in the pit lane (2026-11-24: CREW
 // NOT READY and STUCK WHEEL NUT were shown at the pit entry and as the crew started, and not seen), so they wait until
@@ -752,7 +1070,7 @@ std::atomic<uint64_t> g_box3_at[kCars]; // when each car began entering its box 
 std::atomic<float> g_extra[kCars];
 std::atomic<bool> g_stuck_seq[kCars]; // a rear stuck nut sequence started on this stop (1.0.11: only then a retirement roll)      // seconds the stop was made longer (the stuck nut test allows for it)
 
-float spread_rate()
+float spread_rate(uint32_t car)
 {
     // 1.0.15: a choice instead of a % slider. Each stop takes k times the crew's normal time (the game's stock band:
     // ~2.4 s in Driver Career): most in the normal range, some quick, some slow; each part even, so nothing piles up
@@ -761,7 +1079,8 @@ float spread_rate()
     //   default: 70 % normal x0.92-1.08 (2.2-2.6 s), 15 % quick down to x0.75 (1.8 s), 15 % slow up to x1.22
     //   fast:    55 % normal x0.90-1.05, 35 % quick down to x0.70 (1.7 s), 10 % slow up to x1.15
     //   slow:    55 % normal x0.95-1.10, 10 % quick down to x0.80, 35 % slow up to x1.22
-    std::string_view mode = stop_times;
+    std::string mode_s = stop_times_of(car); // 1.0.42: the car's team on the page, else the setting
+    std::string_view mode = mode_s;
     struct Shape { int normal, quick; float nlo, nhi, qlo, shi; };
     Shape sh = mode == "fast" ? Shape{55, 35, 0.90f, 1.05f, 0.70f, 1.15f}
              : mode == "slow" ? Shape{55, 10, 0.95f, 1.10f, 0.80f, 1.22f}
@@ -830,10 +1149,13 @@ void td_tick(uintptr_t m, uint32_t car, float dt)
 
 void hold_tick(float dt);
 
+namespace tyres { void game_tick(); }
+
 void update(void *mgr, float dt)
 {
     uintptr_t m = reinterpret_cast<uintptr_t>(mgr);
     loose::game_tick(); // wheel tear-offs asked for on the flow thread
+    tyres::game_tick(); // wrong tyres, at the pit lane entry (1.0.38)
     hold_tick(dt);
     if (m && !g_off.load())
         if (auto me = swofty::live::player())
@@ -896,8 +1218,18 @@ void update(void *mgr, float dt)
             if (!st.rolled && timer > limit - kMargin && st.in_box - crew::g_extra[car].load() > limit - kMargin &&
                 crew::g_stuck_seq[car].load()) {
                 st.rolled = true;
-                int chance = int(retire_chance), roll = int(rnd() % 100);
+                int chance = retire_pc(car), roll = int(rnd() % 100);
                 bool hit = g_status_vtable && roll < chance;
+                if (twin::on(car)) { // 1.0.44: McLaren's identical stops: the same retirement
+                    twin::Rec tr{};
+                    if (twin::get(car, twin::kRetire, tr)) {
+                        hit = g_status_vtable && tr.retire;
+                        swofty::log("[immersive-pitstops] car %u (McLaren identical stops): retirement %s, as car %d's",
+                                    car, tr.retire ? "yes" : "no", tr.by[twin::kRetire]);
+                    } else {
+                        twin::put(car, twin::kRetire, [&](twin::Rec &r) { r.retire = hit; });
+                    }
+                }
                 g_wants_retire[car].store(hit);
                 swofty::log("[immersive-pitstops] car %u: stuck wheel nut (%.1f s in the box); retirement roll %d against "
                             "%d %%: %s", car, st.in_box, roll, chance, hit ? "the car retires when the crew finish" : "it gets fixed");
@@ -948,6 +1280,397 @@ void update(void *mgr, float dt)
 
 const swofty::detail::mixin reg_update{"Game_PitLane_UpdateMovement", SWOFTY_MIXIN_WRAP, 0, (void *)&update,
                                        (void **)&orig_update};
+
+// Wrong tyres (1.0.37): now and then the crew fit a different compound from the one you picked. Ferrari Mode (Light
+// and Full) in a Ferrari: half your stops.
+//
+// Mapped from the 1.0.34-1.0.36 diagnostics (20261126-083515: stops for Medium, Hard, Inter on Steam 1.0.145). A race
+// stop's tyre change is Car_Tyre_ChangeToNextCompound(tyre_component, 0) (a launcher binding, L2), called by the pit
+// box about 0.7 s after the car stops (Game_PitLane_ApplyPitstopTyres never ran). The component:
+//   +0x9c70 int  the next set's group (the compound: 0 soft, 1 medium, 2 hard, 3 inter, 4 wet), the one you picked
+//   +0x9c74 int  the next set's index in that group
+//   +0x9c48      the class list's count (5); +0x9c68 the allocation: +0xd8 group count, groups at +0x10 (0x28 each,
+//                sets [+0x10, +0x18) of 0x6c bytes: +0 tag, +4 group, +8 index, +9 flags; flags & 9 = damaged or
+//                handed back, which the game refuses)
+//   +0x9950/+0x9954 the fitted set's group / index, written by the change
+//   [+0x20]+0x58 -> +0xe8 byte: the component's car
+// 1.0.37 wrote the wrong set there just before the change, and the crew had already brought out the tyres you
+// picked (20261126-085248: they swapped as they went on). The crew's tyres are the component's pending models (+0x9920),
+// built from +0x9c70 by Game_TyreSystem_ApplyCompoundModels(component) (a launcher binding; the MFD's tyre choice
+// writes +0x9c70 and calls it, Game_TyreSystem_HandleTyreSelectionNetMessage). 1.0.38: each car's component is
+// remembered from that call and from the changes; when your car enters the pit lane the roll is made, the wrong set
+// written and ApplyCompoundModels run, so the crew bring out the wrong tyres. The car's tyres are put back if it leaves
+// the pit lane without stopping (a drive-through, a flashback). Unknown component (no call seen yet): the 1.0.37 way.
+// The change fits the set named at +0x9c70/+0x9c74. Only a
+// group for the current weather is used (clear to overcast: soft, medium, hard; rain: inter, wet), never the one
+// you picked, and only an unused-or-usable set of it. Everything is checked first; anything unexpected and the stop
+// keeps your tyres.
+namespace tyres {
+using change_t = uint64_t (*)(void *, uint8_t);
+using models_t = void (*)(void *);
+change_t orig_change = nullptr;
+models_t orig_models = nullptr;
+std::atomic<bool> g_rolled[kCars];  // this pit lane visit's roll is done (cleared back on track)
+std::atomic<uintptr_t> g_tc[kCars]; // each car's tyre component, once seen
+// 1.0.40: every car (AI too). Each car's swap: early 1 asked for at the pit lane entry (the game thread does it),
+// 2 written, 3 put back asked for. The sets and the alert are the game thread's.
+struct Swap {
+    std::atomic<int> early{0};
+    int32_t orig_next = -1, orig_index = -1, wrong_next = -1, wrong_index = -1;
+    bool boxed = false;
+    std::string title, text; // your car's alert, queued at the stop
+};
+Swap g_swap[kCars];
+
+void queue_alert(Swap &w)
+{
+    if (!w.title.empty())
+        alert_after_release(w.title.c_str(), w.text, 6.0f);
+    w.title.clear();
+}
+const char *const kName[5] = {"Softs", "Mediums", "Hards", "Inters", "Wets"};
+
+std::string hex(uintptr_t a, size_t n)
+{
+    std::string out;
+    char b[4];
+    for (size_t i = 0; i < n; ++i) {
+        uint8_t v = 0;
+        if (!swofty::mem::read(a + i, v))
+            return out + "??";
+        std::snprintf(b, sizeof b, "%02x", v);
+        out += b;
+        if (i % 4 == 3 && i + 1 < n)
+            out += ' ';
+    }
+    return out;
+}
+
+bool write_int(uintptr_t at, int32_t v)
+{
+    if (!swofty::mem::readable(at, sizeof v))
+        return false;
+    __try {
+        *reinterpret_cast<volatile int32_t *>(at) = v;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+int component_car(uintptr_t tc)
+{
+    uintptr_t a = 0, b = 0;
+    uint8_t v = 0xff;
+    if (!swofty::mem::read(tc + 0x20, a) || !a || !swofty::mem::read(a + 0x58, b) || !b || !swofty::mem::read(b + 0xe8, v))
+        return -1;
+    return v < kCars ? int(v) : -1;
+}
+
+int player_car()
+{
+    auto me = swofty::live::player();
+    return me && me->vehicle < kCars ? int(me->vehicle) : -1;
+}
+
+// The weather from the telemetry session (0 clear, 1 light cloud, 2 overcast, 3 light rain, 4 heavy rain, 5 storm);
+// -1 unknown.
+int weather()
+{
+    SwoftySessionState ss{};
+    ss.version = 2;
+    if (swofty::telemetry::session(&ss) != swofty::telemetry::Result::ok || ss.weather > 5)
+        return -1;
+    return int(ss.weather);
+}
+
+struct Group {
+    uintptr_t sets = 0;
+    size_t count = 0;
+};
+
+bool group(uintptr_t alloc, int g, Group &out)
+{
+    uintptr_t grp = alloc + 0x10 + uintptr_t(g) * 0x28, b = 0, e = 0;
+    if (!swofty::mem::read(grp + 0x10, b) || !swofty::mem::read(grp + 0x18, e) || !b || e < b || (e - b) % 0x6c ||
+        (e - b) / 0x6c > 32)
+        return false;
+    out.sets = b;
+    out.count = size_t((e - b) / 0x6c);
+    return true;
+}
+
+// A usable set of group g: its record says group g and its own index, and it isn't damaged or handed back. A set
+// still new for the race (tag 0x0f or 0) is preferred. -1 none.
+int usable_set(const Group &gr, int g, int fitted_group, int fitted_index)
+{
+    int pick = -1;
+    for (size_t k = 0; k < gr.count; ++k) {
+        uintptr_t r = gr.sets + k * 0x6c;
+        int32_t tag = 0, grp = -1;
+        uint8_t idx = 0xff, flags = 0xff;
+        if (!swofty::mem::read(r, tag) || !swofty::mem::read(r + 4, grp) || !swofty::mem::read(r + 8, idx) ||
+            !swofty::mem::read(r + 9, flags) || grp != g || idx != k || (flags & 9))
+            continue;
+        if (g == fitted_group && int(k) == fitted_index) // 1.0.39: the set already on the car (20261126-094413)
+            continue;
+        if (tag == 0x0f || tag == 0)
+            return int(k);
+        if (pick < 0)
+            pick = int(k);
+    }
+    return pick;
+}
+
+bool roll(uintptr_t tc, int car, const char *when)
+{
+    bool mine = car == player_car();
+    bool fer = ::fer(uint32_t(car), cfg::kWrong);      // Ferrari Mode's wrong tyres and a Ferrari, yours or an AI's
+    bool misinfo = ::fer(uint32_t(car), cfg::kMisinfo); // Ferrari Mode's "All as planned"
+    float chance = mine ? (bool(wrong_tyres_test) ? 100.0f : wrong_pc(uint32_t(car), false))
+                        : (bool(ai_wrong_tyres_test) ? 100.0f : wrong_pc(uint32_t(car), true));
+    // 1.0.44: McLaren's identical stops: the team-mate's wrong tyres (or none) for this stop number
+    bool twin_on = twin::on(uint32_t(car));
+    twin::Rec tr{};
+    bool copy = twin_on && twin::get(uint32_t(car), twin::kWrong, tr);
+    if (copy) {
+        swofty::log("[immersive-pitstops] wrong tyres: car %d (McLaren identical stops): %s, as car %d's", car,
+                    tr.wrong >= 0 ? "wrong tyres" : "none", tr.by[twin::kWrong]);
+        if (tr.wrong < 0)
+            return false;
+        chance = 100.0f;
+    } else if (!(chance > 0.0f)) {
+        if (twin_on)
+            twin::put(uint32_t(car), twin::kWrong, [](twin::Rec &r) { r.wrong = -1; });
+        return false;
+    }
+    float r = float(rnd() % 10000) / 100.0f;
+    if (bool(pit_log))
+        swofty::log("[immersive-pitstops] wrong tyres: %s car %d roll %.2f against %.1f %%%s (%s)", mine ? "your" : "AI",
+                    car, r, chance, fer ? " (Ferrari Mode)" : "", when);
+    if (!(r < chance)) {
+        if (twin_on)
+            twin::put(uint32_t(car), twin::kWrong, [](twin::Rec &r) { r.wrong = -1; });
+        return false;
+    }
+    int32_t next = -1, index = -1;
+    uint64_t classes = 0;
+    uintptr_t alloc = 0;
+    uint64_t groups = 0;
+    if (!swofty::mem::read(tc + 0x9c70, next) || !swofty::mem::read(tc + 0x9c74, index) ||
+        !swofty::mem::read(tc + 0x9c48, classes) || !swofty::mem::read(tc + 0x9c68, alloc) || !alloc ||
+        !swofty::mem::read(alloc + 0xd8, groups) || classes != 5 || groups != 5 || next < 0 || next > 4) {
+        swofty::log("[immersive-pitstops] wrong tyres: car %d's tyre data isn't as expected (next %d/%d, %llu classes, "
+                    "allocation %p, %llu groups); the crew fit the right ones",
+                    car, next, index, (unsigned long long)classes, reinterpret_cast<void *>(alloc),
+                    (unsigned long long)groups);
+        return false;
+    }
+    int32_t fitted_group = -1;
+    uint8_t fitted_index = 0xff;
+    swofty::mem::read(tc + 0x9950, fitted_group);
+    swofty::mem::read(tc + 0x9954, fitted_index);
+    int w = weather();
+    bool wet = w >= 3 || (w < 0 && next >= 3); // weather unknown: the family you picked
+    int lo = wet ? 3 : 0, hi = wet ? 4 : 2;
+    int cand[3], n = 0, sets[3];
+    if (copy) { // the team-mate's compound, if it's not the one picked already
+        lo = hi = tr.wrong;
+        if (tr.wrong == next) {
+            swofty::log("[immersive-pitstops] wrong tyres: car %d already picked %s, the compound car %d got", car,
+                        kName[next], tr.by[twin::kWrong]);
+            return false;
+        }
+    }
+    for (int g = lo; g <= hi; ++g) {
+        Group gr;
+        if (g == next || !group(alloc, g, gr))
+            continue;
+        int k = usable_set(gr, g, fitted_group, fitted_index);
+        if (k >= 0)
+            cand[n] = g, sets[n] = k, ++n;
+    }
+    if (!n) {
+        swofty::log("[immersive-pitstops] wrong tyres: car %d, no other usable %s set (weather %d, you picked %s); the "
+                    "crew fit the right ones", car, wet ? "wet weather" : "dry", w, kName[next]);
+        return false;
+    }
+    int c = int(rnd() % uint32_t(n));
+    if (!write_int(tc + 0x9c74, sets[c]) || !write_int(tc + 0x9c70, cand[c])) {
+        write_int(tc + 0x9c70, next);
+        write_int(tc + 0x9c74, index);
+        swofty::log("[immersive-pitstops] wrong tyres: car %d's next set can't be written; the crew fit the right ones",
+                    car);
+        return false;
+    }
+    if (twin_on && !copy)
+        twin::put(uint32_t(car), twin::kWrong, [&](twin::Rec &r) { r.wrong = cand[c]; });
+    Swap &sw = g_swap[car];
+    sw.orig_next = next, sw.orig_index = index, sw.wrong_next = cand[c], sw.wrong_index = sets[c];
+    swofty::log("[immersive-pitstops] wrong tyres: %s car %d picked %s (set %d), the crew fit %s (set %d); weather %d%s "
+                "(%s)", mine ? "your" : "AI", car, kName[next], index, kName[cand[c]], sets[c], w,
+                fer ? ", Ferrari Mode" : "", when);
+    if (!mine)
+        return true; // no alert for an AI car
+    char text[96];
+    if (misinfo)
+        std::snprintf(text, sizeof text, "%s fitted. All as planned", kName[cand[c]]);
+    else
+        std::snprintf(text, sizeof text, "The crew fitted %s, not %s", kName[cand[c]], kName[next]);
+    sw.title = misinfo ? "TYRES" : "WRONG TYRES"; // shown once the car has stopped (see change())
+    sw.text = text;
+    return true;
+}
+
+// Game_TyreSystem_ApplyCompoundModels isn't a binding on this launcher, so it's found from the one that is: in
+// Car_Tyre_ChangeToNextCompound the call at +0x1b2 is TyreComponent::activateTyreCompounds (the launcher's RE notes:
+// 0x142e941f2 in 0x142e94040, the same code on Steam 1.0.145), and that calls ApplyCompoundModels 0x690 bytes past its
+// own start (0x142e96390 -> 0x142e96a20). Both are checked; anything else and the crew keep the 1.0.37 way.
+models_t find_models()
+{
+    uintptr_t change = swofty::api && swofty::api->resolve
+                           ? uintptr_t(swofty::api->resolve("Car_Tyre_ChangeToNextCompound"))
+                           : 0;
+    uint8_t op = 0;
+    if (!change || !swofty::mem::read(change + 0x1b2, op) || op != 0xE8) {
+        swofty::log("[immersive-pitstops] wrong tyres: the crew's tyre models call isn't where expected (change %p, op "
+                    "%02x); wrong tyres are fitted in the box", reinterpret_cast<void *>(change), op);
+        return nullptr;
+    }
+    uintptr_t act = change + 0x1b2 + 5 + int64_t(rel32(change + 0x1b3));
+    for (uintptr_t c = act; c < act + 0x400; ++c) {
+        if (!swofty::mem::read(c, op) || op != 0xE8)
+            continue;
+        uintptr_t t = c + 5 + int64_t(rel32(c + 1));
+        if (t == act + 0x690) {
+            swofty::log("[immersive-pitstops] wrong tyres: the crew's tyre models call found (%p, from %p)",
+                        reinterpret_cast<void *>(t), reinterpret_cast<void *>(act));
+            return reinterpret_cast<models_t>(t);
+        }
+    }
+    swofty::log("[immersive-pitstops] wrong tyres: the crew's tyre models call not found from %p; wrong tyres are "
+                "fitted in the box", reinterpret_cast<void *>(act));
+    return nullptr;
+}
+
+// (1.0.38's diagnostic, 20261126-094413: [[component+0x20]+0x58] is the car's handle, and neither holds the component.)
+
+// 1.0.39: Car_Tyre_SetWearFactor(component, apply_set, force) (a launcher binding) applies a car's fitted set; it's
+// wrapped to learn each car's component before its first stop, for the pit lane entry swap.
+using wear_t = void (*)(void *, bool, uint16_t);
+wear_t orig_wear = nullptr;
+void wear(void *p, bool apply_set, uint16_t force)
+{
+    if (p) {
+        uintptr_t tc = reinterpret_cast<uintptr_t>(p);
+        int car = component_car(tc);
+        if (car >= 0 && g_tc[car].exchange(tc) != tc && bool(pit_log))
+            swofty::log("[immersive-pitstops] wrong tyres: car %d's tyre data seen (%p, the fitted set applied)", car, p);
+    }
+    orig_wear(p, apply_set, force);
+}
+
+// Game thread, from the pit lane update: each car's pit lane entry swap, or putting its tyres back.
+void game_tick()
+{
+    for (int car = 0; car < int(kCars); ++car) {
+        Swap &w = g_swap[car];
+        int e = w.early.load();
+        if (e != 1 && e != 3)
+            continue;
+        uintptr_t tc = g_tc[car].load();
+        if (!tc || component_car(tc) != car || !orig_models) {
+            w.early.store(0);
+            continue;
+        }
+        if (e == 1) {
+            if (roll(tc, car, "pit lane entry")) {
+                w.early.store(2);
+                // the crew's tyres, from the wrong set: the call shows the models of the refs it has, then
+                // re-resolves them from +0x9c70 (the RE notes), so it runs twice
+                orig_models(reinterpret_cast<void *>(tc));
+                orig_models(reinterpret_cast<void *>(tc));
+            } else {
+                w.early.store(0);
+            }
+            continue;
+        }
+        // put back: only if the wrong set is still the next one
+        int32_t next = -1, index = -1;
+        if (swofty::mem::read(tc + 0x9c70, next) && swofty::mem::read(tc + 0x9c74, index) && next == w.wrong_next &&
+            index == w.wrong_index && write_int(tc + 0x9c74, w.orig_index) && write_int(tc + 0x9c70, w.orig_next)) {
+            orig_models(reinterpret_cast<void *>(tc));
+            orig_models(reinterpret_cast<void *>(tc));
+            swofty::log("[immersive-pitstops] wrong tyres: car %d left the pit lane without stopping; %s (set %d) put "
+                        "back", car, kName[w.orig_next], w.orig_index);
+        }
+        w.title.clear();
+        w.early.store(0);
+    }
+}
+
+uint64_t change(void *p, uint8_t pit)
+{
+    uintptr_t tc = reinterpret_cast<uintptr_t>(p);
+    int car = component_car(tc);
+    if (car >= 0)
+        g_tc[car].store(tc);
+    // a race stop, in the box
+    if (car >= 0 && call::race_session() && g_status[car].load() == kInPitBox) {
+        Swap &w = g_swap[car];
+        if (bool(pit_log) && car == player_car())
+            swofty::log("[immersive-pitstops] wrong tyres: car %d's tyre change (pit flag %u): +9c70 %s, +9950 %s", car,
+                        pit, hex(tc + 0x9c70, 8).c_str(), hex(tc + 0x9950, 8).c_str());
+        w.boxed = true;
+        if (w.early.load() == 2) {
+            // the pit lane entry's swap: still the next set? (an AI's strategy may pick its tyres again)
+            int32_t next = -1, index = -1;
+            if (swofty::mem::read(tc + 0x9c70, next) && swofty::mem::read(tc + 0x9c74, index) &&
+                (next != w.wrong_next || index != w.wrong_index)) {
+                write_int(tc + 0x9c74, w.wrong_index);
+                write_int(tc + 0x9c70, w.wrong_next);
+                swofty::log("[immersive-pitstops] wrong tyres: car %d's next set was changed to %d/%d in the pit lane; "
+                            "%s (set %d) written again", car, next, index, kName[w.wrong_next], w.wrong_index);
+            }
+            w.early.store(0);
+            queue_alert(w);
+        } else if (!g_rolled[car].exchange(true)) {
+            if (roll(tc, car, "in the box"))
+                queue_alert(g_swap[car]);
+        }
+    }
+    return orig_change(p, pit);
+}
+
+// session.pit (game thread): a car entering the pit lane asks for its roll; back on track without a stop puts its
+// tyres back; back on track ends the visit
+void on_status(uint32_t car, uint32_t status)
+{
+    if (car >= kCars)
+        return;
+    Swap &w = g_swap[car];
+    if ((status == 2 || status == 3) && !g_rolled[car].exchange(true) && call::race_session()) {
+        w.boxed = false;
+        if (g_tc[car].load()) {
+            w.early.store(1);
+        } else {
+            g_rolled[car].store(false); // no component yet: roll in the box
+            if (bool(pit_log))
+                swofty::log("[immersive-pitstops] wrong tyres: car %u's tyre data not seen yet; rolling in the box", car);
+        }
+    } else if (status == 0 || status == 1) {
+        if (w.early.load() == 2)
+            w.early.store(w.boxed ? 0 : 3);
+        g_rolled[car].store(false);
+    }
+}
+} // namespace tyres
+
+const swofty::detail::mixin reg_tyre_change{"Car_Tyre_ChangeToNextCompound", SWOFTY_MIXIN_WRAP, 0,
+                                            (void *)&tyres::change, (void **)&tyres::orig_change};
+const swofty::detail::mixin reg_tyre_wear{"Car_Tyre_SetWearFactor", SWOFTY_MIXIN_WRAP, 0, (void *)&tyres::wear,
+                                          (void **)&tyres::orig_wear};
+
 
 // Diagnostic (0.2.4, with pit_log): the name of every crew sequence a pit stop plays, to find which versions the
 // AI's ~10 s mistake stops use (0.2.3 test). PitStopInstance::playSequence (launcher binding
@@ -1066,17 +1789,26 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
         // a hit, hands the game a rear wheel's "wheel on" sequence (the 60 s stuck nut in erp/) instead: the name
         // passed to PitStopInstance::playSequence is what it looks up (0x1403b3777 calls the lookup with it).
         bool ours = false;
-        bool is_ferrari = car >= 0 && ferrari_full(uint32_t(car));
-        int stuck_pc = is_ferrari ? kFerrariChance : int(stuck_chance);
+        bool is_ferrari = car >= 0 && fer(uint32_t(car), cfg::kStuckLoose);
+        int stuck_pc = car >= 0 ? int(::stuck_pc(uint32_t(car)) + 0.5f) : 0; // 1.0.42: per team
         // 1.0.8: only while the box hold can run (a long stuck nut needs it; without it the pit lane would release the
         // car mid-animation at ~20 s): off for the session when the pit lane record can't be confirmed (EA app)
-        if (car >= 0 && stuck_pc > 0 && !hold_ok()) {
+        bool hold_can = car >= 0 && hold_ok();
+        if (car >= 0 && stuck_pc > 0 && !hold_can) {
             static std::atomic<bool> s_told{false};
             if (!s_told.exchange(true))
                 swofty::log("[immersive-pitstops] stuck wheel nuts off: the box hold can't run on this build");
             stuck_pc = 0;
         }
-        if (car >= 0 && stuck_pc > 0) {
+        // 1.0.44: McLaren's identical stops: the team-mate's stuck wheel nut (or none) for this stop number
+        bool twin_on = car >= 0 && twin::on(uint32_t(car));
+        twin::Rec tr{};
+        bool copy = twin_on && hold_can && twin::get(uint32_t(car), twin::kStuck, tr);
+        static const char kRL[] = "F1StartJobDoStandardStopRLON";
+        static const char kRR[] = "F1StartJobDoStandardStopRRON";
+        int twin_stuck = 0;
+        float stuck_len = 0;
+        if (car >= 0 && (stuck_pc > 0 || copy)) {
             std::string lower = n, raw;
             for (char &c : lower)
                 c = char(std::tolower(static_cast<unsigned char>(c)));
@@ -1089,10 +1821,21 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
             if (is_ferrari)
                 swofty::log("[immersive-pitstops] car %d (Ferrari Mode): %s, stuck nut roll %.2f against %d %%", car,
                             n.c_str(), roll / 100.0, stuck_pc);
-            if (normal && direct && roll < stuck_pc * 100) {
-                static const char kRL[] = "F1StartJobDoStandardStopRLON";
-                static const char kRR[] = "F1StartJobDoStandardStopRRON";
-                const char *pick = rnd() % 2 ? kRR : kRL;
+            bool hit = copy ? tr.stuck > 0 : roll < stuck_pc * 100;
+            const char *pick = copy ? (tr.stuck == 2 ? kRR : kRL) : rnd() % 2 ? kRR : kRL;
+            if (copy)
+                swofty::log("[immersive-pitstops] car %d (McLaren identical stops, stop %d): %s, as car %d's", car,
+                            twin::number(uint32_t(car)), tr.stuck ? "a stuck wheel nut" : "no stuck wheel nut",
+                            tr.by[twin::kStuck]);
+            if (hit && !(normal && direct)) {
+                if (copy)
+                    swofty::log("[immersive-pitstops] car %d: not a normal stop (%s), so no stuck wheel nut to copy", car,
+                                n.c_str());
+                hit = false;
+            }
+            if (hit) {
+                stuck_len = copy && tr.len > 0 ? tr.len : crew::stuck_length();
+                twin_stuck = pick == kRR ? 2 : 1;
                 a2 = const_cast<char *>(pick);
                 n = pick;
                 ours = true;
@@ -1101,6 +1844,11 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
                     alert_after_release("STUCK WHEEL NUT", "A wheel nut stuck on your stop", 6.0f);
             }
         }
+        if (twin_on && !copy)
+            twin::put(uint32_t(car), twin::kStuck, [&](twin::Rec &r) {
+                r.stuck = twin_stuck;
+                r.len = stuck_len;
+            });
         if (car >= 0) {
             auto me = swofty::live::player();
             bool mine = me && int(me->vehicle) == car;
@@ -1112,7 +1860,17 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
             bool uncalled = mine && call::g_uncalled_stop.exchange(false);
             bool in_garage = mine && hold::g_garage_used.exchange(false);
             float freeze = uncalled && !in_garage ? float(int(uncalled_delay)) : 0.0f;
-            float rate = crew::spread_rate();
+            float rate = crew::spread_rate(uint32_t(car));
+            if (twin_on) { // 1.0.44: McLaren's identical stops: the same crew speed
+                twin::Rec rr{};
+                if (twin::get(uint32_t(car), twin::kRate, rr)) {
+                    rate = rr.rate;
+                    swofty::log("[immersive-pitstops] car %d (McLaren identical stops, stop %d): crew speed x%.2f, as car "
+                                "%d's", car, twin::number(uint32_t(car)), 1.0f / rate, rr.by[twin::kRate]);
+                } else {
+                    twin::put(uint32_t(car), twin::kRate, [&](twin::Rec &r) { r.rate = rate; });
+                }
+            }
             {
                 std::lock_guard<std::mutex> lk(crew::g_mu);
                 crew::Job *slot = nullptr;
@@ -1144,7 +1902,7 @@ uint64_t play_seq(void *inst, void *a2, void *a3, void *a4)
                         // ours: a rolled length; the game's own "rear wheel on" mistake: no pause at all, so it plays
                         // at its stock length (the rear files are always the 60 s ones)
                         slot->ours = ours;
-                        slot->len = ours ? crew::stuck_length() : 0.0f;
+                        slot->len = ours ? (stuck_len > 0 ? stuck_len : crew::stuck_length()) : 0.0f;
                         if (ours)
                             swofty::log("[immersive-pitstops] car %d: stuck wheel nut (%s), %.0f s this time", car, n.c_str(),
                                         slot->len);
@@ -1375,6 +2133,25 @@ constexpr float kFallback = 20.0f;   // seconds after the tear-off before the ca
 constexpr const char *kCorner[] = {"rear left", "rear right", "front left", "front right"};
 double g_missed_for = 0;
 double g_crossed_for = 0;           // a crossing counts only if no red flag follows within kCrossWait
+// 1.0.30 Ferrari Mode (Light and Full): your loose wheel isn't named. The alert says something is wrong and the team
+// are checking, then the team tell you to stay out; Driver Display (1.5.2+) shows WE ARE CHECKING.
+double g_stay_out_in = -1;          // seconds until the STAY OUT alert (-1 none)
+constexpr double kStayOutAfter = 6;
+
+// the loose wheel's release alert (and again after a flashback before the line)
+void loose_alert(int car, bool again)
+{
+    if (fer(uint32_t(car), cfg::kMisinfo)) {
+        swofty::hud::toast("SOMETHING IS WRONG", "Something is wrong. We are checking", 6.0f);
+        g_stay_out_in = kStayOutAfter;
+        swofty::log("[immersive-pitstops] loose wheel: Ferrari Mode, car %d is told something is wrong; stay out in "
+                    "%.0f s", car, kStayOutAfter);
+    } else if (again) {
+        swofty::hud::toast("LOOSE WHEEL", "The wheel still isn't on properly. Box this lap!", 6.0f);
+    } else {
+        swofty::hud::toast("LOOSE WHEEL", "The wheel isn't on properly. Box this lap!", 8.0f);
+    }
+}
 constexpr double kCrossWait = 1.5;  // a red flag moves cars into the pit lane, which reads as a line crossing
 std::atomic<bool> g_rebuilt[kCars]; // the car was built again (a restart): forget its loose wheel
 // flashbacks after the wheel came off: your car's progress (lap, metres) going backwards means one
@@ -1437,6 +2214,9 @@ void game_tick()
 // Flow thread, every frame: your car, then the AI cars.
 void frame(double dt, void *)
 {
+    cfg::poll(dt); // 1.0.42: the Pit Stops page's config.json
+    if (call::race_session())
+        cfg::log_teams(dt); // 1.0.50
     {
         // your stop's alerts, once you're released (or out of the pit lane)
         std::vector<Pending> show;
@@ -1499,6 +2279,15 @@ void frame(double dt, void *)
     int st = g_state.load(), car = g_car.load();
     if (st != none && car >= 0) {
         uint32_t pit = g_status[car].load();
+        if (g_stay_out_in >= 0) { // Ferrari Mode: the team's call after "we are checking"
+            if (st != loose) {
+                g_stay_out_in = -1;
+            } else if ((g_stay_out_in -= dt) <= 0) {
+                g_stay_out_in = -1;
+                swofty::hud::toast("STAY OUT", "Stay out, stay out. Do not box", 6.0f);
+                swofty::log("[immersive-pitstops] loose wheel: Ferrari Mode, car %d is told to stay out", car);
+            }
+        }
         if (st == fixed) {
             g_state.store(none);
             iplink::g_loose[car].store(0);
@@ -1508,7 +2297,7 @@ void frame(double dt, void *)
             g_crossed.store(false);
             g_crossed_for = 0;
             iplink::g_loose[car].store(1);
-            swofty::hud::toast("LOOSE WHEEL", "The wheel isn't on properly. Box this lap!", 8.0f);
+            loose_alert(car, false);
             swofty::log("[immersive-pitstops] loose wheel: car %u released with a loose %s wheel; box this lap", car,
                         kCorner[g_corner.load()]);
         } else if (st == loose && (pit == 2 || pit == 3 || pit == 4)) {
@@ -1527,7 +2316,11 @@ void frame(double dt, void *)
             g_fb_quiet = -1;
             if (auto pc = swofty::live::car(uint32_t(car)); pc && swofty::live::has(*pc, SWOFTY_LIVE_HAVE_PROGRESS))
                 g_tear_lap = pc->lap;
-            swofty::hud::toast("LOOSE WHEEL", "You didn't box: the wheel has come off", 6.0f);
+            g_stay_out_in = -1;
+            swofty::hud::toast("LOOSE WHEEL",
+                               fer(uint32_t(car), cfg::kMisinfo) ? "The wheel has come off"
+                                                                 : "You didn't box: the wheel has come off",
+                               6.0f);
             swofty::log("[immersive-pitstops] loose wheel: car %u stayed out; its wheel comes off", car);
         } else if (st == missed) {
             g_missed_for += dt;
@@ -1551,7 +2344,7 @@ void frame(double dt, void *)
                         g_crossed_for = 0;
                         iplink::g_loose[car].store(1);
                         iplink::g_wheel_off[car].store(0);
-                        swofty::hud::toast("LOOSE WHEEL", "The wheel still isn't on properly. Box this lap!", 6.0f);
+                        loose_alert(car, true);
                         swofty::log("[immersive-pitstops] loose wheel: car %d flashed back before the line (lap %d, the "
                                     "wheel came off on %d): loose again", car, lap, g_tear_lap);
                         return;
@@ -1663,15 +2456,17 @@ bool call::engineer_box_call(std::string_view stem)
 
 bool call::uncalled_now(uint32_t car, bool *told_out)
 {
-    // Ferrari Mode (1.0.2): Ferrari's crew are never ready, called or not
-    if (ferrari(car))
+    // Ferrari Mode (1.0.2): Ferrari's crew are never ready, called or not. 1.0.42: a team's crew readiness on the
+    // page: never ready (the same), always ready, or ready only when called (the Call your stop setting's way)
+    int cm = crew_mode(car);
+    if (cm == 3)
         return race_session() && td_state() != TD_LIMPING && td_state() != TD_RETIRING;
     int ls = loose::g_state.load();
     bool told = loose::g_car.load() == int(car) && (ls == loose::loose || ls == loose::pitting);
     if (told_out)
         *told_out = told;
     bool called = g_called.load() || told;
-    return !called && bool(call_stop) && swofty::speech::live() && race_session() && td_state() != TD_LIMPING &&
+    return !called && cm == 1 && swofty::speech::live() && race_session() && td_state() != TD_LIMPING &&
            td_state() != TD_RETIRING;
 }
 
@@ -1695,14 +2490,16 @@ bool call::tick(uintptr_t, uint32_t car, float)
         bool uncalled = uncalled_now(car, &told);
         bool called = g_called.load() || told;
         g_uncalled_stop.store(uncalled);
-        bool fer = ferrari(car);
+        bool fm = fer(car, cfg::kCrew), never = crew_mode(car) == 3;
         swofty::log("[immersive-pitstops] car %u in the pit lane: stop %s", car,
-                    fer && uncalled ? "held (Ferrari Mode: the crew are never ready)"
+                    fm && uncalled      ? "held (Ferrari Mode: the crew are never ready)"
+                    : never && uncalled ? "held (the team's crew are never ready)"
                     : called        ? (told ? "called (loose wheel)" : "called (Box This Lap or the engineer)")
                     : (uncalled ? "NOT called: the crew aren't ready" : "not called (no delay here)"));
         if (uncalled)
-            alert_after_release("CREW NOT READY", fer ? "Ferrari Mode: the crew are never ready"
-                                                      : "You didn't call your stop",
+            alert_after_release("CREW NOT READY", fm      ? "Ferrari Mode: the crew are never ready"
+                                                  : never ? "The crew weren't ready"
+                                                          : "You didn't call your stop",
                                 5.0f);
     }
     return true;
@@ -1722,6 +2519,8 @@ bool link_car(uint32_t car, ip_link::Car *out)
         c.box_secs = at && now >= at ? float(double(now - at) / 1000.0) : 0.0f;
     }
     c.loose = iplink::g_loose[car].load();
+    // (1.0.30 hid your loose wheel from Driver Display in Ferrari Mode; 1.0.31 reports it again, and Driver Display
+    // 1.5.2+ shows WE ARE CHECKING for it in Ferrari Mode instead of LOOSE WHEEL BOX NOW)
     c.wheel_off = iplink::g_wheel_off[car].load();
     c.retired = iplink::g_retired[car].load();
     uint32_t n = out->size < sizeof(c) ? out->size : uint32_t(sizeof(c));
@@ -1731,19 +2530,19 @@ bool link_car(uint32_t car, ip_link::Car *out)
     return true;
 }
 // 1.0.23: the Ferrari Mode setting, for Driver Display's Ferrari pages (read only; any thread)
-// Driver Display's Ferrari jokes go with Full only (Light is just the crew)
-bool link_ferrari_mode() { return ferrari_level() >= 1; } // DD Ferrari jokes with Light and Full (1.0.28)
+// Driver Display's Ferrari jokes go with Light and Full (1.0.28)
+bool link_ferrari_mode() { return cfg::feature_on(cfg::kDd); } // 1.0.42: the Ferrari Mode tab's Driver Display switch
 const ip_link::State g_link_state{sizeof(ip_link::State), &link_car, &link_ferrari_mode};
 
 } // namespace
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[immersive-pitstops] loaded 1.0.29: pit box hold %s, at most %d s; retirement %d %% of stuck wheel nuts "
-                "(when the crew finish, the game's retirement); log %s", bool(hold_box) ? "on" : "off", int(max_hold),
-                int(retire_chance), bool(pit_log) ? "on" : "off");
+    swofty::log("[immersive-pitstops] loaded 1.1.0: pit box hold %s, at most %d s; the chances are on the Pit Stops "
+                "page; log %s", bool(hold_box) ? "on" : "off", int(max_hold), bool(pit_log) ? "on" : "off");
     find_status_request();
     hold::find();
+    tyres::orig_models = tyres::find_models(); // 1.0.38: the crew's tyre models, for wrong tyres
     { // 1.0.21: share the pit events with Driver Display (only it reads them; nothing changes here)
         auto pr = swofty::services::publish(g_link_state);
         swofty::log("[immersive-pitstops] Driver Display link: %s",
@@ -1756,6 +2555,8 @@ SWOFTY_ON_LOAD
         [](const swofty::sessions::events::Pit &e, const swofty::events::Context &) {
             if (e.car >= kCars)
                 return;
+            tyres::on_status(e.car, e.status);
+            twin::on_status(e.car, e.status);
             if (g_td[e.car].load() != td_none) { // handed to Terminal Damage: only follow its status
                 g_status[e.car].store(e.status);
                 if (bool(pit_log))
@@ -1795,17 +2596,28 @@ SWOFTY_ON_LOAD
                     } else if (ls == loose::none && !g_stops[e.car].rolled && !g_wants_retire[e.car].load() &&
                                !crew::g_stuck_seq[e.car].load()) { // 1.0.17: not after any stuck nut
                         // 1.0.17: a decimal chance (0.1 steps), rolled in hundredths of a percent
-                        float chance = bool(loose_test) ? 100.0f
-                                       : ferrari_full(e.car) ? float(kFerrariChance) : float(loose_chance);
+                        float chance = bool(loose_test) ? 100.0f : loose_pc(e.car, false); // 1.0.42: per team
                         int roll = int(rnd() % 10000);
-                        if (ferrari_full(e.car) && !bool(loose_test))
-                            swofty::log("[immersive-pitstops] car %u (Ferrari Mode): loose wheel at %d %%", e.car, kFerrariChance);
+                        if (fer(e.car, cfg::kStuckLoose) && !bool(loose_test))
+                            swofty::log("[immersive-pitstops] car %u (Ferrari Mode): loose wheel at %.0f %%", e.car, chance);
                         bool hit = roll < int(chance * 100.0f + 0.5f);
+                        int corner = loose::random_corner();
+                        if (twin::on(e.car)) { // 1.0.44: McLaren's identical stops
+                            twin::Rec tr{};
+                            if (twin::get(e.car, twin::kLoose, tr)) {
+                                hit = tr.loose >= 0;
+                                corner = hit ? tr.loose : corner;
+                                swofty::log("[immersive-pitstops] car %u (McLaren identical stops): loose wheel %s, as car "
+                                            "%d's", e.car, hit ? "yes" : "no", tr.by[twin::kLoose]);
+                            } else {
+                                twin::put(e.car, twin::kLoose, [&](twin::Rec &r) { r.loose = hit ? corner : -1; });
+                            }
+                        }
                         swofty::log("[immersive-pitstops] car %u: loose wheel roll %.2f against %.1f %%%s", e.car, roll / 100.0,
                                     chance, hit ? ": the wheel isn't on properly" : "");
                         if (hit) {
                             loose::g_car.store(int(e.car));
-                            loose::g_corner.store(loose::random_corner());
+                            loose::g_corner.store(corner);
                             loose::g_state.store(loose::pending);
                         }
                     }
@@ -1817,12 +2629,22 @@ SWOFTY_ON_LOAD
                                return at && now >= at && now - at < 60000;
                            }()) {
                     // an AI car: a very rare wheel left loose comes off on its out-lap
-                    float chance = bool(ai_loose_test) ? 100.0f
-                                   : ferrari_full(e.car)   ? float(kFerrariChance)
-                                                           : float(ai_loose_chance);
+                    float chance = bool(ai_loose_test) ? 100.0f : loose_pc(e.car, true); // 1.0.42: per team
                     float roll = float(rnd() % 10000) / 100.0f;
-                    if (roll < chance) {
-                        int corner = loose::random_corner();
+                    bool hit = roll < chance;
+                    int corner = loose::random_corner();
+                    if (twin::on(e.car)) { // 1.0.44: McLaren's identical stops
+                        twin::Rec tr{};
+                        if (twin::get(e.car, twin::kLoose, tr)) {
+                            hit = tr.loose >= 0;
+                            corner = hit ? tr.loose : corner;
+                            swofty::log("[immersive-pitstops] AI car %u (McLaren identical stops): loose wheel %s, as car "
+                                        "%d's", e.car, hit ? "yes" : "no", tr.by[twin::kLoose]);
+                        } else {
+                            twin::put(e.car, twin::kLoose, [&](twin::Rec &r) { r.loose = hit ? corner : -1; });
+                        }
+                    }
+                    if (hit) {
                         loose::g_ai_rolled[e.car].store(corner + 1);
                         swofty::log("[immersive-pitstops] AI car %u: loose wheel roll %.2f against %.2f %%: its %s wheel "
                                     "will come off on the out-lap", e.car, roll, chance, loose::kCorner[corner]);
@@ -1836,6 +2658,13 @@ SWOFTY_ON_LOAD
     auto s = swofty::events::subscribe(SWOFTY_EVENT_SESSION_START, [](const SwoftyEvent *, void *) {
         for (uint32_t i = 0; i < kCars; ++i) {
             g_status[i].store(0);
+            tyres::g_rolled[i].store(false);
+            tyres::g_tc[i].store(0);
+            tyres::g_swap[i].early.store(0);
+            if (i == 0) {
+                twin::reset();
+                cfg::new_session();
+            }
             g_wants_retire[i].store(false);
             g_retire_now[i].store(false);
             g_td[i].store(td_none);
@@ -1901,11 +2730,10 @@ SWOFTY_ON_LOAD
                 // (1.0.6: no popup when the crew get ready; only CREW NOT READY shows)
             }
         });
-    swofty::log("[immersive-pitstops] crew speed per stop: %.*s; crew update job %s", int(std::string_view(stop_times).size()),
-                std::string_view(stop_times).data(),
+    swofty::log("[immersive-pitstops] crew update job %s",
                 swofty::api && swofty::api->resolve && swofty::api->resolve("Sess_PitStopUpdateJob_Update") ? "found"
                                                                                                           : "NOT FOUND");
-    swofty::log("[immersive-pitstops] call your stop: %s; speech events %s", bool(call_stop) ? "on" : "off",
+    swofty::log("[immersive-pitstops] speech events %s",
                 sp == swofty::events::Result::ok && swofty::speech::live() ? "on" : "NOT AVAILABLE (every stop counts as called)");
     auto lp = swofty::events::on<swofty::sessions::events::Lap>().after(
         [](const swofty::sessions::events::Lap &e, const swofty::events::Context &) {
@@ -1925,8 +2753,7 @@ SWOFTY_ON_LOAD
             }
         });
     swofty::events::on_frame(loose::frame);
-    swofty::log("[immersive-pitstops] loose wheel %.1f %% of your stops%s; stuck wheel nut %d %%; lap events %s",
-                float(loose_chance), bool(loose_test) ? " (testing: every stop)" : "", int(stuck_chance),
+    swofty::log("[immersive-pitstops] loose wheel testing %s; lap events %s", bool(loose_test) ? "on" : "off",
                 lp == swofty::events::Result::ok ? "on" : "NOT AVAILABLE");
     swofty::log("[immersive-pitstops] session.pit %s, session start %s, pit lane update %s, pit status %s",
                 r == swofty::events::Result::ok ? "on" : "NOT AVAILABLE", s == swofty::events::Result::ok ? "on" : "not available",

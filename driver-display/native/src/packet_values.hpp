@@ -58,6 +58,7 @@ struct Values {
     std::atomic<int> result{-1}, stop_ms{0};
     // car status: the tyre on the car (visual compound: 16 soft, 17 medium, 18 hard, 7 inter, 8 wet) and its age
     std::atomic<int> tyre_visual{-1}, tyre_age{-1};
+    std::atomic<int> tyre_actual{-1}; // 1.4.10: the C-compound (Pirelli Rainbow Tyres' names)
     // events for the player's car: a penalty (type, infringement, seconds or places), and the chequered flag
     std::atomic<uint32_t> pen_seq{0}, chqf_seq{0};
     // DRS (overtake in the 2026 season) enabled / disabled for the race ("DRSE" / "DRSD"; disabled with a reason:

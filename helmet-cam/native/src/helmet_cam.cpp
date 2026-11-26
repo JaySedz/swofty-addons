@@ -34,7 +34,7 @@ namespace {
 
 constexpr const char *kId = "sedz.helmet-cam";
 constexpr const char *kPass = "visor";
-constexpr const char *kVersion = "0.1.8";
+constexpr const char *kVersion = "0.1.11";
 
 SWOFTY_SETTING(int, sway_brake, 50);  // 0.1.3: braking / acceleration dip, apart from cornering
 SWOFTY_SETTING(int, sway_corner, 70); // 0.1.3: cornering roll and look
@@ -42,7 +42,8 @@ SWOFTY_SETTING(bool, verbose, false);
 SWOFTY_SETTING(std::string_view, rain_mode, "auto"); // 0.1.7: visor rain from the weather, off, or always (to try it)
 SWOFTY_SETTING(int, rain_amount, 70);
 SWOFTY_SETTING(bool, camera_probe, true);
-SWOFTY_SETTING(int, head_turn_amount, 10); // 0.1.5: the look into corners through the game's camera, 0 = off
+SWOFTY_SETTING(int, head_turn_amount, 10);
+SWOFTY_SETTING(bool, aston_mode, false); // 0.1.10: the 2026 Aston Martin shakes at 300 % road vibration (0.1.11; 200 % in 0.1.10), no way down // 0.1.5: the look into corners through the game's camera, 0 = off
 
 // ---- camera probe and head turn ------------------------------------------------------------------------------
 // 0.1.2's probe found the free-look modifier updates every frame in the cockpit view, with the look input axes at
@@ -228,7 +229,7 @@ struct VisorData {
     uint32_t strip_row;     // 0 = generic
     float rpm;              // 0 to 1
     float rain;             // 0.1.7: visor rain, 0 to 1
-    float pad;
+    float vibration;        // 0.1.10: > 0 overrides the Road vibration slider (1 = 100 %): Aston Martin Mode
 };
 static_assert(sizeof(VisorData) == 32);
 
@@ -280,6 +281,7 @@ struct State {
     float rain_target = 0.f;
     double rain_wait = 0;
     int weather = -1;
+    bool aston = false;      // 0.1.10: the camera car is the 2026 Aston Martin
 } G;
 
 float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -355,6 +357,11 @@ void on_frame(double dt_d, void *)
             G.row_wait = 2.0;
             auto badge = live::team_badge(car->vehicle);
             uint32_t row = badge ? row_for(*badge) : 0;
+            // 0.1.10: only the 2026 car (badge "aston_martin_26"; the 2025 car is plain "aston_martin")
+            bool aston = badge && badge->find("aston_martin_26") != std::string::npos;
+            if (aston != G.aston && aston_mode)
+                swofty::log("[helmet-cam] Aston Martin Mode: %s", aston ? "on, road vibration 300 %" : "off (not the 2026 Aston Martin)");
+            G.aston = aston;
             if (int64_t(car->vehicle) != G.vehicle || row != G.row)
                 swofty::log("[helmet-cam] camera car %u, team badge \"%s\": strip row %u", car->vehicle,
                             badge ? badge->c_str() : "", row);
@@ -364,6 +371,7 @@ void on_frame(double dt_d, void *)
     } else if (G.vehicle != -1) {
         G.vehicle = -1;
         G.row = 0;
+        G.aston = false;
     }
 
     // targets (picture heights / radians) at full sway. Signs from 0.1.0's log (Melbourne T1, a right-hander: steer
@@ -391,6 +399,7 @@ void on_frame(double dt_d, void *)
     d.strip_row = G.row;
     d.rpm = rpm;
     d.rain = visor_rain(dt_d);
+    d.vibration = aston_mode && G.aston ? 3.0f : 0.f;
     auto r = swofty::postfx::set_data(kId, kPass, d);
     if (int(r) != G.last_result) {
         G.last_result = int(r);

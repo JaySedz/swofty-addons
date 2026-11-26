@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.driver-display",
   "name": "Driver Display",
-  "version": "1.4.0",
+  "version": "1.5.5",
   "author": "Sedz",
   "description": "A full HUD on the steering wheel display. Can be used in cockpit view as a replacement to the game's on-screen one, or outside cockpit view as just an immersive texture replacer.\n\nIt contains three pages (race, car damage, and pit information), switched by a button you assign. Flags, safety cars, warnings, and penalties will pop up on screen. Fully compatible with SimHub and other UDP telemetry mods.\n\nNeeds Swofty Launcher 1.10.41 or newer. Tested on the Steam copy of the game; the EA app copy gets the data the display needs from launcher 1.10.41 on, but hasn't been tested yet.",
   "license": "MIT",
@@ -148,7 +148,7 @@
       "id": "speed_unit",
       "type": "choice",
       "label": "Team pages speed unit",
-      "description": "The speed on the team pages (Ferrari, McLaren, Mercedes, Red Bull, Aston Martin, Williams, Audi, Haas and Alpine, 2025 and 2026 cars): KPH or MPH.",
+      "description": "The speed on the team pages (all eleven 2026 teams, on the 2025 and 2026 cars): KPH or MPH.",
       "values": [
         {
           "value": "kph",
@@ -161,6 +161,24 @@
       ],
       "default": "kph",
       "binds": "native"
+    },
+    {
+      "id": "ferrari_screen",
+      "type": "choice",
+      "label": "Ferrari wheel screen fix",
+      "description": "Maps the 2025 and 2026 Ferrari's wheel screens straight, so the display isn't bent or cut off at the top. Turn it off if another mod replaces the Ferrari's car model. Applies at the next launch.",
+      "values": [
+        {
+          "value": "on",
+          "label": "On"
+        },
+        {
+          "value": "off",
+          "label": "Off"
+        }
+      ],
+      "default": "on",
+      "binds": "db"
     },
     {
       "id": "verbose",

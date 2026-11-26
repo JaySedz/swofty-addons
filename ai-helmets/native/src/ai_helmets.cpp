@@ -48,7 +48,11 @@ namespace {
 constexpr const char *kAddon = "sedz.ai-helmets";
 // A helmet row label from customisation.custom_avatar.helmets ("Simplicity"). 0.1.0 used
 // "helmet_tier01_livery03", a label the game doesn't have, and the core refused every placeholder.
-constexpr const char *kDefaultBase = "game/tier01_livery76";
+constexpr const char *kSimplicity = "game/tier01_livery76";
+// The newcomers' default since 1.0.9: a driver who moves keeps his own helmet ("own"; config.json saves it as "").
+// Before, it was Simplicity, so every mover wore the same helmet unless you set one per team.
+constexpr const char *kOwnHelmet = "own";
+constexpr const char *kDefaultBase = kOwnHelmet;
 // The shell an imported helmet starts from when the page named none (or named a 0.1.0 "game/<driver>").
 constexpr const char *kDefaultShell = "game/2026-ferrari_lewis_hamilton";
 
@@ -195,7 +199,7 @@ void reload_config()
                 g_config.team_helmet.size(), g_config.picks.size() + g_config.drivers.size(), g_config.base.c_str());
 }
 
-// The helmet a team's newcomers wear: the one picked for the team, else the default (Simplicity).
+// The helmet a team's newcomers wear: the one picked for the team, else the default (kOwnHelmet: his own).
 std::string team_placeholder(const std::string &team)
 {
     auto it = g_config.team_helmet.find(team);
@@ -212,8 +216,10 @@ std::string want_for(const std::string &driver, const std::string &team, bool mo
         return p->second == "own" ? std::string() : p->second;
     if (auto d = g_config.drivers.find(driver); d != g_config.drivers.end())
         return d->second == "own" ? std::string() : d->second;
-    if (moved && auto_team_helmets)
-        return team_placeholder(team);
+    if (moved && auto_team_helmets) {
+        std::string h = team_placeholder(team);
+        return h == kOwnHelmet ? std::string() : h;
+    }
     return {};
 }
 
@@ -1828,6 +1834,8 @@ void register_team_looks()
         std::string helmet = team_placeholder(team);
         if (helmet.empty())
             continue;
+        if (helmet == kOwnHelmet)  // these looks are unused, only kept so careers that name them load
+            helmet = kSimplicity;
         std::string kit = "game/" + std::string(ends_with(team, "_26") ? "2026-" : "2025-") + team_core(team);
         auto ref = drivers::looks.add("look_" + team, {
                                                           .helmet = wearables::helmets[helmet],
@@ -1902,7 +1910,7 @@ void register_driver_looks()
             if (team != current || same_team(team, home))
                 continue;
             std::string helmet = team_placeholder(team);
-            if (helmet.empty())
+            if (helmet.empty() || helmet == kOwnHelmet)
                 continue;
             std::string kit = "game/" + std::string(ends_with(team, "_26") ? "2026-" : "2025-") + team_core(team);
             drivers::Look look{

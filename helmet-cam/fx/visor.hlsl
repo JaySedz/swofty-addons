@@ -151,6 +151,9 @@ float4 visor(float2 uv, uint2 pixel)
     float roll = has_data ? data_float(8) : 0;
     float speed = has_data ? data_float(12) : 0;
     float row = has_data ? float(min(data_uint(16), 15u)) : 0;
+    // 0.1.10: Aston Martin Mode (the 2026 Aston Martin): the addon's code sends 3 (300 %, 0.1.11), and the slider has no say
+    if (data_size() >= 32 && data_float(28) > 0)
+        vibration = min(data_float(28), 3.0);
     // a bad buffer gives a wrong picture, never a wild one
     shift = clamp(shift, -0.08, 0.08);
     roll = clamp(roll, -0.10, 0.10);
@@ -162,7 +165,8 @@ float4 visor(float2 uv, uint2 pixel)
     shift += v * 0.0035 * float2(0.4 * sin(t * 8.3 + 1.1), sin(t * 11.7) * 0.6 + sin(t * 17.9 + 2.0) * 0.4);
 
     // the world through the helmet: zoomed in so a moved picture never shows its own edge
-    float zoom = 1 + 0.12 * sway + 0.012 * vibration;
+    // 0.1.11: past 100 % (Aston Martin Mode) it zooms in more, so the bigger shake never shows the picture's edge
+    float zoom = 1 + 0.12 * sway + 0.012 * min(vibration, 1.0) + 0.02 * max(vibration - 1.0, 0.0);
     float2 p = (uv - 0.5) * float2(aspect, 1);              // centred, in picture heights
     float c = cos(roll), s = sin(roll);
     float2 q = float2(c * p.x + s * p.y, -s * p.x + c * p.y) / zoom + shift;

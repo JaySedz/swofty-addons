@@ -1,10 +1,10 @@
-# Helmet Cam: test plan (0.1.8)
+# Helmet Cam: test plan (0.1.11)
 
 Turn on **Debug log** in the addon settings for the first run. Lines start with `[helmet-cam]` in `swofty/loader.log`.
 
 ## 1. Loads and runs
 
-- [ ] The log shows `loaded 0.1.8: live state ..., postfx data available, frame tick on`.
+- [ ] The log shows `loaded 0.1.11: live state ..., postfx data available, frame tick on`.
 - [ ] Before the session, the log shows a `[postfx] Helmet Cam's pass visor is ready` line.
 - [ ] On track in cockpit view, the log shows `postfx data: the visor pass reads the head and strip data`.
 - [ ] In cockpit view you see the helmet edges, the brow padding, the tint and the strip.
@@ -77,3 +77,10 @@ With Debug log on, the log prints `g long .. lat .. steer ..` once a second.
 - [ ] In a wet race on Auto, the log shows `visor rain: weather 3/4/5 (rain)`, and the drops fade in over a few seconds.
 - [ ] Optional: to remove the game's own vertical drips, close the game and set `rainBeads="false"` in `Documents\My Games\F1 25\hardwaresettings\hardware_settings_config.xml`. Note what else it removes (water beads on the bodywork?).
 - [ ] The log never shows `pass visor is off: ... over its 1.50 ms budget` in the rain.
+
+## 10. Aston Martin Mode (0.1.11)
+
+- [ ] With **Aston Martin Mode** on, in the 2026 Aston Martin: the log shows `Aston Martin Mode: on, road vibration 300 %`, and the shake is clearly stronger than at Road vibration 100.
+- [ ] Moving the Road vibration slider (even to 0) doesn't change the shake in the Aston.
+- [ ] In any other car (and the 2025 Aston Martin), the slider works as before.
+- [ ] With the mode off, the Aston uses the slider.

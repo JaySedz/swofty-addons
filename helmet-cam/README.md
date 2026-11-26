@@ -9,6 +9,7 @@ The cockpit camera as seen from inside a helmet, for F1 25 on the Swofty Launche
 - **Head movement**: braking dips the view and acceleration lifts it (**Head movement: braking**); cornering rolls it and shifts it towards the corner (**Head movement: cornering**). A damped spring smooths the movement, like a head on a neck.
 - **Head turn into corners**: turns the game's own cockpit camera a little towards the apex while you're under sustained cornering load (over about 1 g). It writes to the game's free-look camera between its updates. Lane changes and small corrections don't move it, and your own look buttons always win.
 - **Road vibration**: a fine shake that grows with speed.
+- **Aston Martin Mode** (off by default): in the 2026 Aston Martin the road vibration runs at 300 %, and the Road vibration slider can't turn it down. Every other car, the 2025 Aston Martin included, keeps your slider.
 - **Visor rain**: in the wet, drops bead on the visor when you're slow and are blown off to the sides at speed, stretching into streaks. The middle of the visor clears and a light spray mist builds. Each drop bends the view behind it like a small lens. It follows the game's weather (through the game's UDP telemetry); **Always** shows it in any weather.
 - **Camera height and side** (optional): moves every car's cockpit camera down by up to 4.5 cm, or 2 cm to one side, from the game's own eye position.
 

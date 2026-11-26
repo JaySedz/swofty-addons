@@ -7,9 +7,10 @@ inline constexpr const char *kRbCombos[] = {
     "q",
     "r",
     "rq",
+    "rqp",
     "rqs",
+    "rqsd",
     "rqsdp",
     "rqsp",
-    "rs",
     "s",
 };

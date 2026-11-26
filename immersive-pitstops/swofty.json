@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.immersive-pitstops",
   "name": "Immersive Pitstops",
-  "version": "1.0.29",
+  "version": "1.1.0",
   "author": "Sedz",
   "description": "Makes pit stops less predictable: every stop's time varies, a stuck wheel nut can hold a car in its box (and sometimes end its race), a wheel left loose has to be fixed next lap or it comes off, the crew aren't ready if you come in without calling Box This Lap, and crossing the pit exit line costs a time penalty. For you and the AI teams. Needs launcher 1.10.41 or later. Tested on Steam; the EA app copy should work but is untested.",
   "license": "MIT",
@@ -30,103 +30,20 @@
       "version": ">=0.1.0"
     }
   ],
+  "launcher": {
+    "program": {
+      "windows": "bin/immersive-pitstops-helper.exe"
+    },
+    "sections": [
+      {
+        "id": "pitstops",
+        "title": "Pit Stops",
+        "icon": "wrench"
+      }
+    ],
+    "build": true
+  },
   "options": [
-    {
-      "id": "stuck_chance",
-      "type": "slider",
-      "label": "Stuck wheel nut chance (%)",
-      "description": "How many stops get a stuck wheel nut: the crew fight the wheel while the car waits on its jacks, usually for a few seconds, very rarely for up to a minute. Separate from the game's own small crew mistakes, which happen as in the stock game. Yours and the AI's. 0 turns it off; 100 gives one on every stop (for testing). Applies at once.",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "default": 1,
-      "binds": "native"
-    },
-    {
-      "id": "stop_times",
-      "type": "choice",
-      "label": "Stop times",
-      "description": "How each stop's time varies around your crew's normal time (about 2.4 s in Driver Career). Default: most stops about 2.2-2.6 s, now and then a quick one (down to about 1.8 s) or a slow one (up to about 2.9 s). More fast stops: quicker stops, and sub-2 s stops more often. More slow stops: slower stops, and 2.6-2.9 s stops more often. Without a crew mistake no stop goes past about 3 s. Yours and the AI's. Applies at once.",
-      "values": [
-        {
-          "value": "default",
-          "label": "Default"
-        },
-        {
-          "value": "fast",
-          "label": "More fast stops"
-        },
-        {
-          "value": "slow",
-          "label": "More slow stops"
-        }
-      ],
-      "default": "default",
-      "binds": "native"
-    },
-    {
-      "id": "retire_chance",
-      "type": "slider",
-      "label": "Retirement chance (%)",
-      "description": "How often a stuck wheel nut ends the car's race. Each stuck wheel nut plays out in full; then either the car goes back out, or the team retires it in its box. Yours and the AI's. 0 turns retirements off. Applies at once.",
-      "min": 0,
-      "max": 100,
-      "step": 5,
-      "default": 25,
-      "binds": "native"
-    },
-    {
-      "id": "loose_chance",
-      "type": "slider",
-      "label": "Loose wheel chance (%)",
-      "description": "Your car only. How often a normal stop sends you out with a wheel that isn't on properly: you're told to box this lap. Pit and it's fixed; stay out past the line and the wheel comes off and your race is over. 0 turns it off. For every stop, use the testing switch at the bottom. Applies at once.",
-      "min": 0,
-      "max": 10,
-      "step": 0.1,
-      "default": 0.3,
-      "binds": "native"
-    },
-    {
-      "id": "ai_loose_chance",
-      "type": "slider",
-      "label": "AI loose wheel chance (%)",
-      "description": "How often an AI car's normal stop leaves a wheel loose: it comes off on the car's out-lap and its race is over. Very rare by default. 0 turns it off. Applies at once.",
-      "min": 0,
-      "max": 10,
-      "step": 0.1,
-      "default": 0.3,
-      "binds": "native"
-    },
-    {
-      "id": "ferrari_mode",
-      "type": "choice",
-      "label": "Ferrari Mode",
-      "description": "Light: in a Ferrari your crew are never ready when you come in, called or not, so your stops are a bit slower. Full: that, and Ferrari's cars get a stuck wheel nut or a loose wheel on 50 % of their stops. Off by default.",
-      "values": [
-        {
-          "value": "off",
-          "label": "Off"
-        },
-        {
-          "value": "light",
-          "label": "Light"
-        },
-        {
-          "value": "full",
-          "label": "Full"
-        }
-      ],
-      "default": "off",
-      "binds": "native"
-    },
-    {
-      "id": "call_stop",
-      "type": "toggle",
-      "label": "Call your stop",
-      "description": "Race stops only. On: pick Box This Lap in the MFD radio menu before you pit, or be called in by the engineer (the pit window, a strategy change you accept, damage, a puncture, the weather, the safety car, low fuel); otherwise the crew are still in the garage when you get to your box and have to run out first. Off: the crew are always ready, as in the stock game. Applies at once.",
-      "default": true,
-      "binds": "native"
-    },
     {
       "id": "loose_test",
       "type": "toggle",
@@ -139,7 +56,23 @@
       "id": "ai_loose_test",
       "type": "toggle",
       "label": "AI loose wheel every stop (testing)",
-      "description": "Every AI normal race stop leaves a loose wheel, whatever the AI loose wheel chance is set to. Off by default.",
+      "description": "Every AI normal race stop leaves a loose wheel. Off by default.",
+      "default": false,
+      "binds": "native"
+    },
+    {
+      "id": "wrong_tyres_test",
+      "type": "toggle",
+      "label": "Wrong tyres every stop (testing)",
+      "description": "Every race stop of yours gets the wrong tyres. Off by default.",
+      "default": false,
+      "binds": "native"
+    },
+    {
+      "id": "ai_wrong_tyres_test",
+      "type": "toggle",
+      "label": "AI wrong tyres every stop (testing)",
+      "description": "Every AI race stop gets the wrong tyres. Off by default.",
       "default": false,
       "binds": "native"
     },

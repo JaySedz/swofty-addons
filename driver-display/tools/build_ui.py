@@ -721,15 +721,29 @@ def main():
         textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
         return tag, view_res, (x0, y0, x0 + w, y0 + h)
 
+    tex_same = {}  # 1.4.4: (crop, pixels) -> the texture already made from them
     tex_crop = {}  # 1.3.12: a cropped picture's part of its full canvas (fractions), by view resource
     quad_mats = {}  # 1.3.12: material bytes -> its binding resource, shared by every quad that draws the same
+    box_palette = []  # 1.4.6: the box colours so far; a box within BOX_TOL of one takes it (one material, not two)
+    BOX_TOL = 10      # per channel, of 255: not visible on the wheel screen
+    WHITE_VIEW = 'eaid://ui_package/art/textures/rd_ovl_wht0.tif'
 
     def car_quad(name, view_res, box, colour, visible, layer):
         """A quad over box drawing the texture in colour, shown by the leaf visible."""
+        # 1.4.6: the game aborts creating the wheel screen past ~310-322 materials an archive (1.4.5's new Red Bull
+        # pages: 322 crashed every time; 309 and less loaded), so near-identical box colours share one material
+        if view_res == WHITE_VIEW:
+            c3 = tuple(colour[:3])
+            near = next((p for p in box_palette if max(abs(a - b) for a, b in zip(c3, p)) <= BOX_TOL), None)
+            if near is None:
+                box_palette.append(c3)
+            else:
+                colour = near + tuple(colour[3:])
         x0, y0, x1, y1 = box
         if view_res in tex_crop:  # 1.3.12: a cropped picture covers only its part of the box
             f0, g0, f1, g1 = tex_crop[view_res]
-            x0, y0, x1, y1 = x0 + f0 * (box[2] - box[0]), y0 + g0 * (box[3] - box[1]), x0 + f1 * (box[2] - box[0]),                 y0 + g1 * (box[3] - box[1])
+            w, h = box[2] - box[0], box[3] - box[1]
+            x0, y0, x1, y1 = box[0] + f0 * w, box[1] + g0 * h, box[0] + f1 * w, box[1] + g1 * h
         # 1.3.12: quads with the same texture and colour share one material and binding (1.3.11 made 1,520 of each
         # an archive, only 283 different, and the game aborted opening the garage screen; 1.3.7's 1,222 had worked)
         mat = texture.material(stock_material, view_res, colour)
@@ -769,7 +783,7 @@ def main():
     _eox = (_ex0 + _ex1) / 2 - _ek * (_cb[0] + _cb[2]) / 2
     _eoy = (_ey0 + _ey1) / 2 - _ek * (_cb[1] + _cb[3]) / 2
 
-    _bx0, _by0, _bx1, _by1 = 175 * 1670 / 1280, 15 * 1670 / 1280, 1140 * 1670 / 1280, 340 * 1670 / 1280
+    _bx0, _by0, _bx1, _by1 = 270 * 1670 / 1280, 30 * 1670 / 1280, 1110 * 1670 / 1280, 330 * 1670 / 1280  # 1.4.5
     _bk = min((_bx1 - _bx0) / (_cb[2] - _cb[0]), (_by1 - _by0) / (_cb[3] - _cb[1]))
     _box_ = (_bx0 + _bx1) / 2 - _bk * (_cb[0] + _cb[2]) / 2
     _boy = (_by0 + _by1) / 2 - _bk * (_cb[1] + _cb[3]) / 2
@@ -789,7 +803,7 @@ def main():
     _uox = (_ux0 + _ux1) / 2 - _uk * (_cb[0] + _cb[2]) / 2
     _uoy = (_uy0 + _uy1) / 2 - _uk * (_cb[1] + _cb[3]) / 2
 
-    _hx0, _hy0, _hx1, _hy1 = 150 * 1670 / 1280, 95 * 1670 / 1280, 1130 * 1670 / 1280, 495 * 1670 / 1280
+    _hx0, _hy0, _hx1, _hy1 = 60 * 1670 / 1280, 96 * 1670 / 1280, 1160 * 1670 / 1280, 370 * 1670 / 1280  # 1.5.3
     _hk = min((_hx1 - _hx0) / (_cb[2] - _cb[0]), (_hy1 - _hy0) / (_cb[3] - _cb[1]))
     _hox = (_hx0 + _hx1) / 2 - _hk * (_cb[0] + _cb[2]) / 2
     _hoy = (_hy0 + _hy1) / 2 - _hk * (_cb[1] + _cb[3]) / 2
@@ -798,6 +812,39 @@ def main():
     _lk = min((_lx1 - _lx0) / (_cb[2] - _cb[0]), (_ly1 - _ly0) / (_cb[3] - _cb[1]))
     _lox = (_lx0 + _lx1) / 2 - _lk * (_cb[0] + _cb[2]) / 2
     _loy = (_ly0 + _ly1) / 2 - _lk * (_cb[1] + _cb[3]) / 2
+
+    _cx0, _cy0, _cx1, _cy1 = 140 * 1670 / 1280, 95 * 1670 / 1280, 1150 * 1670 / 1280, 445 * 1670 / 1280
+    _ck = min((_cx1 - _cx0) / (_cb[2] - _cb[0]), (_cy1 - _cy0) / (_cb[3] - _cb[1]))
+    _cox = (_cx0 + _cx1) / 2 - _ck * (_cb[0] + _cb[2]) / 2
+    _coy = (_cy0 + _cy1) / 2 - _ck * (_cb[1] + _cb[3]) / 2
+
+    _vx0, _vy0, _vx1, _vy1 = 30 * 1670 / 1280, 95 * 1670 / 1280, 810 * 1670 / 1280, 380 * 1670 / 1280
+    _vk = min((_vx1 - _vx0) / (_cb[2] - _cb[0]), (_vy1 - _vy0) / (_cb[3] - _cb[1]))
+    _vox = (_vx0 + _vx1) / 2 - _vk * (_cb[0] + _cb[2]) / 2
+    _voy = (_vy0 + _vy1) / 2 - _vk * (_cb[1] + _cb[3]) / 2
+
+    def fit_map(bx):
+        """1.4.7: the car fitted (its own proportions) and centred in bx (mock-up pixels)."""
+        x0, y0, x1, y1 = (v * 1670 / 1280 for v in bx)
+        k = min((x1 - x0) / (_cb[2] - _cb[0]), (y1 - y0) / (_cb[3] - _cb[1]))
+        ox = (x0 + x1) / 2 - k * (_cb[0] + _cb[2]) / 2
+        oy = (y0 + y1) / 2 - k * (_cb[1] + _cb[3]) / 2
+        return lambda b: (ox + k * b[0], oy + k * b[1], ox + k * b[2], oy + k * b[3])
+
+    # 1.4.7: pairs of teams share one car drawing (each copy is ~80 nodes; 1.4.5's 2,626 nodes made the game abort
+    # creating the wheel screen), fitted in the area both designs leave for the car
+    g1_car = fit_map((270, 30, 1095, 330))    # Red Bull + Williams
+    g2_car = fit_map((120, 75, 1160, 400))    # Aston Martin + Audi
+    g3_car = fit_map((150, 96, 1130, 370))    # Haas + Cadillac (1.5.4: fitted to Haas's lower car cell)
+    g4_car = fit_map((140, 150, 1150, 478))   # Mercedes + McLaren
+
+    def vc_car(box):  # 1.4.3
+        x0, y0, x1, y1 = box
+        return (_vox + _vk * x0, _voy + _vk * y0, _vox + _vk * x1, _voy + _vk * y1)
+
+    def cd_car(box):  # 1.4.2
+        x0, y0, x1, y1 = box
+        return (_cox + _ck * x0, _coy + _ck * y0, _cox + _ck * x1, _coy + _ck * y1)
 
     def al_car(box):  # 1.3.10
         x0, y0, x1, y1 = box
@@ -845,14 +892,12 @@ def main():
             vn, vf = split_leaf(H + f'c{c}_{key}')
             car_quad(f'{tag}_{c}', view_res, box, colour, vn, layer)
             car_quad(f'{tag}_{c}_fd', view_res, fer_car(box), colour, vf, layer)
-            car_quad(f'{tag}_{c}_md', view_res, mc_car(box), colour, team_leaf(H + f'c{c}_{key}', 'm'), layer)
-            car_quad(f'{tag}_{c}_ed', view_res, me_car(box), colour, team_leaf(H + f'c{c}_{key}', 'e'), layer)
-            car_quad(f'{tag}_{c}_bd', view_res, rb_car(box), colour, team_leaf(H + f'c{c}_{key}', 'b'), layer)
-            car_quad(f'{tag}_{c}_ad', view_res, am_car(box), colour, team_leaf(H + f'c{c}_{key}', 'am'), layer)
-            car_quad(f'{tag}_{c}_wd', view_res, wi_car(box), colour, team_leaf(H + f'c{c}_{key}', 'wi'), layer)
-            car_quad(f'{tag}_{c}_ud', view_res, au_car(box), colour, team_leaf(H + f'c{c}_{key}', 'au'), layer)
-            car_quad(f'{tag}_{c}_hd', view_res, hs_car(box), colour, team_leaf(H + f'c{c}_{key}', 'hs'), layer)
             car_quad(f'{tag}_{c}_ld', view_res, al_car(box), colour, team_leaf(H + f'c{c}_{key}', 'al'), layer)
+            car_quad(f'{tag}_{c}_g1', view_res, g1_car(box), colour, team_leaf(H + f'c{c}_{key}', 'g1'), layer)
+            car_quad(f'{tag}_{c}_g2', view_res, g2_car(box), colour, team_leaf(H + f'c{c}_{key}', 'g2'), layer)
+            car_quad(f'{tag}_{c}_g3', view_res, g3_car(box), colour, team_leaf(H + f'c{c}_{key}', 'g3'), layer)
+            car_quad(f'{tag}_{c}_g4', view_res, g4_car(box), colour, team_leaf(H + f'c{c}_{key}', 'g4'), layer)
+            car_quad(f'{tag}_{c}_vd', view_res, vc_car(box), colour, team_leaf(H + f'c{c}_{key}', 'vc'), layer)
 
     def car_fixed(stem, colour, layer):
         """A part not coloured by damage: shown on the car page."""
@@ -860,14 +905,12 @@ def main():
         vn, vf = split_leaf(H + 'p1')
         car_quad(f'{tag}_f', view_res, box, colour, vn, layer)
         car_quad(f'{tag}_fd', view_res, fer_car(box), colour, vf, layer)
-        car_quad(f'{tag}_md', view_res, mc_car(box), colour, team_leaf(H + 'p1', 'm'), layer)
-        car_quad(f'{tag}_ed', view_res, me_car(box), colour, team_leaf(H + 'p1', 'e'), layer)
-        car_quad(f'{tag}_bd', view_res, rb_car(box), colour, team_leaf(H + 'p1', 'b'), layer)
-        car_quad(f'{tag}_ad', view_res, am_car(box), colour, team_leaf(H + 'p1', 'am'), layer)
-        car_quad(f'{tag}_wd', view_res, wi_car(box), colour, team_leaf(H + 'p1', 'wi'), layer)
-        car_quad(f'{tag}_ud', view_res, au_car(box), colour, team_leaf(H + 'p1', 'au'), layer)
-        car_quad(f'{tag}_hd', view_res, hs_car(box), colour, team_leaf(H + 'p1', 'hs'), layer)
         car_quad(f'{tag}_ld', view_res, al_car(box), colour, team_leaf(H + 'p1', 'al'), layer)
+        car_quad(f'{tag}_g1', view_res, g1_car(box), colour, team_leaf(H + 'p1', 'g1'), layer)
+        car_quad(f'{tag}_g2', view_res, g2_car(box), colour, team_leaf(H + 'p1', 'g2'), layer)
+        car_quad(f'{tag}_g3', view_res, g3_car(box), colour, team_leaf(H + 'p1', 'g3'), layer)
+        car_quad(f'{tag}_g4', view_res, g4_car(box), colour, team_leaf(H + 'p1', 'g4'), layer)
+        car_quad(f'{tag}_vd', view_res, vc_car(box), colour, team_leaf(H + 'p1', 'vc'), layer)
 
     def overlay_texture(tag, alpha):
         """A full-canvas texture from an alpha picture (836 x 472, half the canvas: 4 px blocks), named tag (11
@@ -882,6 +925,11 @@ def main():
         cx0, cy0 = bb[0] // 4 * 4, bb[1] // 4 * 4
         cx1, cy1 = min(836, -(-bb[2] // 4) * 4), min(472, -(-bb[3] // 4) * 4)
         alpha = alpha.crop((cx0, cy0, cx1, cy1))
+        # 1.4.4: a picture identical to one made already (same crop, same pixels) is that one's texture
+        same = tex_same.get((cx0, cy0, cx1, cy1, alpha.tobytes()))
+        if same is not None:
+            return same
+        tex_same[(cx0, cy0, cx1, cy1, alpha.tobytes())] = view_res
         tex_crop[view_res] = (cx0 / 836, cy0 / 472, cx1 / 836, cy1 / 472)
         files[rel + '.head'] = texture.surface_head(cx1 - cx0, cy1 - cy0)
         files[rel + '.pixels'] = texture.bc7_white(alpha.tobytes(), cx1 - cx0, cy1 - cy0)
@@ -1094,11 +1142,11 @@ def main():
         textures.append((image_res, 'GfxSurfaceRes', [rel + '.head', rel + '.pixels']))
         textures.append((view_res, 'GfxSRVResource', [rel + '.view']))
         return view_res
-    box('rd_lt_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'lights', L_FULL + 4)
+    box('rd_lt_bg', 0, 0, 1670, 942, (0, 0, 0), H + 'lights', L_FULL + 12)  # 1.4.11: over Spool Up's screen
     circle = circle_texture()
     for i in range(5):
         cx = 835 + (i - 2) * 300
-        car_quad(f'rd_lt{i + 1}', circle, (cx - 120, 351, cx + 120, 591), (235, 20, 20), H + f'lt{i + 1}', L_FULL + 5)
+        car_quad(f'rd_lt{i + 1}', circle, (cx - 120, 351, cx + 120, 591), (235, 20, 20), H + f'lt{i + 1}', L_FULL + 13)
 
     # the pit limiter screen's speed: the game's speed text as on the race page (1.1.3)
     for tone, colour in (('dark', (10, 10, 10)), ('light', WHITE)):
@@ -1314,14 +1362,12 @@ def main():
     car_view = overlay_texture('rd_ovl_car0', union.resize((836, 472), Image.LANCZOS))
     car_quad('rd_ovl_car0', car_view, (0, 0, 1670, 942), PART_N, vn, 51)
     car_quad('rd_ovl_car0_fd', car_view, fer_car((0, 0, 1670, 942)), PART_N, vf, 51)
-    car_quad('rd_ovl_car0_md', car_view, mc_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'm'), 51)
-    car_quad('rd_ovl_car0_ed', car_view, me_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'e'), 51)
-    car_quad('rd_ovl_car0_bd', car_view, rb_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'b'), 51)
-    car_quad('rd_ovl_car0_ad', car_view, am_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'am'), 51)
-    car_quad('rd_ovl_car0_wd', car_view, wi_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'wi'), 51)
-    car_quad('rd_ovl_car0_ud', car_view, au_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'au'), 51)
-    car_quad('rd_ovl_car0_hd', car_view, hs_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'hs'), 51)
     car_quad('rd_ovl_car0_ld', car_view, al_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'al'), 51)
+    car_quad('rd_ovl_car0_g1', car_view, g1_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'g1'), 51)
+    car_quad('rd_ovl_car0_g2', car_view, g2_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'g2'), 51)
+    car_quad('rd_ovl_car0_g3', car_view, g3_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'g3'), 51)
+    car_quad('rd_ovl_car0_g4', car_view, g4_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'g4'), 51)
+    car_quad('rd_ovl_car0_vd', car_view, vc_car((0, 0, 1670, 942)), PART_N, team_leaf(H + 'p1', 'vc'), 51)
 
     # bottom left: fuel mode | differential; bottom right: brake bias
     DEFAULT_FER[0] = 'none'  # 1.2.22: the car and pit pages' values: the Ferrari draws its own
@@ -1686,21 +1732,21 @@ def main():
     SEG_OUT = [s for s in SOC_SEGS] + [s for s in RPM_SEGS]
     INTERVAL_LINES = [(889, 423 + 61 * i, 1192, 423 + 61 * i) for i in range(4)]
     SECTOR_LINES = [(889, 459, 1192, 459), (889, 538, 1192, 538)]
-    mc_picture('r', COMMON + [('LAP TIME', 107, 52, 'lm', 22), ('FUEL Δ', 107, 188, 'lm', 22), ('LAP', 107, 307, 'lm', 22),
-                              ('POS', 107, 484, 'lm', 22), ('PREV LAP Δ', 1190, 52, 'rm', 22), ('SPEED', 1190, 263, 'rm', 22),
+    mc_picture('r', COMMON + [('LAP TIME', 107, 52, 'lm', 22), ('FUEL', 107, 188, 'lm', 22), ('LAP', 107, 307, 'lm', 22),
+                              ('POS', 107, 484, 'lm', 22), ('VS PREV LAP', 1190, 52, 'rm', 22), ('SPEED', 1190, 263, 'rm', 22),
                               ('INTERVAL  /  s', 889, 333, 'lm', 22), ('TYRE TEMP', 640, 410, 'mm', 22)],
                INTERVAL_LINES, SEG_OUT)
     mc_picture('q', COMMON + [('LAST LAP', 107, 52, 'lm', 22), ('PERSONAL BEST', 107, 188, 'lm', 22),
-                              ('STINT LAP', 107, 484, 'lm', 22), ('Δ TO PB', 1190, 52, 'rm', 22), ('SPEED', 1190, 263, 'rm', 22),
+                              ('STINT LAP', 107, 484, 'lm', 22), ('VS PB', 1190, 52, 'rm', 22), ('SPEED', 1190, 263, 'rm', 22),
                               ('LAST LAP SECTORS', 889, 351, 'lm', 22), ('S1', 889, 418, 'lm', 28), ('S2', 889, 497, 'lm', 28),
                               ('S3', 889, 576, 'lm', 28), ('TYRE TEMP', 640, 410, 'mm', 22)], SECTOR_LINES, SEG_OUT)
-    mc_picture('s', COMMON + [('LAP', 107, 419, 'lm', 22), ('FUEL Δ', 107, 561, 'lm', 22), ('PIT WINDOW', 889, 419, 'lm', 22),
+    mc_picture('s', COMMON + [('LAP', 107, 419, 'lm', 22), ('FUEL', 107, 561, 'lm', 22), ('PIT WINDOW', 889, 419, 'lm', 22),
                               ('BRAKE BIAS', 889, 561, 'lm', 22), ('TYRE TEMP', 640, 410, 'mm', 22)], (), SEG_OUT)
     mc_picture('sk', [('VSC DELTA', 107, 52, 'lm', 22), ('EST. PIT EXIT', 1190, 52, 'rm', 22)], [(545, 250, 735, 250)],
                icon=False, colour=(245, 245, 245), dark=True)  # 1.3.11: white on amber
-    mc_picture('d', COMMON + [('LAP TIME', 107, 52, 'lm', 22), ('PREV LAP Δ', 1190, 52, 'rm', 22),
+    mc_picture('d', COMMON + [('LAP TIME', 107, 52, 'lm', 22), ('VS PREV LAP', 1190, 52, 'rm', 22),
                               ('FUEL MODE', 109, 574, 'lm', 22), ('DIFF', 405, 574, 'lm', 22), ('BRAKE BIAS', 681, 574, 'lm', 22),
-                              ('FUEL Δ', 994, 574, 'lm', 22)], (), SEG_OUT, icon=False)
+                              ('FUEL', 994, 574, 'lm', 22)], (), SEG_OUT, icon=False)
     mc_picture('p', COMMON + [('PIT WINDOW', 107, 52, 'lm', 22), ('REJOIN', 107, 188, 'lm', 22), ('REPAIR WING', 107, 307, 'lm', 22),
                               ('LAP', 107, 484, 'lm', 22), ('TYRES', 1190, 52, 'rm', 22), ('SPEED', 1190, 263, 'rm', 22),
                               ('TYRE WEAR', 640, 410, 'mm', 22), ('PIT STOP TIME', 889, 414, 'lm', 22)], (), SEG_OUT)
@@ -1863,10 +1909,10 @@ def main():
     L = 19  # label size (mock-up px)
     TYRE_LABELS = [('FL', 93, 346, 'lm', 22), ('RL', 93, 445, 'lm', 22), ('FR', 785, 346, 'lm', 22),
                    ('RR', 785, 445, 'lm', 22)]
-    me_picture('r', 'RACE', [('SESSION', 975, 51, 'mm', L), ('PREV LAP Δ', 92, 119, 'lm', L), ('POS', 503, 134, 'lm', L),
+    me_picture('r', 'RACE', [('SESSION', 975, 51, 'mm', L), ('VS PREV LAP', 92, 119, 'lm', L), ('POS', 503, 134, 'lm', L),
                              ('LAP', 503, 211, 'lm', L), ('LAP TIME', 785, 119, 'lm', L), ('TYRE TEMP', 89, 281, 'lm', L),
                              ('TYRE TEMP', 781, 281, 'lm', L), ('GEAR', 625, 278, 'mm', L), ('AHEAD', 93, 554, 'lm', L),
-                             ('BEHIND', 93, 639, 'lm', L), ('SPEED', 625, 586, 'mm', L), ('FUEL Δ', 785, 554, 'lm', L),
+                             ('BEHIND', 93, 639, 'lm', L), ('SPEED', 625, 586, 'mm', L), ('FUEL', 785, 554, 'lm', L),
                              ('BRAKE BIAS', 785, 639, 'lm', L)] + TYRE_LABELS,
                FRAME + TOPMID + TYRE_SPLITS + BOTTOM_SPLITS)
     me_picture('q', 'PRACTICE', [('TIME LEFT', 975, 51, 'mm', L), ('DELTA TO BEST', 92, 119, 'lm', L),
@@ -1875,12 +1921,12 @@ def main():
                                  ('S3', 90, 461, 'lm', 22), ('TYRE TEMP', 781, 281, 'lm', L), ('FL', 781, 351, 'lm', 22),
                                  ('FR', 989, 351, 'lm', 22), ('RL', 781, 445, 'lm', 22), ('RR', 989, 445, 'lm', 22),
                                  ('GEAR', 625, 278, 'mm', L), ('PERSONAL BEST', 93, 525, 'lm', L), ('SPEED', 625, 586, 'mm', L),
-                                 ('FUEL Δ', 785, 554, 'lm', L), ('BRAKE BIAS', 785, 639, 'lm', L)],
+                                 ('FUEL', 785, 554, 'lm', L), ('BRAKE BIAS', 785, 639, 'lm', L)],
                FRAME + TOPMID + [(86, 371, 471, 371), (86, 433, 471, 433), (983, 310, 983, 490), (777, 400, 1192, 400),
                                  (778, 601, 1191, 601)])
     me_picture('s', '', [('SESSION', 975, 51, 'mm', L), ('TYRE TEMP', 89, 281, 'lm', L), ('TYRE TEMP', 781, 281, 'lm', L),
                          ('GEAR', 625, 278, 'mm', L), ('LAP', 93, 554, 'lm', L), ('PIT WINDOW', 93, 639, 'lm', L),
-                         ('SPEED', 625, 586, 'mm', L), ('FUEL Δ', 785, 554, 'lm', L), ('BRAKE BIAS', 785, 639, 'lm', L),
+                         ('SPEED', 625, 586, 'mm', L), ('FUEL', 785, 554, 'lm', L), ('BRAKE BIAS', 785, 639, 'lm', L),
                          ('VSC DELTA', 92, 123, 'lm', L), ('CURRENT POS', 625, 126, 'mm', L),
                          ('EST. PIT EXIT', 785, 123, 'lm', L)] + TYRE_LABELS,
                FRAME + TYRE_SPLITS + BOTTOM_SPLITS)
@@ -1964,12 +2010,11 @@ def main():
     hdr += [f'    "{c}",' for c in sorted(me_combos)] + ['};', '']
     open(os.path.join(ROOT, 'native', 'src', 'me_combos.hpp'), 'w', encoding='utf-8').write('\n'.join(hdr))
 
-    # ---- the 2026 Red Bull's own pages (1.2.37, the user's mock-ups). Open layout: a big speed top left with a light
-    # beside it, a huge gear in the centre, the deltas and lap time on the right, a list of values down the left, the
-    # battery as a blue column on the left edge, a yellow box at the bottom, the tyres as four coloured cells bottom
-    # right. White text only (Red Bull has boxes to carry colour); the boxes are a shade deeper than the mock-ups' so
-    # white reads on them. The light top left: green clear, yellow under a yellow flag / SC, blue for a blue flag, red
-    # under a red flag; on the pit page the tyres' compound colour. Layouts r q s d p, sets on rb_<states>.
+    # ---- the 2026 Red Bull's own pages (1.4.5: the user's redesign, replacing 1.2.37's from an older Red Bull
+    # screen). Navy panels: the battery as a column on the left, the gear panel in the centre with the speed, the revs
+    # and a 20-light rev strip, rows of values, a delta box (green gaining, red losing, amber before a delta), the
+    # tyre cells in their temperature band's colour (wear band on the pit page). White text; the boxes carry the
+    # colour. Layouts r q s d p, sets on rb_<states>; text nodes end _b.
     rb_combos = set()
 
     def rb_leaf(states):
@@ -1978,7 +2023,10 @@ def main():
         rb_combos.add(states)
         return 'rb_' + states
 
-    RB_LABEL = (175, 178, 186)
+    RB_LABEL = (160, 172, 192)
+    RB_NAMES = 23 / 19  # 1.4.9: the names a fifth bigger (19 px read as too small on the wheel)
+    RB_PANEL, RB_GEARP, RB_LINE = (17, 26, 44), (22, 36, 64), (62, 78, 104)
+    RB_AMBER = (180, 132, 10)
 
     def rb_text(name, x, y, dbentry, states, size=40, align='left', value='-', style='OSD_24_bold', chars=5):
         scale = M(size) / 250.0 if style == 'OSD_80_bold' else size / 34.0
@@ -1996,123 +2044,170 @@ def main():
             lcd.move(nm, sx=scale, sy=scale)
         tpl.add_label(f'{nm}_w', nm, dbentry, value=value, colour=None, visible=H + rb_leaf(states))
 
+    RB_TEST = os.environ.get('DD_RBTEST', '')  # test builds only: 'noboxes' / 'nopics' leave that part out
+
     def rb_box(name, x0, y0, x1, y1, colour, states, layer=None):
+        if RB_TEST == 'noboxes':
+            return
         car_quad(name + '_b', white_texture(), (M(x0), M(y0), M(x1), M(y1)), colour, H + rb_leaf(states),
                  L_PART if layer is None else layer)
 
-    RB_SOC = [(0, 223 + i * (477 / 16), 61, 223 + (i + 1) * (477 / 16) - 3) for i in range(16)]  # top .. bottom
-    RB_CELLS = {'fl': (935, 550, 1092, 623), 'fr': (1096, 550, 1256, 623), 'rl': (935, 627, 1092, 700),
-                'rr': (1096, 627, 1256, 700)}
+    SOC = (17, 18, 100, 700)
+    RB_SEGS = [(38, 104 + i * (516 / 9), 78, 104 + (i + 1) * (516 / 9) - 6) for i in range(9)]  # 1.4.7: 9 (was 18)  # top .. bottom
+    REV = [(482 + i * 32, 306, 482 + i * 32 + 28, 317) for i in range(10)]  # 1.4.7: 10 (was 20); 1.4.8: centred
+    P_TL, P_ML, P_BL = (116, 18, 437, 165), (116, 180, 437, 340), (116, 354, 437, 700)
+    P_BL1, P_BL2 = (116, 354, 437, 513), (116, 528, 437, 700)
+    P_GEAR, P_BADGE, P_LC = (452, 18, 822, 340), (470, 354, 805, 430), (452, 445, 822, 700)
+    P_TR, P_DELTA, P_TYRE = (838, 18, 1263, 165), (838, 180, 1263, 363), (838, 381, 1263, 700)
+    P_BAND, P_DIFF, P_BB = (116, 18, 1263, 340), (452, 445, 822, 700), (838, 354, 1263, 700)
+    CELLS = {'fl': (853, 436, 1046, 554), 'fr': (1054, 436, 1246, 554), 'rl': (853, 564, 1046, 682),
+             'rr': (1054, 564, 1246, 682)}
 
-    def rb_picture(tag, labels, cells=True, ybox=True, dark_band=False):
-        big = Image.new('L', (1672, 944), 0)
-        d = ImageDraw.Draw(big)
-        for x0, y0, x1, y1 in RB_SOC:
-            d.rectangle([M(x0), M(y0), M(x1), M(y1)], outline=255, width=2)
-        d.text((M(163), M(630)), 'ERS SOC', font=fp_font(int(M(25))), fill=255, anchor='mm')
-        if cells:
-            for c, (x0, y0, x1, y1) in RB_CELLS.items():
-                d.rectangle([M(x0), M(y0), M(x1), M(y1)], outline=255, width=2)
-                d.text((M(x0 + 13), M(y0 + 14)), c.upper(), font=fp_font(int(M(19))), fill=255, anchor='lm')
-        for word, x, y, anchor, size in labels:  # 1.2.39: a third bigger (19 px read as almost unreadable)
-            d.text((M(x), M(y)), word, font=fp_font(int(M(size) * 1.35)), fill=255, anchor=anchor)
-        car_quad(f'rd_rb_pic_{tag}_b', overlay_texture(f'rd_ovl_rb{tag}0', big.resize((836, 472), Image.LANCZOS)),
-                 (0, 0, 1670, 942), RB_LABEL, H + rb_leaf(tag), L_SHAPE + 3)
+    # the panels (boxes, every layout that has them)
+    for name, box, states, colour in (('soc', SOC, 'rqsdp', RB_PANEL), ('tl', P_TL, 'rqp', RB_PANEL),
+                                      ('ml', P_ML, 'rqp', RB_PANEL), ('bl', P_BL, 'rqsd', RB_PANEL),
+                                      ('bl1', P_BL1, 'p', RB_PANEL), ('bl2', P_BL2, 'p', RB_PANEL),
+                                      ('gear', P_GEAR, 'rqp', RB_GEARP), ('badge', P_BADGE, 'rqsdp', RB_PANEL),
+                                      ('lc', P_LC, 'rqsdp', RB_PANEL), ('tr', P_TR, 'rqp', RB_PANEL),
+                                      ('tyre', P_TYRE, 'rqsp', RB_PANEL), ('carp', P_BAND, 'd', RB_PANEL),
+                                      ('bb', P_BB, 'd', RB_PANEL), ('band', P_BAND, 's', RB_AMBER),
+                                      ('pst', P_DELTA, 'p', RB_AMBER)):
+        rb_box(f'rd_rb_p_{name}', *box, colour, states, L_BACK + 2)
+    # the delta box: green gaining, red losing, amber before there is a delta (race, practice / qualifying)
+    for tag, colour in (('dneg', (35, 150, 70)), ('dpos', (190, 55, 50)), ('dnone', RB_AMBER)):
+        rb_box(f'rd_rb_{tag}', *P_DELTA, colour, f'rb_{tag}', L_BACK + 2)
 
-    L = 19
-    rb_picture('r', [('SPEED', 185, 27, 'lm', L), ('PREV LAP Δ', 1250, 27, 'rm', L), ('LAP TIME', 1250, 156, 'rm', L),
-                     ('LAP', 92, 243, 'lm', 24), ('POS', 92, 325, 'lm', 24), ('TYRE AGE', 92, 406, 'lm', 22),
-                     ('FUEL Δ', 92, 489, 'lm', 24), ('BRAKE BALANCE', 1250, 378, 'rm', L), ('AHEAD', 530, 525, 'lm', L),
-                     ('BEHIND', 712, 525, 'lm', L), ('TYRE TEMP', 940, 527, 'lm', L), ('LAST LAP', 280, 620, 'lm', 15)])
-    rb_picture('q', [('SPEED', 185, 27, 'lm', L), ('DELTA TO BEST', 1250, 27, 'rm', L), ('LAST LAP', 1250, 156, 'rm', L),
-                     ('S1', 92, 243, 'lm', 24), ('S2', 92, 325, 'lm', 24), ('S3', 92, 406, 'lm', 24),
-                     ('PERSONAL BEST', 92, 488, 'lm', L), ('STINT LAP', 1250, 378, 'rm', L), ('FUEL Δ', 530, 525, 'lm', L),
-                     ('BB', 712, 525, 'lm', L), ('TYRE TEMP', 940, 527, 'lm', L), ('TIME LEFT', 280, 620, 'lm', 15)])
-    rb_picture('s', [('VSC DELTA', 85, 37, 'lm', 22), ('GEAR', 633, 30, 'mm', 22), ('EST. PIT EXIT', 1250, 37, 'rm', 22),
-                     ('LAP', 92, 283, 'lm', 24), ('POS', 92, 368, 'lm', 24), ('TYRE AGE', 92, 452, 'lm', 22),
-                     ('SPEED', 635, 243, 'mm', L), ('BRAKE BALANCE', 1250, 378, 'rm', L), ('PIT WINDOW', 558, 525, 'lm', L),
-                     ('TYRE TEMP', 940, 527, 'lm', L), ('FUEL Δ', 280, 620, 'lm', 15)])
-    rb_picture('d', [('FUEL MODE', 128, 480, 'lm', L), ('DIFFERENTIAL', 637, 516, 'mm', L),
-                     ('BRAKE BALANCE', 1225, 480, 'rm', L)], cells=False, ybox=False)
-    rb_picture('p', [('PIT WINDOW', 178, 35, 'lm', L), ('TYRES', 1250, 27, 'rm', L),
-                     ('REPAIR WING', 1250, 175, 'rm', L), ('REJOIN', 1250, 318, 'rm', L), ('LAP', 92, 276, 'lm', 24), ('POS', 92, 365, 'lm', 24),
-                     ('TYRE WEAR', 940, 527, 'lm', L), ('PIT STOP TIME', 280, 620, 'lm', 15)])
+    def rows3(x0, x1, y0, words, y1=700):  # a panel of three rows (a third of its height each), lines between
+        h = (y1 - y0) / 3
+        return [(w, x0 + 18, y0 + h * (i + 0.5), 'lm', 19) for i, w in enumerate(words)], \
+               [(x0 + 13, y0 + h, x1 - 13, y0 + h), (x0 + 13, y0 + 2 * h, x1 - 13, y0 + 2 * h)]
 
-    # ---- every page: the battery column (green; blue in the overtake zone, 1.2.42), ERS SOC, the mode badge
-    for i, (x0, y0, x1, y1) in enumerate(RB_SOC):  # rb_seg00 at the bottom
-        rb_box(f'rd_rb_seg{15 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (110, 190, 90), f'rb_seg{15 - i:02d}')  # green
-        rb_box(f'rd_rb_sob{15 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (40, 110, 255), f'rb_sob{15 - i:02d}')  # overtake
-    rb_text('rd_rb_soc', 163, 690, H + 'soc_n', 'rqsdp', size=44, align='centre')
-    for tag, colour in (('p', (95, 45, 205)), ('g', (35, 135, 55)), ('n', (70, 70, 76))):
-        rb_box(f'rd_rb_mode{tag}', 500, 365, 770, 428, colour, f'rb_mode_{tag}')
-    rb_text('rd_rb_mode', 635, 406, H + 'tm_badge', 'rb_mode', size=19, align='centre', value='')
-    # the light top left (race, practice, pit page; 1.2.43, the user's idea): the last sector's pace, grey before
-    # there is one, yellow slower than your best, green your best, purple the session's best
-    for tag, colour in (('n', (90, 92, 100)), ('y', (230, 190, 0)), ('g', (40, 200, 70)), ('p', (130, 60, 220))):
-        rb_box(f'rd_rb_sq{tag}', 80, 25, 149, 86, colour, f'rb_sq_{tag}')
-    # the yellow box at the bottom (a deeper yellow, white writing)
-    rb_box('rd_rb_ybox', 263, 603, 536, 700, (200, 155, 0), 'rqsp')
-    # ---- the tyre cells: temperature bands (race, practice, SC), wear bands (pit page)
-    for c, (x0, y0, x1, y1) in RB_CELLS.items():
-        for tag, colour in (('k', (40, 100, 200)), ('g', (35, 145, 60)), ('o', (210, 120, 30))):
-            rb_box(f'rd_rb_t{c}{tag}', x0 + 2, y0 + 2, x1 - 2, y1 - 2, colour, f'rb_t{c}_{tag}', L_BACK + 3)
-        for tag, colour in (('g', (35, 145, 60)), ('a', (210, 140, 20)), ('r', (190, 35, 35))):
-            rb_box(f'rd_rb_w{c}{tag}', x0 + 2, y0 + 2, x1 - 2, y1 - 2, colour, f'w{tag}_{c}_b', L_BACK + 3)
-        rb_text(f'rd_rb_t{c}', (x0 + x1) / 2, y1 - 12, H + f't_{c}', 'rqs', size=42, align='centre', value='--')
-        rb_text(f'rd_rb_w{c}', (x0 + x1) / 2, y1 - 12, H + f'w_{c}', 'p', size=42, align='centre', value='--')
+    def rb_pictures(tag, panels, names, lines=(), dark=False):
+        """The panels' outlines and lines (one picture, shared by the layouts that have the same) and the names."""
+        if RB_TEST == 'nopics':
+            return
+        ol = Image.new('L', (1672, 944), 0)
+        d = ImageDraw.Draw(ol)
+        for x0, y0, x1, y1 in panels:
+            d.rectangle([M(x0), M(y0), M(x1), M(y1)], outline=255, width=3)
+        for x0, y0, x1, y1 in lines:
+            d.line([M(x0), M(y0), M(x1), M(y1)], fill=255, width=2)
+        car_quad(f'rd_rb_ol_{tag}_b', overlay_texture(f'rd_ovl_rb{tag}l', ol.resize((836, 472), Image.LANCZOS)),
+                 (0, 0, 1670, 942), RB_LINE, H + rb_leaf(tag), L_SHAPE + 2)
+        # 1.5.5: every name in one white picture (were grey names and white names on the coloured boxes: one material
+        # and one node a page fewer)
+        nm = Image.new('L', (1672, 944), 0)
+        dn = ImageDraw.Draw(nm)
+        for word, x, y, anchor, size in list(names) + list(dark or []) + [('ERS', 58, 44, 'mm', 18), ('SOC', 58, 70, 'mm', 18)]:
+            dn.text((M(x), M(y)), word, font=fp_font(int(M(size * RB_NAMES))), fill=255, anchor=anchor)
+        car_quad(f'rd_rb_nm_{tag}_b', overlay_texture(f'rd_ovl_rb{tag}n', nm.resize((836, 472), Image.LANCZOS)),
+                 (0, 0, 1670, 942), (238, 240, 244), H + rb_leaf(tag), L_SHAPE + 3)
 
-    # ---- race / practice: speed, the gear, RPM, the right-hand column
-    rb_text('rd_rb_spd', 190, 135, H + 'fp_spd', 'rq', size=86, chars=3)
-    rb_text('rd_rb_gear', 637, 200, H + 'gear', 'rq', size=165, align='centre', style='OSD_80_bold', value='N')
-    rb_text('rd_rb_rpm', 637, 316, H + 'fp_rev', 'rq', size=30, align='centre')
-    rb_text('rd_rb_delta', 1243, 113, H + 'fp_delta', 'rq', size=68, align='right', chars=6)
-    rb_text('rd_rb_lt', 1245, 240, H + 'cur', 'r', size=56, align='right', chars=8)
-    rb_text('rd_rb_last', 1245, 240, H + 'fp_last', 'q', size=56, align='right', chars=8)
-    rb_text('rd_rb_bb', 1215, 468, H + 'bbal', 'rs', size=56, align='right', chars=3)
-    rb_text('rd_rb_stint', 1215, 468, H + 'fp_stint', 'q', size=56, align='right', chars=2)
-    # the left list
-    rb_text('rd_rb_lap', 225, 262, H + 'lap', 'r', size=50)
-    rb_text('rd_rb_pos', 225, 343, H + 'pos', 'r', size=50)
-    rb_text('rd_rb_age', 225, 425, H + 'fp_stint', 'r', size=50)
-    rb_text('rd_rb_fuel', 225, 507, H + 'fuel', 'r', size=50)
-    for k, y in ((1, 262), (2, 343), (3, 425)):
-        rb_text(f'rd_rb_s{k}', 220, y, H + f's{k}', 'q', size=50)
-    rb_text('rd_rb_pb', 97, 557, H + 'fp_pb', 'q', size=52)
-    # the middle row
-    rb_text('rd_rb_ahead', 530, 585, H + 'fp_gap0', 'r', size=36)
-    rb_text('rd_rb_behind', 712, 585, H + 'fp_gap1', 'r', size=36)
-    rb_text('rd_rb_qfuel', 530, 585, H + 'fuel', 'q', size=36)
-    rb_text('rd_rb_qbb', 712, 585, H + 'bbal', 'q', size=36)
-    # the yellow box's value
-    rb_text('rd_rb_ylast', 400, 680, H + 'fp_last', 'r', size=34, align='centre')
-    rb_text('rd_rb_yleft', 400, 680, H + 'fp_togo', 'q', size=34, align='centre')
-    rb_text('rd_rb_yfuel', 400, 680, H + 'fuel', 's', size=34, align='centre')
-    rb_text('rd_rb_ypst', 400, 680, H + 'pst', 'p', size=34, align='centre')
+    STD = [SOC, P_TL, P_ML, P_BL, P_GEAR, P_BADGE, P_LC, P_TR, P_TYRE]
+    GEARN = []  # 1.4.8: no GEAR / SPEED / RPM names (the user: the gear, the speed and the rev strip, centred)
+    GEARL = [(469, 211, 808, 211)]
+    TYRES = [('TYRE TEMPS', 858, 406, 'lm', 19)]
+    lr, ll = rows3(*P_BL[0::2], P_BL[1], ('TYRE AGE', 'FUEL', 'BRAKE BAL'))
+    cr, cl = rows3(*P_LC[0::2], P_LC[1], ('LAST', 'AHEAD', 'BEHIND'))
+    rb_pictures('r', STD, [('POSITION', 135, 39, 'lm', 19), ('LAP', 135, 201, 'lm', 19), ('LAP TIME', 858, 39, 'lm', 19)]
+                + GEARN + TYRES + lr + cr, GEARL + ll + cl, dark=[('VS PREV LAP', 857, 201, 'lm', 19)])
+    lr, ll = rows3(*P_BL[0::2], P_BL[1], ('BEST', 'FUEL', 'BRAKE BAL'))
+    cr, cl = rows3(*P_LC[0::2], P_LC[1], ('S1', 'S2', 'S3'))
+    rb_pictures('q', STD, [('STINT LAP', 135, 201, 'lm', 19), ('LAST LAP', 858, 39, 'lm', 19)]
+                + GEARN + TYRES + lr + cr, GEARL + ll + cl, dark=[('DELTA TO BEST', 857, 201, 'lm', 19)])
+    lr, ll = rows3(*P_BL[0::2], P_BL[1], ('LAP', 'POSITION', 'FUEL'))
+    cr, cl = rows3(*P_LC[0::2], P_LC[1], ('PIT WIN', 'BRAKE BAL', 'TYRE AGE'))
+    rb_pictures('s', [SOC, P_BL, P_BADGE, P_LC, P_TYRE, P_BAND], TYRES + lr + cr, ll + cl,
+                dark=[('VSC DELTA', 138, 61, 'lm', 19), ('GEAR', 479, 48, 'lm', 19), ('SPEED', 476, 257, 'lm', 19),
+                      ('EST. PIT EXIT', 853, 61, 'lm', 19)])
+    rb_pictures('d', [SOC, P_BAND, P_BL, P_BADGE, P_DIFF, P_BB],
+                [('FUEL MODE', 135, 376, 'lm', 19), ('DIFFERENTIAL', 471, 467, 'lm', 19),
+                 ('BRAKE BALANCE', 858, 376, 'lm', 19)])
+    cr, cl = rows3(*P_LC[0::2], P_LC[1], ('PIT EXIT POS', 'BRAKE BAL', 'FUEL'))
+    rb_pictures('p', [SOC, P_TL, P_ML, P_BL1, P_BL2, P_GEAR, P_BADGE, P_LC, P_TR, P_TYRE],
+                [('LAP', 135, 39, 'lm', 19), ('POSITION', 135, 201, 'lm', 19), ('TYRE AGE', 135, 376, 'lm', 19),
+                 ('REPAIR WING', 135, 550, 'lm', 19), ('PIT WINDOW', 471, 44, 'lm', 19), ('LAPS', 637, 269, 'mm', 20),
+                 ('NEXT TYRES', 858, 39, 'lm', 19), ('TYRE WEAR', 858, 406, 'lm', 19)] + cr, cl,
+                dark=[('PIT STOP TIME', 857, 201, 'lm', 19)])
+    # the SC band's lines: white on amber
+    scl = Image.new('L', (1672, 944), 0)
+    dl = ImageDraw.Draw(scl)
+    for x0, y0, x1, y1 in ((452, 33, 452, 323), (831, 33, 831, 323), (469, 211, 808, 211)):
+        dl.line([M(x0), M(y0), M(x1), M(y1)], fill=255, width=3)
+    if RB_TEST != 'nopics':
+        car_quad('rd_rb_scl_b', overlay_texture('rd_ovl_rbsc', scl.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
+                 (245, 245, 245), H + rb_leaf('s'), L_SHAPE + 4)
 
-    # ---- under a SC / VSC: the top band yellow
-    rb_box('rd_rb_scband', 0, 0, 1280, 220, (200, 155, 0), 's', L_BACK + 3)
-    rb_text('rd_rb_scd', 92, 140, H + 'fp_delta', 's', size=70)
-    rb_text('rd_rb_sgear', 633, 178, H + 'gear', 's', size=130, align='centre', style='OSD_80_bold', value='N')
-    rb_text('rd_rb_spit', 1240, 145, H + 'pitnow', 's', size=70, align='right', chars=3)
-    rb_text('rd_rb_slap', 225, 302, H + 'lap', 's', size=50)
-    rb_text('rd_rb_spos', 225, 387, H + 'pos', 's', size=50)
-    rb_text('rd_rb_sage', 225, 472, H + 'fp_stint', 's', size=50)
-    rb_text('rd_rb_sspd', 635, 330, H + 'fp_spd', 's', size=70, align='centre')
-    rb_text('rd_rb_spw', 558, 587, H + 'pw', 's', size=36)
-
+    # ---- every page: the battery (18 segments; green, blue in the overtake zone) and the mode badge
+    for i, (x0, y0, x1, y1) in enumerate(RB_SEGS):  # rb_seg00 at the bottom
+        rb_box(f'rd_rb_seg{8 - i:02d}', x0, y0, x1, y1, (90, 215, 110), f'rb_seg{8 - i:02d}')
+        rb_box(f'rd_rb_sob{8 - i:02d}', x0, y0, x1, y1, (40, 130, 255), f'rb_sob{8 - i:02d}')
+    rb_box('rd_rb_socbase', 38, 104, 78, 620, (30, 42, 64), 'rqsdp', L_BACK + 3)
+    rb_text('rd_rb_soc', 58, 670, H + 'soc_n', 'rqsdp', size=26, align='centre')
+    for tag, colour in (('p', (110, 70, 200)), ('g', (35, 135, 55)), ('n', (70, 72, 82))):
+        rb_box(f'rd_rb_mode{tag}', 483, 366, 792, 419, colour, f'rb_mode_{tag}')
+    rb_text('rd_rb_mode', 637, 404, H + 'tm_badge', 'rb_mode', size=24, align='centre', value='')
+    # ---- the gear panel: gear, speed, revs, rev strip (blue, red from light 14)
+    rb_text('rd_rb_gear', 640, 172, H + 'gear', 'rq', size=110, align='centre', style='OSD_80_bold', value='N')
+    rb_text('rd_rb_spd', 640, 286, H + 'fp_spd', 'rq', size=42, align='centre')  # 1.4.8: centred under the gear
+    rb_box('rd_rb_revbase', 478, 306, 800, 317, (36, 50, 76), 'rq', L_BACK + 3)
+    for i, (x0, y0, x1, y1) in enumerate(REV):
+        rb_box(f'rd_rb_rev{i:02d}', x0, y0, x1, y1, (60, 140, 255) if i < 7 else (240, 70, 80), f'rb_rev{i:02d}')
+    # ---- the top-left / middle-left panels, the top-right panel, the delta box's value
+    rb_text('rd_rb_pos', 143, 130, H + 'pos', 'r', size=56)
+    rb_text('rd_rb_lap', 140, 295, H + 'lap', 'r', size=52)
+    rb_text('rd_rb_sessl', 135, 45, H + 'sess_label', 'q', size=18, value='TIME LEFT')
+    rb_text('rd_rb_left', 141, 130, H + 'fp_togo', 'q', size=56)
+    rb_text('rd_rb_stint', 140, 295, H + 'fp_stint', 'q', size=52)
+    rb_text('rd_rb_lt', 864, 124, H + 'cur', 'r', size=44)  # 52 ran past the panel
+    rb_text('rd_rb_last', 864, 124, H + 'fp_last', 'q', size=44)
+    rb_text('rd_rb_delta', 865, 307, H + 'fp_delta', 'rq', size=60)
+    # ---- the rows (left panel, lower-centre panel): values by width from the panel's right edge
+    def rows(st, x1, y0, vals, size=34, y1=700):  # (key, chars[, size]): a lap time smaller, clear of its name
+        h = (y1 - y0) / 3
+        for i, v in enumerate(vals):
+            key, n, sz = (v + (size,))[:3]
+            rb_text(f'rd_rb_{st}{x1}_{i}', x1, y0 + h * (i + 0.5) + 14, H + key, st, size=sz, align='right', chars=n)
+    rows('r', 415, P_BL[1], (('fp_stint', 2), ('fuel', 5), ('bbal', 3)))
+    rows('r', 800, P_LC[1], (('fp_last', 8, 28), ('fp_gap0', 6), ('fp_gap1', 6)))
+    rows('q', 415, P_BL[1], (('fp_pb', 8, 27), ('fuel', 5), ('bbal', 3)))
+    rows('q', 800, P_LC[1], (('s1', 6), ('s2', 6), ('s3', 6)))
+    rows('s', 415, P_BL[1], (('lap', 5), ('pos', 3), ('fuel', 5)))
+    rows('s', 800, P_LC[1], (('pw', 6), ('bbal', 3), ('fp_stint', 2)))
+    rows('p', 800, P_LC[1], (('rejoin', 3), ('bbal', 3), ('fuel', 5)))
+    # ---- the tyre cells: temperature bands (race, practice, SC), wear bands (pit page); white values
+    for c, (x0, y0, x1, y1) in CELLS.items():
+        for tag, colour in (('k', (50, 120, 220)), ('g', (40, 165, 70)), ('o', (220, 130, 40))):
+            rb_box(f'rd_rb_c{c}{tag}', x0, y0, x1, y1, colour, f'rb_t{c}_{tag}', L_BACK + 3)
+        for tag, colour in (('g', (40, 165, 70)), ('a', (220, 160, 30)), ('r', (200, 50, 50))):
+            rb_box(f'rd_rb_w{c}{tag}', x0, y0, x1, y1, colour, f'w{tag}_{c}_b', L_BACK + 3)
+        rb_box(f'rd_rb_cn{c}', x0, y0, x1, y1, (44, 56, 80), f'rb_t{c}_n', L_BACK + 3)
+        rb_text(f'rd_rb_t{c}', (x0 + x1) / 2, y1 - 34, H + f't_{c}', 'rqs', size=44, align='centre', value='--')
+        rb_text(f'rd_rb_w{c}', (x0 + x1) / 2, y1 - 34, H + f'w_{c}', 'p', size=44, align='centre', value='--')
+    cl = Image.new('L', (1672, 944), 0)
+    dcl = ImageDraw.Draw(cl)
+    for c, (x0, y0, x1, y1) in CELLS.items():
+        dcl.text((M(x0 + 14), M(y0 + 18)), c.upper(), font=fp_font(int(M(18))), fill=255, anchor='lm')
+    if RB_TEST != 'nopics':
+        car_quad('rd_rb_cells_b', overlay_texture('rd_ovl_rbcl', cl.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
+                 (245, 245, 245), H + rb_leaf('rqsp'), L_SHAPE + 4)
+    # ---- the safety car's band
+    rb_text('rd_rb_scd', 140, 182, H + 'fp_delta', 's', size=46)  # clear of the band's divider
+    rb_text('rd_rb_sgear', 640, 172, H + 'gear', 's', size=100, align='centre', style='OSD_80_bold', value='N')
+    rb_text('rd_rb_sspd', 787, 283, H + 'fp_spd', 's', size=48, align='right', chars=3)
+    rb_text('rd_rb_spit', 863, 193, H + 'pitnow', 's', size=78)
     # ---- the car page
-    rb_text('rd_rb_mix', 130, 570, H + 'mix', 'd', size=72)
-    rb_text('rd_rb_diff', 633, 622, H + 'diff', 'd', size=72, align='centre')
-    rb_text('rd_rb_dbb', 1213, 585, H + 'bbal', 'd', size=72, align='right', chars=3)
-
+    rb_text('rd_rb_mix', 145, 568, H + 'mix', 'd', size=62)
+    rb_text('rd_rb_diff', 480, 617, H + 'diff', 'd', size=62)
+    rb_text('rd_rb_dbb', 868, 568, H + 'bbal', 'd', size=66)
     # ---- the pit page
-    rb_text('rd_rb_pw', 178, 135, H + 'pw', 'p', size=72)
-    rb_text('rd_rb_rejoin', 1243, 405, H + 'rejoin', 'p', size=60, align='right', chars=3)  # 1.2.39: under the wing
-    for tag, n in (('s', 5.2), ('m', 7.4), ('h', 5.2), ('i', 6.2), ('w', 4.2)):  # 1.2.39: SOFT sat too far left
-        rb_text(f'rd_rb_tyre{tag}', 1243, 125, H + 'tyre', f'ty_{tag}_b', size=64, align='right', chars=n)
-    rb_text('rd_rb_wing', 1243, 285, H + 'fp_wing', 'p', size=60, align='right', chars=3)
-    rb_text('rd_rb_plap', 225, 295, H + 'lap', 'p', size=50)
-    rb_text('rd_rb_ppos', 225, 382, H + 'pos', 'p', size=50)
+    rb_text('rd_rb_plap', 140, 130, H + 'lap', 'p', size=52)
+    rb_text('rd_rb_ppos', 143, 295, H + 'pos', 'p', size=52)
+    rb_text('rd_rb_page', 140, 472, H + 'fp_stint', 'p', size=52)
+    rb_text('rd_rb_wing', 140, 652, H + 'fp_wing', 'p', size=52)
+    rb_text('rd_rb_pw', 640, 190, H + 'pw', 'p', size=66, align='centre')
+    rb_text('rd_rb_tyre', 864, 124, H + 'tyre', 'p', size=46)
+    rb_text('rd_rb_pst', 865, 307, H + 'pst', 'p', size=60)
 
     hdr = ['// Written by tools/build_ui.py: the Red Bull pages\' layout sets (rb_<states>), as kFpCombos.', '#pragma once',
            '', 'inline constexpr const char *kRbCombos[] = {']
@@ -2157,9 +2252,9 @@ def main():
         car_quad(name + '_am', white_texture(), (M(x0), M(y0), M(x1), M(y1)), colour, H + am_leaf(states),
                  L_PART if layer is None else layer)
 
-    AM_RPM = [(75 + i * 38, 21, 75 + i * 38 + 35, 40) for i in range(30)]
-    AM_FUEL = [(30, 65 + i * (542 / 32), 53, 65 + (i + 1) * (542 / 32) - 2) for i in range(32)]  # top .. bottom
-    AM_SOC = [(1226, 65 + i * (542 / 32), 1249, 65 + (i + 1) * (542 / 32) - 2) for i in range(32)]
+    AM_RPM = [(75 + i * 76, 21, 75 + i * 76 + 72, 40) for i in range(15)]  # 1.4.7: 15 (was 30)
+    AM_FUEL = [(30, 65 + i * (542 / 16), 53, 65 + (i + 1) * (542 / 16) - 3) for i in range(16)]  # 1.4.7: 16 (was 32)  # top .. bottom
+    AM_SOC = [(1226, 65 + i * (542 / 16), 1249, 65 + (i + 1) * (542 / 16) - 3) for i in range(16)]  # 1.4.7: 16 (was 32)
     AM_CELLS = {'fl': (467, 325, 577, 392), 'fr': (704, 325, 814, 392), 'rl': (467, 447, 577, 514),
                 'rr': (704, 447, 814, 514)}
     AM_BARS = {'fl': (447, 335, 458, 382), 'fr': (820, 335, 831, 382), 'rl': (447, 457, 458, 504),
@@ -2199,44 +2294,40 @@ def main():
         for (x0, x1, y, word) in brackets:  # a bracket: a line with the ends turned down, its label under it
             dc.line([M(x0), M(y + 22), M(x0), M(y), M(x1), M(y), M(x1), M(y + 22)], fill=255, width=4)
             dc.text((M((x0 + x1) / 2), M(y + 19)), word, font=fp_font(int(M(19))), fill=255, anchor='mm')
+        if tag == 'q':  # 1.5.5: the practice page's sector names, cyan too: here (were a picture of their own)
+            for k, y in ((1, 255), (2, 365), (3, 474)):
+                dc.text((M(912), M(y)), f'S{k}', font=fp_font(int(M(26))), fill=255, anchor='lm')
         car_quad(f'rd_am_cyan_{tag}_am', overlay_texture(f'rd_ovl_am{tag}c', cy.resize((836, 472), Image.LANCZOS)),
                  (0, 0, 1670, 942), AM_CYAN, H + am_leaf(tag), L_SHAPE + 4)
 
     L = 19
-    am_picture('r', [('SPEED', 242, 220, 'mm', L), ('RPM', 242, 356, 'mm', L), ('PREV LAP Δ', 1038, 82, 'mm', L),
+    am_picture('r', [('SPEED', 242, 220, 'mm', L), ('RPM', 242, 356, 'mm', L), ('VS PREV LAP', 1038, 82, 'mm', L),
                      ('LAP TIME', 1038, 219, 'mm', L), ('POSITION', 1038, 355, 'mm', L), ('AHEAD', 530, 253, 'mm', 17),
-                     ('BEHIND', 750, 253, 'mm', 17), ('FUEL Δ', 242, 94, 'mm', 18)],
+                     ('BEHIND', 750, 253, 'mm', 17), ('FUEL', 242, 94, 'mm', 18)],
                brackets=[(101, 385, 479, 'BRAKE BIAS'), (896, 1180, 479, 'LAP')])
     am_picture('q', [('SPEED', 242, 220, 'mm', L), ('PERSONAL BEST', 242, 356, 'mm', L), ('LAST LAP', 1038, 88, 'mm', L),
                      ('DELTA TO BEST', 242, 94, 'mm', 18)],
                brackets=[(101, 385, 479, 'TIME LEFT')],
                lines=[(907, 300, 1178, 300), (907, 410, 1178, 410), (907, 520, 1178, 520)])
     am_picture('s', [('POSITION', 242, 297, 'mm', L), ('LAP', 1038, 297, 'mm', L), ('SPEED', 590, 268, 'mm', 26)],
-               brackets=[(101, 385, 479, 'FUEL Δ'), (896, 1180, 479, 'PIT WINDOW')])
+               brackets=[(101, 385, 479, 'FUEL'), (896, 1180, 479, 'PIT WINDOW')])
     am_picture('d', [('FUEL MODE', 235, 473, 'mm', 18)], brackets=[(491, 790, 457, 'DIFFERENTIAL'),
                                                                    (887, 1181, 457, 'BRAKE BIAS')],
                boxes=[(77, 62, 1204, 415)], panel=False, cells=False)
     am_picture('p', [('REPAIR WING', 1038, 262, 'mm', L), ('TYRES', 1038, 97, 'mm', L), ('TYRE AGE', 242, 262, 'mm', L),
                      ('PIT WINDOW', 242, 94, 'mm', 18), ('PIT STOP TIME', 640, 115, 'mm', 18)],
                brackets=[(101, 385, 479, 'LAP'), (896, 1180, 479, 'PIT EXIT POS')], axle_label='TYRE WEAR')
-    # the sector labels on the practice page in cyan
-    sq = Image.new('L', (1672, 944), 0)
-    ds = ImageDraw.Draw(sq)
-    for k, y in ((1, 255), (2, 365), (3, 474)):
-        ds.text((M(912), M(y)), f'S{k}', font=fp_font(int(M(26))), fill=255, anchor='lm')
-    car_quad('rd_am_secl_am', overlay_texture('rd_ovl_amsq', sq.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
-             AM_CYAN, H + am_leaf('q'), L_SHAPE + 4)
 
     # ---- every page: the slate panel, the rev strip, fuel and battery bars, the page's name, the mode badge
     am_box('rd_am_panel', PANEL[0] + 2, PANEL[1] + 2, PANEL[2] - 2, PANEL[3] - 2, (60, 64, 86), 'rqsp', L_BACK + 2)
     for i, (x0, y0, x1, y1) in enumerate(AM_RPM):
         am_box(f'rd_am_rpm{i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (150, 55, 72), f'am_rpm{i:02d}')
     for i, (x0, y0, x1, y1) in enumerate(AM_FUEL):  # am_fuel00 at the bottom
-        am_box(f'rd_am_fuel{31 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (240, 215, 130), f'am_fuel{31 - i:02d}')
+        am_box(f'rd_am_fuel{15 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (240, 215, 130), f'am_fuel{15 - i:02d}')
     am_text('rd_am_fuelpct', 48, 680, H + 'am_fuelpct', 'rqsdp', size=22, value='')
     for i, (x0, y0, x1, y1) in enumerate(AM_SOC):
-        am_box(f'rd_am_seg{31 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (150, 220, 130), f'am_seg{31 - i:02d}')
-        am_box(f'rd_am_sob{31 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (40, 110, 255), f'am_sob{31 - i:02d}')
+        am_box(f'rd_am_seg{15 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (150, 220, 130), f'am_seg{15 - i:02d}')
+        am_box(f'rd_am_sob{15 - i:02d}', x0 + 1, y0 + 1, x1 - 1, y1 - 1, (40, 110, 255), f'am_sob{15 - i:02d}')
     am_text('rd_am_soc', 1232, 680, H + 'soc_n', 'rqsdp', size=22)
     am_box('rd_am_pagebox', 342, 620, 604, 695, (30, 130, 110), 'rqsdp')
     for st, word in (('r', 'RACE'), ('q', 'PRACTICE'), ('d', 'CAR'), ('p', 'PIT INFO')):
@@ -2365,33 +2456,31 @@ def main():
                 d.line([M(x0), M(397), M(x1), M(397)], fill=255, width=2)
         for word, x, y, anchor, size in grey:
             d.text((M(x), M(y)), word, font=fp_font(int(M(size))), fill=255, anchor=anchor)
+        # 1.5.5: the row names (were white, a picture of their own) in the same picture, grey: one material and one
+        # node a page fewer
+        d.text((M(640), M(412)), 'ERS SOC', font=fp_font(int(M(20))), fill=255, anchor='mm')
+        for word, x, y in white:
+            d.text((M(x), M(y)), word, font=fp_font(int(M(21))), fill=255, anchor='lm')
         car_quad(f'rd_wi_pic_{tag}_wi', overlay_texture(f'rd_ovl_wi{tag}g', big.resize((836, 472), Image.LANCZOS)),
                  (0, 0, 1670, 942), WI_LABEL, H + wi_leaf(tag), L_SHAPE + 3)
-        wh = Image.new('L', (1672, 944), 0)
-        dw = ImageDraw.Draw(wh)
-        dw.text((M(640), M(412)), 'ERS SOC', font=fp_font(int(M(20))), fill=255, anchor='mm')
-        for word, x, y in white:
-            dw.text((M(x), M(y)), word, font=fp_font(int(M(21))), fill=255, anchor='lm')
-        car_quad(f'rd_wi_wpic_{tag}_wi', overlay_texture(f'rd_ovl_wi{tag}w', wh.resize((836, 472), Image.LANCZOS)),
-                 (0, 0, 1670, 942), (240, 240, 244), H + wi_leaf(tag), L_SHAPE + 4)
 
     def strip_labels(a, b, c):
         return [(a, 58, 250, 'lm', 19), (b, 498, 250, 'lm', 19), (c, 892, 250, 'lm', 19)]
 
     TOP = [('GEAR', 640, 40, 'mm', 19), ('SPEED', 1022, 40, 'mm', 19)]
     TYRES = [(c, 776, y) for c, y in zip(('FL', 'FR', 'RL', 'RR'), ROW4)]
-    wi_pictures('r', TOP + strip_labels('LAP TIME', 'PREV LAP Δ', 'LAP') +
+    wi_pictures('r', TOP + strip_labels('LAP TIME', 'VS PREV LAP', 'LAP') +
                 [('RACE DATA', 52, 371, 'lm', 19), ('TYRE TEMPS', 776, 371, 'lm', 19)],
-                [(w, 52, y) for w, y in zip(('AHEAD', 'BEHIND', 'FUEL Δ', 'RPM'), ROW4)] + TYRES)
+                [(w, 52, y) for w, y in zip(('AHEAD', 'BEHIND', 'FUEL', 'RPM'), ROW4)] + TYRES)
     wi_pictures('q', TOP + strip_labels('LAST LAP', 'DELTA TO BEST', 'SESSION LEFT') +
                 [('LAP TIMING', 52, 371, 'lm', 19), ('TYRE TEMPS', 776, 371, 'lm', 19)],
                 [(w, 52, y) for w, y in zip(('S1', 'S2', 'S3', 'BEST LAP'), ROW4)] + TYRES)
     wi_pictures('s', strip_labels('TRACK STATUS', 'POSITION', 'LAP') +
                 [('RACE DATA', 52, 371, 'lm', 19), ('TYRE TEMPS', 776, 371, 'lm', 19)],
-                [(w, 52, y) for w, y in zip(('FUEL Δ', 'PIT WINDOW', 'BRAKE BIAS'), ROW3)] + TYRES)
+                [(w, 52, y) for w, y in zip(('FUEL', 'PIT WINDOW', 'BRAKE BIAS'), ROW3)] + TYRES)
     wi_pictures('d', [('CAR SETTINGS', 52, 371, 'lm', 19), ('BRAKES / FUEL', 776, 371, 'lm', 19)],
                 [('FUEL MODE', 52, ROW3[0]), ('DIFFERENTIAL', 52, ROW3[1]), ('BRAKE BIAS', 776, ROW3[0]),
-                 ('FUEL Δ', 776, ROW3[1])])
+                 ('FUEL', 776, ROW3[1])])
     wi_pictures('p', [('PIT WINDOW', 625, 45, 'mm', 19), ('NEXT TYRES', 1033, 45, 'mm', 19)] +
                 strip_labels('PIT STOP TIME', 'CURRENT LAP', 'PIT EXIT POS') +
                 [('PIT SETTINGS', 52, 371, 'lm', 19), ('TYRE WEAR', 776, 371, 'lm', 19)],
@@ -2495,7 +2584,7 @@ def main():
                  L_PART if layer is None else layer)
 
     CORNERS = {'fl': (0, 0), 'fr': (817, 0), 'rl': (0, 509), 'rr': (817, 509)}
-    AU_SEGS = [(491 + i * (286 / 24), 649, 491 + (i + 1) * (286 / 24) - 2, 671) for i in range(24)]
+    AU_SEGS = [(491 + i * (286 / 12), 649, 491 + (i + 1) * (286 / 12) - 3, 671) for i in range(12)]  # 1.4.7: 12 (was 24)
     RBOX = (852, 205, 1235, 459)
 
     def au_pictures(tag, names, boxes=(), lines=(), corners=True, rbox=True, gearbox=True):
@@ -2536,15 +2625,15 @@ def main():
         return [(a, 874, 230, 'lm', 19), (b, 874, 357, 'lm', 19)]
 
     au_pictures('r', [('SPEED', 640, 294, 'mm', 19), ('RPM', 640, 426, 'mm', 19), ('AHEAD', 856, 488, 'lm', 18),
-                      ('BEHIND', 1079, 488, 'lm', 18)] + rows(('POSITION', 'LAP', 'FUEL Δ')) +
-                rbox_names('LAP TIME', 'PREV LAP Δ'))
+                      ('BEHIND', 1079, 488, 'lm', 18)] + rows(('POSITION', 'LAP', 'FUEL')) +
+                rbox_names('LAP TIME', 'VS PREV LAP'))
     au_pictures('q', [('SPEED', 640, 294, 'mm', 19)] + rows(('S1', 'S2', 'S3')) + rbox_names('LAST LAP', 'DELTA TO BEST'))
     au_pictures('p', [('SPEED', 640, 294, 'mm', 19), ('PIT STOP TIME', 640, 426, 'mm', 19)] +
                 rows(('PIT WINDOW', 'LAP', 'TYRE AGE')) + rbox_names('NEXT TYRES', 'REPAIR WING'))
     au_pictures('s', [('VSC DELTA', 53, 63, 'lm', 21), ('GEAR', 640, 44, 'mm', 21), ('EST. PIT EXIT', 1216, 63, 'rm', 21),
                       ('SPEED', 604, 208, 'mm', 21), ('PIT WINDOW', 640, 427, 'mm', 19), ('TYRE TEMPS', 873, 305, 'lm', 19),
                       ('FL', 873, 360, 'lm', 19), ('FR', 1055, 360, 'lm', 19), ('RL', 873, 437, 'lm', 19),
-                      ('RR', 1055, 437, 'lm', 19)] + [(w, 54, y, 'lm', 20) for w, y in zip(('POSITION', 'LAP', 'FUEL Δ'),
+                      ('RR', 1055, 437, 'lm', 19)] + [(w, 54, y, 'lm', 20) for w, y in zip(('POSITION', 'LAP', 'FUEL'),
                                                                                          (307, 376, 445))],
                 boxes=[(852, 280, 1235, 498)], corners=False, rbox=False, gearbox=False)
     au_pictures('d', [('FUEL MODE', 65, 538, 'lm', 19), ('DIFFERENTIAL', 883, 553, 'lm', 19), ('BRAKE BIAS', 883, 632, 'lm', 19)],
@@ -2616,11 +2705,13 @@ def main():
     hdr += [f'    "{c}",' for c in sorted(au_combos)] + ['};', '']
     open(os.path.join(ROOT, 'native', 'src', 'au_combos.hpp'), 'w', encoding='utf-8').write('\n'.join(hdr))
 
-    # ---- the 2026 Haas's own pages (1.3.9, the user's mock-ups, made dark: the real screen is light, but black
-    # text would need a colour slot for nearly every element). Page name top left, the lap top right, the battery
-    # as a bar across the top, the gear between the tyre cells with the speed under it, three rows of values each
-    # side, a line, then the mode badge and two small values along the bottom. White text only; the cells, the
-    # bar, the badge and the safety car's band carry the colour. Layouts r q s d p, sets on hs_<states>.
+    # ---- the 2026 Haas's own pages (1.5.3: the user's redesign from the 2026 Las Vegas GP's screen, replacing
+    # 1.3.9's). A black grid of outlined cells: the page's name, the battery and the lap across the top; a row of
+    # cells with the tyres either side of a big gear (cyan dividers); small cells under it; the mode badge and a big
+    # value bottom left, a centre cell (three rows, or one big value), a right cell (the intervals to the cars
+    # around, the sectors or the pit numbers); the battery as a bar along the bottom and the revs as a column on the
+    # right. White text only (no colour slots left): the delta's cell turns green / red behind it. Layouts r q s d p,
+    # sets on hs_<states>.
     hs_combos = set()
 
     def hs_leaf(states):
@@ -2629,7 +2720,7 @@ def main():
         hs_combos.add(states)
         return 'hs_' + states
 
-    HS_LABEL = (185, 192, 198)
+    HS_LINE, HS_LABEL, HS_CYAN = (205, 208, 214), (170, 176, 186), (120, 200, 235)
 
     def hs_text(name, x, y, dbentry, states, size=34, align='left', value='-', style='OSD_24_bold', chars=5):
         scale = M(size) / 250.0 if style == 'OSD_80_bold' else size / 34.0
@@ -2651,122 +2742,129 @@ def main():
         car_quad(name + '_hs', white_texture(), (M(x0), M(y0), M(x1), M(y1)), colour, H + hs_leaf(states),
                  L_PART if layer is None else layer)
 
-    HS_SEGS = [(361 + i * (557 / 25), 25, 361 + (i + 1) * (557 / 25), 75) for i in range(25)]  # one bar, left .. right
-    ROWY = (132, 290, 447)       # row labels
-    VALY = (200, 358, 515)       # row values (baselines)
+    FRAME = (12, 10, 1213, 709)
+    TOPV = [(404, 10, 404, 86), (798, 10, 798, 86)]
+    STD_LINES = [(12, 86, 1213, 86), (12, 300, 1213, 300), (12, 378, 1213, 378), (12, 648, 1213, 648),
+                 (404, 300, 404, 648), (798, 300, 798, 648), (600, 300, 600, 378), (12, 462, 404, 462),
+                 (212, 193, 400, 193), (802, 193, 998, 193), (798, 378, 1213, 378)]
+    ROW_LINES = []  # the centre cell's three rows have no lines in the mock-ups
+    CAR_LINES = [(12, 86, 1213, 86), (12, 378, 1213, 378), (12, 648, 1213, 648), (404, 378, 404, 648),
+                 (798, 378, 798, 648), (12, 462, 404, 462)]
 
-    def hs_picture(tag, names, tyres='TYRE TEMPS', line_y=600, gear=True):
-        big = Image.new('L', (1672, 944), 0)
-        d = ImageDraw.Draw(big)
-        d.line([M(38), M(line_y), M(1243), M(line_y)], fill=255, width=2)
-        names = list(names)
-        if tyres:
-            ty = 457 if tag == 's' else 365
-            names.append((tyres, 640, ty, 'mm', 18))
-        if gear and tag != 's':
-            names.append(('GEAR', 640, 141, 'mm', 18))
-        if tag != 'q':
-            names.append(('LAP', 1100, 48, 'mm', 22))
-        for word, x, y, anchor, size in names:
-            d.text((M(x), M(y)), word, font=fp_font(int(M(size))), fill=255, anchor=anchor)
-        car_quad(f'rd_hs_pic_{tag}_hs', overlay_texture(f'rd_ovl_hs{tag}0', big.resize((836, 472), Image.LANCZOS)),
-                 (0, 0, 1670, 942), HS_LABEL, H + hs_leaf(tag), L_SHAPE + 3)
+    def hs_pictures(tag, names, lines, headers=()):
+        """The grid (one picture: identical grids share a texture), the grey names and the white headers."""
+        g = Image.new('L', (1672, 944), 0)
+        d = ImageDraw.Draw(g)
+        d.rectangle([M(FRAME[0]), M(FRAME[1]), M(1268), M(FRAME[3])], outline=255, width=3)
+        for x0, y0, x1, y1 in [(1213, 10, 1213, 709)] + TOPV + list(lines):
+            d.line([M(x0), M(y0), M(x1), M(y1)], fill=255, width=3)
+        # 1.5.4: the names and the headers in one picture, white (was two: grey names, white headers); 1.5.5: the grid
+        # in it too (was its own picture), all one light grey-white
+        n = g
+        dn = d
+        for word, x, y, anchor, size in list(names) + list(headers) + [('BATTERY', 546, 47, 'mm', 20),
+                                                                         ('RPM', 1239, 30, 'mm', 14),
+                                                                         ('ERS SOC', 80, 678, 'mm', 21)]:
+            dn.text((M(x), M(y)), word, font=fp_font(int(M(size))), fill=255, anchor=anchor)
+        car_quad(f'rd_hs_nm_{tag}_hs', overlay_texture(f'rd_ovl_hs{tag}n', n.resize((836, 472), Image.LANCZOS)),
+                 (0, 0, 1670, 942), (225, 228, 233), H + hs_leaf(tag), L_SHAPE + 3)
 
-    def left_rows(words):
-        return [(w, 41, y, 'lm', 18) for w, y in zip(words, ROWY)]
+    def top(name):
+        return [(name, 35, 47, 'lm', 30)]
 
-    def right_rows(words):
-        return [(w, 1240, y, 'rm', 18) for w, y in zip(words, ROWY)]
+    def rowA(a, b):
+        return [(a, 28, 106, 'lm', 17), (b, 1016, 106, 'lm', 17)]
 
-    def bottom(a, b):
-        return [(a, 380, 661, 'lm', 17), (b, 781, 661, 'lm', 17), ('SPEED', 640, 438, 'mm', 18)]
+    def row3(a, b, c):
+        return [(a, 28, 315, 'lm', 15), ('SPEED', 419, 315, 'lm', 15), (b, 615, 315, 'lm', 15)] + \
+               ([] if c is None else [])
 
-    hs_picture('r', left_rows(('LAP TIME', 'PREV LAP Δ', 'POSITION')) + right_rows(('AHEAD', 'BEHIND', 'FUEL Δ')) +
-               bottom('RPM', 'BRAKE BIAS'))
-    hs_picture('q', left_rows(('LAST LAP', 'PERSONAL BEST', 'DELTA TO BEST')) +
-               right_rows(('SECTOR 1', 'SECTOR 2', 'SECTOR 3')) + bottom('STINT LAP', 'SESSION LEFT'))
-    hs_picture('p', left_rows(('PIT WINDOW', 'TYRE AGE', 'REPAIR WING')) +
-               right_rows(('NEXT TYRES', 'PIT STOP TIME', 'PIT EXIT POS')) + bottom('FUEL Δ', 'BRAKE BIAS'),
-               tyres='TYRE WEAR')
-    hs_picture('s', [('VSC DELTA', 41, 117, 'lm', 18), ('GEAR', 640, 104, 'mm', 18), ('EST. PIT EXIT', 1240, 117, 'rm', 18),
-                     ('POSITION', 41, 314, 'lm', 18), ('FUEL Δ', 41, 470, 'lm', 18), ('PIT WINDOW', 1240, 314, 'rm', 18),
-                     ('BRAKE BIAS', 1240, 470, 'rm', 18), ('SPEED', 640, 281, 'mm', 18), ('RPM', 380, 661, 'lm', 17),
-                     ('PIT STOP TIME', 781, 661, 'lm', 17)])
-    hs_picture('d', [('FUEL MODE', 44, 548, 'lm', 18), ('DIFFERENTIAL', 535, 548, 'lm', 18),
-                     ('BRAKE BIAS', 1242, 548, 'rm', 18)], tyres=None, line_y=515, gear=False)
+    def tyres(word='TYRE TEMPS'):
+        return [('FL', 222, 140, 'lm', 19), ('RL', 222, 245, 'lm', 19), ('FR', 812, 140, 'lm', 19),
+                ('RR', 812, 245, 'lm', 19)]
 
-    # ---- every page: the dark screen, the battery bar, the mode badge, the lap / session top right
-    hs_box('rd_hs_bg', 0, 0, 1280, 720, (20, 23, 27), 'rqsdp', L_BACK + 1)
-    hs_box('rd_hs_scband', 0, 0, 1280, 252, (175, 128, 10), 's', L_BACK + 2)
-    hs_box('rd_hs_socbase', 361, 25, 918, 75, (62, 72, 66), 'rqsdp', L_BACK + 3)
-    for i, (x0, y0, x1, y1) in enumerate(HS_SEGS):  # hs_seg00 on the left
-        hs_box(f'rd_hs_seg{i:02d}', x0, y0, x1 + 0.6, y1, (95, 175, 115), f'hs_seg{i:02d}')
-        hs_box(f'rd_hs_sob{i:02d}', x0, y0, x1 + 0.6, y1, (40, 110, 255), f'hs_sob{i:02d}')
-    socl = Image.new('L', (1672, 944), 0)
-    ImageDraw.Draw(socl).text((M(380), M(50)), 'ERS SOC', font=fp_font(int(M(19))), fill=255, anchor='lm')
-    car_quad('rd_hs_socl_hs', overlay_texture('rd_ovl_hssl', socl.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
-             (245, 245, 245), H + hs_leaf('rqsdp'), L_SHAPE + 4)
-    hs_text('rd_hs_soc', 895, 62, H + 'soc_n', 'rqsdp', size=24, align='right', chars=2)
+    def centre_rows(a, b, c):
+        return [(a, 420, 426, 'lm', 19), (b, 420, 512, 'lm', 19), (c, 420, 598, 'lm', 19)]
+
+    def right_rows(a, b, c):
+        return [(a, 813, 426, 'lm', 19), (b, 813, 512, 'lm', 19), (c, 813, 598, 'lm', 19)]
+
+    hs_pictures('r', rowA('POSITION', 'RPM') + row3('LAP TIME', 'TYRE AGE', None) + tyres() + [('GEAR', 600, 105, 'mm', 18)]
+                + [('VS PREV LAP', 28, 482, 'lm', 18)] + centre_rows('LAST LAP', 'FUEL', 'BRAKE BIAS'),
+                STD_LINES, top('RACE') + [('INTERVALS TO YOU', 814, 338, 'lm', 20)])
+    hs_pictures('q', rowA('STINT LAP', 'TIME LEFT') + row3('LAST LAP', 'RPM', None) + tyres() + [('GEAR', 600, 105, 'mm', 18)]
+                + [('VS BEST', 28, 482, 'lm', 18)] + centre_rows('BEST LAP', 'FUEL', 'BRAKE BIAS')
+                + right_rows('S1', 'S2', 'S3'), STD_LINES, top('PRACTICE') + [('SECTOR TIMES', 814, 338, 'lm', 20)])
+    hs_pictures('s', row3('POSITION', 'RPM', None) + [('FUEL', 28, 482, 'lm', 18), ('PIT WINDOW', 419, 429, 'lm', 19)],
+                STD_LINES, top('VSC') + [('INTERVALS TO YOU', 814, 338, 'lm', 20), ('VSC DELTA', 28, 106, 'lm', 17),
+                                         ('EST. PIT EXIT', 1016, 106, 'lm', 17), ('GEAR', 600, 105, 'mm', 18),
+                                         ('FL', 222, 140, 'lm', 19), ('RL', 222, 245, 'lm', 19),
+                                         ('FR', 812, 140, 'lm', 19), ('RR', 812, 245, 'lm', 19)])
+    hs_pictures('d', [('FUEL MODE', 28, 482, 'lm', 18), ('DIFFERENTIAL', 419, 429, 'lm', 19),
+                      ('BRAKE BIAS', 813, 429, 'lm', 19)], CAR_LINES, top('CAR DAMAGE'))
+    hs_pictures('p', rowA('PIT WINDOW', 'NEXT TYRES') + row3('TYRE AGE', 'PIT LIMITER', None) + tyres() +
+                [('GEAR', 600, 105, 'mm', 18), ('REPAIR WING', 28, 482, 'lm', 18), ('PIT STOP TIME', 419, 429, 'lm', 19)]
+                + right_rows('POSITION', 'PIT EXIT POS', 'FUEL'), STD_LINES,
+                top('PIT INFO') + [('PIT STRATEGY', 814, 338, 'lm', 20)])
+
+    # ---- every page: the black screen, the cyan dividers, the mode badge, the battery bar, the revs column
+    hs_box('rd_hs_bg', 0, 0, 1280, 720, (4, 4, 6), 'rqsdp', L_BACK + 1)
+    hs_box('rd_hs_scband', 12, 86, 1213, 300, (180, 132, 10), 's', L_BACK + 2)  # 1.5.4: the other teams' amber
+    for k, x in enumerate((205, 400, 795, 998)):
+        hs_box(f'rd_hs_cy{k}', x, 86, x + 7, 300, HS_CYAN, 'rqsp', L_BACK + 3)
+    for tag, colour in (('dneg', (30, 120, 70)), ('dpos', (190, 55, 50))):  # 1.5.4: Red Bull's red
+        hs_box(f'rd_hs_{tag}', 13, 463, 403, 647, colour, f'hs_{tag}', L_BACK + 2)
     for tag, colour in (('p', (100, 64, 160)), ('g', (35, 135, 55)), ('n', (70, 72, 82))):
-        hs_box(f'rd_hs_mode{tag}', 38, 631, 335, 692, colour, f'hs_mode_{tag}')
-    hs_text('rd_hs_mode', 186, 672, H + 'tm_badge', 'hs_mode', size=22, align='centre', value='')
-    for st, word in (('r', 'RACE'), ('q', 'PRACTICE'), ('d', 'CAR DAMAGE'), ('p', 'PIT INFO')):
-        hs_text(f'rd_hs_name{st}', 40, 61, H + 'none', st, size=24, value=word)
-    hs_text('rd_hs_names', 40, 61, H + 'fp_scshort', 's', size=24, value='SC')
-    hs_text('rd_hs_lap', 1125, 61, H + 'lap', 'rsdp', size=24)
-    hs_text('rd_hs_sess', 1238, 61, H + 'fp_sess', 'q', size=24, align='right', chars=3)
+        hs_box(f'rd_hs_mode{tag}', 13, 379, 403, 461, colour, f'hs_mode_{tag}')
+    hs_text('rd_hs_mode', 208, 431, H + 'tm_badge', 'hs_mode', size=26, align='centre', value='')
+    hs_text('rd_hs_soc', 620, 62, H + 'soc_n', 'rqsdp', size=34)
+    hs_text('rd_hs_tr', 1190, 61, H + 'hs_tr', 'rqsdp', size=30, align='right', chars=9, value='')
+    hs_box('rd_hs_socbase', 163, 669, 1197, 687, (44, 54, 58), 'rqsdp', L_BACK + 3)
+    for i in range(12):  # hs_seg00 on the left: one continuous bar
+        x0 = 163 + i * (1034 / 12)
+        hs_box(f'rd_hs_seg{i:02d}', x0, 669, x0 + 1034 / 12 + 0.5, 687, (160, 230, 200), f'hs_seg{i:02d}')  # Williams' mint
+        hs_box(f'rd_hs_sob{i:02d}', x0, 669, x0 + 1034 / 12 + 0.5, 687, (40, 110, 255), f'hs_sob{i:02d}')
+    hs_box('rd_hs_revbase', 1228, 52, 1252, 688, (30, 34, 36), 'rqsdp', L_BACK + 3)
+    for i in range(20):  # hs_rev00 at the bottom; the top six orange
+        y1 = 688 - i * (636 / 20)
+        hs_box(f'rd_hs_rev{i:02d}', 1228, y1 - 636 / 20 + 5, 1252, y1, (160, 230, 200) if i < 14 else (250, 185, 90),
+               f'hs_rev{i:02d}')
 
-    # ---- the tyre cells (temperatures; wear on the pit page) and the gear between them
-    for c, (x0, x1), top in (('fl', (376, 521), True), ('fr', (759, 904), True), ('rl', (376, 521), False),
-                             ('rr', (759, 904), False)):
-        for st, base in (('rqp', 201), ('s', 286)):
-            y0 = base if top else base + 97
-            y1 = y0 + 97
-            hs_box(f'rd_hs_cell{c}{st[0]}', x0, y0, x1, y1, (32, 128, 148) if top else (24, 110, 130), st, L_BACK + 3)
-            hs_text(f'rd_hs_t{c}{st[0]}', (x0 + x1) / 2, y1 - 22, H + f't_{c}', 'rq' if st == 'rqp' else 's', size=34,
-                    align='centre', value='--')
-        hs_text(f'rd_hs_w{c}', (x0 + x1) / 2, (201 if top else 298) + 97 - 22, H + f'w_{c}', 'p', size=34,
-                align='centre', value='--')
-    cells = {}
-    for tag, base in (('a', 201), ('b', 286)):
-        img = Image.new('L', (1672, 944), 0)
-        dc = ImageDraw.Draw(img)
-        for c, x0, top in (('FL', 376, True), ('FR', 759, True), ('RL', 376, False), ('RR', 759, False)):
-            dc.text((M(x0 + 12), M((base if top else base + 97) + 18)), c, font=fp_font(int(M(17))), fill=255, anchor='lm')
-        cells[tag] = img
-    car_quad('rd_hs_cella_hs', overlay_texture('rd_ovl_hsca', cells['a'].resize((836, 472), Image.LANCZOS)),
-             (0, 0, 1670, 942), (245, 245, 245), H + hs_leaf('rqp'), L_SHAPE + 4)
-    car_quad('rd_hs_cellb_hs', overlay_texture('rd_ovl_hscb', cells['b'].resize((836, 472), Image.LANCZOS)),
-             (0, 0, 1670, 942), (245, 245, 245), H + hs_leaf('s'), L_SHAPE + 4)
-    hs_text('rd_hs_gear', 640, 290, H + 'gear', 'rqp', size=112, align='centre', style='OSD_80_bold', value='N')
-    hs_text('rd_hs_spd', 640, 533, H + 'fp_spd', 'rqp', size=62, align='centre')
-
-    # ---- the rows: left (left-aligned), right (by width from the right edge)
-    for st, left, right in (('r', ('cur', 'fp_delta', 'pos'), (('fp_gap0', 6), ('fp_gap1', 6), ('fuel', 5))),
-                            ('q', ('fp_last', 'fp_pb', 'fp_delta'), (('s1', 6), ('s2', 6), ('s3', 6))),
-                            ('p', ('pw', 'fp_stint', 'fp_wing'), (('tyre', 7), ('pst', 5), ('rejoin', 3)))):
-        for i in range(3):
-            hs_text(f'rd_hs_{st}l{i}', 46, VALY[i], H + left[i], st, size=42)
-            key, n = right[i]
-            hs_text(f'rd_hs_{st}r{i}', 1236, VALY[i], H + key, st, size=42, align='right', chars=n)
-    # ---- the bottom row
-    for st, a, b, nb in (('r', 'fp_rev', 'bbal', 3), ('q', 'fp_stint', 'fp_togo', 5), ('p', 'fuel', 'bbal', 3),
-                         ('s', 'fp_rev', 'pst', 5)):
-        hs_text(f'rd_hs_{st}b0', 511, 673, H + a, st, size=30)
-        hs_text(f'rd_hs_{st}b1', 1238, 673, H + b, st, size=30, align='right', chars=nb)
-    # ---- the safety car: the band's values, the gear, the speed, four values
-    hs_text('rd_hs_scd', 46, 190, H + 'fp_delta', 's', size=54)
-    hs_text('rd_hs_sgear', 640, 212, H + 'gear', 's', size=90, align='centre', style='OSD_80_bold', value='N')
-    hs_text('rd_hs_spit', 1232, 190, H + 'pitnow', 's', size=54, align='right', chars=3)
-    hs_text('rd_hs_sspd', 640, 380, H + 'fp_spd', 's', size=58, align='centre')
-    hs_text('rd_hs_spos', 46, 385, H + 'pos', 's', size=46)
-    hs_text('rd_hs_sfuel', 46, 540, H + 'fuel', 's', size=46)
-    hs_text('rd_hs_spw', 1236, 385, H + 'pw', 's', size=46, align='right', chars=6)
-    hs_text('rd_hs_sbb', 1236, 540, H + 'bbal', 's', size=46, align='right', chars=3)
-    # ---- the car page
-    hs_text('rd_hs_mix', 47, 608, H + 'mix', 'd', size=42)
-    hs_text('rd_hs_diff', 538, 632, H + 'diff', 'd', size=50)
-    hs_text('rd_hs_dbb', 1232, 632, H + 'bbal', 'd', size=50, align='right', chars=3)
+    # ---- the top cells and the tyres
+    for st, a, na, b, nb in (('r', 'pos', 3, 'fp_rev', 5), ('q', 'fp_stint', 2, 'fp_togo', 5),
+                             ('s', 'fp_delta', 6, 'pitnow', 3), ('p', 'pw', 6, 'tyre', 6)):
+        # sizes from the widest value in each cell (the game's font is wider than the mock-ups')
+        hs_text(f'rd_hs_{st}a', 108, 222, H + a, st, size={'r': 46, 'q': 46, 's': 30, 'p': 36}[st], align='centre')
+        hs_text(f'rd_hs_{st}b', 1107, 222, H + b, st, size={'r': 38, 'q': 38, 's': 46, 'p': 30}[st], align='centre')
+    for c, (x, y) in {'fl': (330, 152), 'rl': (330, 258), 'fr': (922, 152), 'rr': (922, 258)}.items():
+        hs_text(f'rd_hs_t{c}', x, y, H + f't_{c}', 'rqs', size=38, align='centre', value='--')
+        hs_text(f'rd_hs_w{c}', x, y, H + f'w_{c}', 'p', size=38, align='centre', value='--')
+    hs_text('rd_hs_gear', 600, 250, H + 'gear', 'rqsp', size=120, align='centre', style='OSD_80_bold', value='N')
+    # ---- the small cells
+    for st, a, b in (('r', 'cur', 'tyre_age'), ('q', 'fp_last', 'fp_rev'), ('s', 'pos', 'fp_rev'), ('p', 'fp_stint', 'hs_lim')):
+        hs_text(f'rd_hs_{st}c0', 208, 360, H + a, st, size=26, align='centre')
+        hs_text(f'rd_hs_{st}c2', 698, 360, H + b, st, size=26, align='centre')
+    hs_text('rd_hs_spd', 502, 360, H + 'fp_spd', 'rqsp', size=26, align='centre')
+    # ---- bottom left: the delta (race, practice), the fuel (SC), the wing call (pit), the fuel mode (car page)
+    for st, key in (('rq', 'fp_delta'), ('s', 'fuel'), ('p', 'fp_wing'), ('d', 'mix')):
+        hs_text(f'rd_hs_bl{st[0]}', 208, 590, H + key, st, size=54, align='centre')
+    # ---- the centre cell: three rows (race, practice) or one big value
+    for st, rows in (('r', (('fp_last', 8, 28), ('fuel', 5, 34), ('bbal', 3, 34))),
+                     ('q', (('fp_pb', 8, 28), ('fuel', 5, 34), ('bbal', 3, 34)))):
+        for i, (key, n, sz) in enumerate(rows):
+            hs_text(f'rd_hs_{st}m{i}', 763, (440, 526, 612)[i], H + key, st, size=sz, align='right', chars=n)
+    for st, key in (('s', 'pw'), ('p', 'pst'), ('d', 'diff')):
+        hs_text(f'rd_hs_{st}big', 600, 555, H + key, st, size=58, align='centre')
+    hs_text('rd_hs_dbb', 1005, 555, H + 'bbal', 'd', size=64, align='centre')
+    # ---- the right cell: the intervals (race, SC), the sectors (practice), the pit numbers (pit page)
+    for i, y in enumerate((415, 478, 541, 604)):
+        hs_text(f'rd_hs_ivp{i}', 813, y + 8, H + f'hs_ivp{i}', f'hs_ivr{i}', size=20, value='')
+        hs_text(f'rd_hs_ivc{i}', 880, y + 12, H + f'hs_ivc{i}', f'hs_ivr{i}', size=26, value='')  # clear of the gap
+        hs_text(f'rd_hs_ivg{i}', 1192, y + 12, H + f'hs_ivg{i}', f'hs_ivr{i}', size=28, align='right', chars=6, value='')
+    for k, y in ((1, 440), (2, 526), (3, 612)):
+        hs_text(f'rd_hs_s{k}', 1178, y, H + f's{k}', 'q', size=34, align='right', chars=6)
+    for i, (key, n) in enumerate((('pos', 3), ('rejoin', 3), ('fuel', 5))):
+        hs_text(f'rd_hs_pr{i}', 1178, (440, 526, 612)[i], H + key, 'p', size=34, align='right', chars=n)
 
     hdr = ['// Written by tools/build_ui.py: the Haas pages\' layout sets (hs_<states>), as kFpCombos.',
            '#pragma once', '', 'inline constexpr const char *kHsCombos[] = {']
@@ -2805,7 +2903,7 @@ def main():
         car_quad(name + '_al', white_texture(), (M(x0), M(y0), M(x1), M(y1)), colour, H + al_leaf(states),
                  L_PART if layer is None else layer)
 
-    AL_SEGS = [(38, 78 + i * (542 / 32), 83, 78 + (i + 1) * (542 / 32) - 3) for i in range(32)]  # top .. bottom
+    AL_SEGS = [(38, 78 + i * (542 / 16), 83, 78 + (i + 1) * (542 / 16) - 4) for i in range(16)]  # 1.4.7: 16 (was 32)  # top .. bottom
     TOP3 = [(106, 14, 476, 112), (476, 14, 862, 112), (862, 14, 1263, 112)]
     GRID = [(106, 112, 535, 303), (805, 112, 1263, 303), (106, 303, 417, 466), (106, 466, 417, 600),
             (417, 303, 911, 500), (911, 303, 1263, 466), (417, 500, 911, 689), (911, 466, 1263, 689),
@@ -2836,18 +2934,18 @@ def main():
                 ('RL', 928, 613, 'lm', 18), ('RR', 1100, 613, 'lm', 18)]
 
     GEARN = [('GEAR', 671, 132, 'mm', 19)]
-    al_pictures('r', top('PREV LAP Δ', 'POSITION', 'RACE') + GEARN + [('LAP TIME', 125, 147, 'lm', 19),
-                ('LAST LAP', 127, 269, 'lm', 18), ('AHEAD', 826, 171, 'lm', 19), ('BEHIND', 826, 250, 'lm', 19)] +
-                lower('FUEL Δ', 'BRAKE BIAS', 'RPM', 'CLOCK'), TOP3 + GRID)
+    al_pictures('r', top('VS PREV LAP', 'POSITION', 'RACE') + GEARN + [('LAST LAP', 125, 147, 'lm', 19),
+                ('AHEAD', 826, 171, 'lm', 19), ('BEHIND', 826, 250, 'lm', 19)] +
+                lower('FUEL', 'BRAKE BIAS', 'RPM', 'LAP TIME'), TOP3 + GRID)  # 1.4.1: the user's swap
     al_pictures('q', top('DELTA TO BEST', 'SESSION', 'TIME LEFT') + GEARN + [('LAST LAP', 125, 147, 'lm', 19),
                 ('PERSONAL BEST', 127, 269, 'lm', 18), ('S1', 826, 151, 'lm', 19), ('S2', 826, 211, 'lm', 19),
-                ('S3', 826, 271, 'lm', 19)] + lower('STINT LAP', 'FUEL Δ', 'RPM', 'CLOCK'), TOP3 + GRID)
+                ('S3', 826, 271, 'lm', 19)] + lower('STINT LAP', 'FUEL', 'RPM', 'LAP TIME'), TOP3 + GRID)
     al_pictures('p', top('PIT WINDOW', 'LAP', 'NEXT TYRES') + GEARN + [('REPAIR WING', 125, 156, 'lm', 19),
-                ('TYRE AGE', 825, 156, 'lm', 19)] + lower('POSITION', 'FUEL Δ', 'PIT EXIT POS', 'PIT STOP TIME',
+                ('TYRE AGE', 825, 156, 'lm', 19)] + lower('POSITION', 'FUEL', 'PIT EXIT POS', 'PIT STOP TIME',
                                                             'TYRE WEAR'), TOP3 + GRID)
-    al_pictures('s', lower('POSITION', 'FUEL Δ', 'LAP', 'PIT WINDOW'), GRID[2:])
+    al_pictures('s', lower('POSITION', 'FUEL', 'LAP', 'PIT WINDOW'), GRID[2:])
     al_pictures('d', top('FUEL MODE', 'DIFFERENTIAL', 'BRAKE BIAS') + [('LAP', 445, 643, 'lm', 19),
-                ('FUEL Δ', 855, 643, 'lm', 19)], TOP3 + [(106, 112, 1263, 600), (106, 600, 1263, 689)])
+                ('FUEL', 855, 643, 'lm', 19)], TOP3 + [(106, 112, 1263, 600), (106, 600, 1263, 689)])
     # the safety car's band: white names on amber
     sc = Image.new('L', (1672, 944), 0)
     dsc = ImageDraw.Draw(sc)
@@ -2869,8 +2967,8 @@ def main():
     # ---- every page: the battery column, the mode badge
     al_box('rd_al_socbase', 38, 78, 83, 620, (30, 40, 26), 'rqsdp', L_BACK + 3)
     for i, (x0, y0, x1, y1) in enumerate(AL_SEGS):  # al_seg00 at the bottom
-        al_box(f'rd_al_seg{31 - i:02d}', x0, y0, x1, y1, (160, 230, 60), f'al_seg{31 - i:02d}')
-        al_box(f'rd_al_sob{31 - i:02d}', x0, y0, x1, y1, (40, 110, 255), f'al_sob{31 - i:02d}')
+        al_box(f'rd_al_seg{15 - i:02d}', x0, y0, x1, y1, (160, 230, 60), f'al_seg{15 - i:02d}')
+        al_box(f'rd_al_sob{15 - i:02d}', x0, y0, x1, y1, (40, 110, 255), f'al_sob{15 - i:02d}')
     al_text('rd_al_soc', 62, 666, H + 'soc_n', 'rqsdp', size=22, align='centre')
     for tag, colour in (('p', (100, 64, 170)), ('g', (35, 135, 55)), ('n', (70, 72, 82))):
         al_box(f'rd_al_mode{tag}', 114, 613, 407, 676, colour, f'al_mode_{tag}')
@@ -2888,8 +2986,7 @@ def main():
     al_text('rd_al_gear', 671, 262, H + 'gear', 'rqp', size=110, align='centre', style='OSD_80_bold', value='N')
     al_text('rd_al_spd', 663, 445, H + 'fp_spd', 'rqsp', size=80, align='centre')
     # ---- the second row: the lap time box (with its smaller line) and the right box
-    al_text('rd_al_lt', 132, 220, H + 'cur', 'r', size=44)  # 50 ran past the box
-    al_text('rd_al_ltsub', 258, 277, H + 'fp_last', 'r', size=20)
+    al_text('rd_al_lt', 132, 232, H + 'fp_last', 'r', size=44)  # 1.4.1: the previous lap (was the running lap time)
     al_text('rd_al_ql', 132, 220, H + 'fp_last', 'q', size=44)
     al_text('rd_al_qpb', 300, 277, H + 'fp_pb', 'q', size=20)
     al_text('rd_al_wing', 132, 234, H + 'fp_wing', 'p', size=56)
@@ -2899,12 +2996,12 @@ def main():
     for k, y in ((1, 165), (2, 225), (3, 285)):
         al_text(f'rd_al_s{k}', 1233, y, H + f's{k}', 'q', size=36, align='right', chars=6)
     # ---- the lower boxes
-    for st, a, b, c, d in (('r', 'fuel', 'bbal', 'fp_rev', 'al_clock'), ('q', 'fp_stint', 'fuel', 'fp_rev', 'al_clock'),
+    for st, a, b, c, d in (('r', 'fuel', 'bbal', 'fp_rev', 'cur'), ('q', 'fp_stint', 'fuel', 'fp_rev', 'cur'),
                            ('p', 'pos', 'fuel', 'rejoin', 'pst'), ('s', 'pos', 'fuel', 'lap', 'pw')):
         al_text(f'rd_al_{st}l0', 130, 415, H + a, st, size=48)
         al_text(f'rd_al_{st}l1', 130, 565, H + b, st, size=44)
         al_text(f'rd_al_{st}r0', 934, 412, H + c, st, size=48)
-        al_text(f'rd_al_{st}c', 663, 622, H + d, st, size=56, align='centre')
+        al_text(f'rd_al_{st}c', 663, 620, H + d, st, size=52, align='centre')  # 1.4.1: the lap time fits at 52
     for c, (x, y) in {'fl': (1070, 562), 'fr': (1244, 562), 'rl': (1070, 625), 'rr': (1244, 625)}.items():
         al_text(f'rd_al_t{c}', x, y, H + f't_{c}', 'rqs', size=30, align='right', chars=2.4, value='--')
         al_text(f'rd_al_w{c}', x, y, H + f'w_{c}', 'p', size=30, align='right', chars=3, value='--')
@@ -2920,6 +3017,304 @@ def main():
            '#pragma once', '', 'inline constexpr const char *kAlCombos[] = {']
     hdr += [f'    "{c}",' for c in sorted(al_combos)] + ['};', '']
     open(os.path.join(ROOT, 'native', 'src', 'al_combos.hpp'), 'w', encoding='utf-8').write('\n'.join(hdr))
+
+    # ---- the 2026 Cadillac's own pages (1.4.2, the user's mock-ups): no boxes but the tyre cells, green accent bars
+    # by the page name and the lap, rows of values either side of the gear, speed and tyres, a line, then the mode
+    # badge and a 24-segment battery bar. White text (the user), but the practice / qualifying sector times in the
+    # game's colours (purple, green, yellow: nine colour slots). Layouts r q s d p, sets on cd_<states>.
+    cd_combos = set()
+
+    def cd_leaf(states):
+        if '_' in states:
+            return states
+        cd_combos.add(states)
+        return 'cd_' + states
+
+    CD_LABEL = (178, 188, 190)
+    CD_GREEN = (95, 230, 90)
+
+    def cd_text(name, x, y, dbentry, states, size=40, align='left', value='-', style='OSD_24_bold', chars=5,
+                colour=None):
+        scale = M(size) / 250.0 if style == 'OSD_80_bold' else size / 34.0
+        lw = W(900)
+        nm = name + '_cd'
+        if align == 'left':
+            left = X(M(x))
+        elif align == 'right':
+            left = X(M(x) - chars * 45 * scale)
+        else:
+            left = centred(X(M(x)), lw, scale)
+        lcd.add_text(nm, 'speedo_value', left, Y(M(y)), width=lw, layer=L_TEXT, style=style,
+                     halign=None if align == 'centre' else 'left')
+        if scale != 1.0:
+            lcd.move(nm, sx=scale, sy=scale)
+        tpl.add_label(f'{nm}_w', nm, dbentry, value=value, colour=colour, visible=H + cd_leaf(states))
+
+    def cd_box(name, x0, y0, x1, y1, colour, states, layer=None):
+        car_quad(name + '_cd', white_texture(), (M(x0), M(y0), M(x1), M(y1)), colour, H + cd_leaf(states),
+                 L_PART if layer is None else layer)
+
+    CD_SEGS = [(474 + i * (645 / 12), 648, 474 + (i + 1) * (645 / 12) - 5, 672) for i in range(12)]  # 1.4.7: 12 (was 24)
+    CELLS = {'fl': (435, 335, 637, 445), 'fr': (642, 335, 844, 445), 'rl': (435, 452, 637, 562),
+             'rr': (642, 452, 844, 562)}
+    LROW = (135, 293, 468)      # row names
+    VROW = (207, 365, 538)      # row values (baselines)
+
+    def cd_picture(tag, names, line_y=604, cells=True, tyres='TYRE TEMPS', centre=True):
+        img = Image.new('L', (1672, 944), 0)
+        d = ImageDraw.Draw(img)
+        for y in ((473, 604) if tag == 'd' else (line_y,)):
+            d.line([M(28), M(y), M(1252), M(y)], fill=255, width=2)
+        names = list(names) + [('ERS SOC', 333, 660, 'lm', 19)]
+        if cells:
+            names.append((tyres, 640, 311, 'mm', 18))
+        if centre:
+            names += [('GEAR', 640, 24, 'mm', 18), ('SPEED', 640, 201, 'mm', 18)]
+        for word, x, y, anchor, size in names:
+            d.text((M(x), M(y)), word, font=fp_font(int(M(size))), fill=255, anchor=anchor)
+        car_quad(f'rd_cd_pic_{tag}_cd', overlay_texture(f'rd_ovl_cd{tag}0', img.resize((836, 472), Image.LANCZOS)),
+                 (0, 0, 1670, 942), CD_LABEL, H + cd_leaf(tag), L_SHAPE + 3)
+
+    def rows(left, right):
+        return ([(w, 48, y, 'lm', 19) for w, y in zip(left, LROW)] +
+                [(w, 1233, y, 'rm', 19) for w, y in zip(right, LROW)])
+
+    cd_picture('r', rows(('LAP TIME', 'VS PREV LAP', 'FUEL'), ('POSITION', 'AHEAD', 'BEHIND')))
+    cd_picture('q', rows(('LAST LAP', 'DELTA TO BEST', 'PERSONAL BEST'), ('SECTOR 1', 'SECTOR 2', 'SECTOR 3')))
+    cd_picture('p', rows(('PIT WINDOW', 'TYRE AGE', 'REPAIR WING'), ('NEXT TYRES', 'PIT STOP TIME', 'EST. PIT EXIT')),
+               tyres='TYRE WEAR')
+    cd_picture('s', [('POSITION', 48, 323, 'lm', 19), ('FUEL', 48, 469, 'lm', 19), ('LAP', 1233, 323, 'rm', 19),
+                     ('PIT WINDOW', 1233, 469, 'rm', 19)], centre=False)
+    cd_picture('d', [('FUEL MODE', 46, 498, 'lm', 18), ('DIFFERENTIAL', 640, 498, 'mm', 18),
+                     ('BRAKE BIAS', 1236, 498, 'rm', 18)], cells=False, centre=False)
+    # the safety car's band: white names on amber
+    sc = Image.new('L', (1672, 944), 0)
+    dsc = ImageDraw.Draw(sc)
+    for word, x, y, anchor in (('VSC DELTA', 40, 58, 'lm'), ('GEAR', 640, 31, 'mm'), ('EST. PIT EXIT', 1234, 58, 'rm'),
+                               ('SPEED', 596, 217, 'mm')):
+        dsc.text((M(x), M(y)), word, font=fp_font(int(M(21))), fill=255, anchor=anchor)
+    car_quad('rd_cd_sclab_cd', overlay_texture('rd_ovl_cdsk', sc.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
+             (245, 245, 245), H + cd_leaf('s'), L_SHAPE + 4)
+    cd_box('rd_cd_scband', 0, 0, 1280, 278, (180, 132, 10), 's', L_BACK + 3)
+
+    # ---- every page: the green accent bars, the page name, the lap / session top right, the badge, the battery
+    cd_box('rd_cd_bar_l', 30, 33, 40, 82, CD_GREEN, 'rqdp', L_BACK + 3)
+    cd_box('rd_cd_bar_r', 1240, 33, 1250, 82, CD_GREEN, 'rqdp', L_BACK + 3)
+    for st, word in (('r', 'RACE'), ('q', 'PRACTICE'), ('d', 'CAR DAMAGE'), ('p', 'PIT INFO')):
+        cd_text(f'rd_cd_name{st}', 62, 70, H + 'none', st, size=30, value=word)
+    cd_text('rd_cd_tr', 1218, 70, H + 'cd_tr', 'rqdp', size=30, align='right', chars=9, value='')
+    for tag, colour in (('p', (110, 70, 185)), ('g', (35, 135, 55)), ('n', (70, 72, 82))):
+        cd_box(f'rd_cd_mode{tag}', 30, 629, 296, 692, colour, f'cd_mode_{tag}')
+    cd_text('rd_cd_mode', 163, 672, H + 'tm_badge', 'cd_mode', size=24, align='centre', value='')
+    cd_box('rd_cd_socbase', 474, 648, 1119, 672, (45, 62, 60), 'rqsdp', L_BACK + 3)
+    for i, (x0, y0, x1, y1) in enumerate(CD_SEGS):  # cd_seg00 on the left
+        cd_box(f'rd_cd_seg{i:02d}', x0, y0, x1, y1, CD_GREEN, f'cd_seg{i:02d}')
+        cd_box(f'rd_cd_sob{i:02d}', x0, y0, x1, y1, (40, 110, 255), f'cd_sob{i:02d}')
+    cd_text('rd_cd_soc', 1244, 677, H + 'soc_n', 'rqsdp', size=32, align='right', chars=2)
+
+    # ---- the gear, the speed, the tyre cells
+    cd_text('rd_cd_gear', 640, 148, H + 'gear', 'rqp', size=100, align='centre', style='OSD_80_bold', value='N')
+    cd_text('rd_cd_spd', 640, 270, H + 'fp_spd', 'rqp', size=50, align='centre')
+    cd_box('rd_cd_dacc', 29, 313, 33, 373, (240, 165, 90), 'rqp', L_BACK + 3)  # the orange mark by the second row
+    cimg = Image.new('L', (1672, 944), 0)
+    dci = ImageDraw.Draw(cimg)
+    for c, (x0, y0, x1, y1) in CELLS.items():
+        cd_box(f'rd_cd_cell{c}', x0, y0, x1, y1, (38, 140, 58), 'rqsp', L_BACK + 3)
+        dci.text((M(x0 + 16), M(y0 + 20)), c.upper(), font=fp_font(int(M(17))), fill=255, anchor='lm')
+        cd_text(f'rd_cd_t{c}', (x0 + x1) / 2, y1 - 26, H + f't_{c}', 'rqs', size=44, align='centre', value='--')
+        cd_text(f'rd_cd_w{c}', (x0 + x1) / 2, y1 - 26, H + f'w_{c}', 'p', size=44, align='centre', value='--')
+    car_quad('rd_cd_cells_cd', overlay_texture('rd_ovl_cdcl', cimg.resize((836, 472), Image.LANCZOS)),
+             (0, 0, 1670, 942), (240, 240, 240), H + cd_leaf('rqsp'), L_SHAPE + 4)
+
+    # ---- the rows
+    for st, left, right in (('r', ('cur', 'fp_delta', 'fuel'), (('pos', 3), ('fp_gap0', 6), ('fp_gap1', 6))),
+                            ('q', ('fp_last', 'fp_delta', 'fp_pb'), None),
+                            ('p', ('pw', 'fp_stint', 'fp_wing'), (('tyre', 7), ('pst', 5), ('rejoin', 3)))):
+        for i in range(3):
+            cd_text(f'rd_cd_{st}l{i}', 52, VROW[i], H + left[i], st, size=46 if i != 1 else 50)
+            if right:
+                key, n = right[i]
+                cd_text(f'rd_cd_{st}r{i}', 1230, VROW[i], H + key, st, size=46, align='right', chars=n)
+    # practice / qualifying: the sectors in the game's colours (white until a sector has one)
+    for k in range(3):
+        for tag, colour in (('p', (175, 85, 245)), ('g', (40, 225, 60)), ('y', (250, 230, 40)), ('n', None)):
+            cd_text(f'rd_cd_s{k + 1}{tag}', 1230, VROW[k], H + f's{k + 1}', f'cd_s{k + 1}_{tag}', size=46, align='right',
+                    chars=6, colour=colour)
+    # ---- the safety car
+    cd_text('rd_cd_scd', 46, 172, H + 'fp_delta', 's', size=60)
+    cd_text('rd_cd_sgear', 640, 152, H + 'gear', 's', size=100, align='centre', style='OSD_80_bold', value='N')
+    cd_text('rd_cd_sspd', 680, 230, H + 'fp_spd', 's', size=30)
+    cd_text('rd_cd_spit', 1228, 178, H + 'pitnow', 's', size=64, align='right', chars=3)
+    cd_text('rd_cd_spos', 52, 395, H + 'pos', 's', size=46)
+    cd_text('rd_cd_sfuel', 52, 540, H + 'fuel', 's', size=46)
+    cd_text('rd_cd_slap', 1230, 395, H + 'lap', 's', size=46, align='right', chars=5)
+    cd_text('rd_cd_spw', 1230, 540, H + 'pw', 's', size=46, align='right', chars=6)
+    # ---- the car page
+    cd_text('rd_cd_mix', 50, 570, H + 'mix', 'd', size=44)
+    cd_text('rd_cd_diff', 640, 570, H + 'diff', 'd', size=44, align='centre')
+    cd_text('rd_cd_dbb', 1230, 570, H + 'bbal', 'd', size=44, align='right', chars=3)
+
+    hdr = ['// Written by tools/build_ui.py: the Cadillac pages\' layout sets (cd_<states>), as kFpCombos.',
+           '#pragma once', '', 'inline constexpr const char *kCdCombos[] = {']
+    hdr += [f'    "{c}",' for c in sorted(cd_combos)] + ['};', '']
+    open(os.path.join(ROOT, 'native', 'src', 'cd_combos.hpp'), 'w', encoding='utf-8').write('\n'.join(hdr))
+
+    # ---- the 2026 Racing Bulls' own pages (1.4.3, the user's mock-ups from an older AlphaTauri screen): black, two
+    # columns of values either side of the gear / speed column, the battery as a tall bar right of centre, the
+    # mode badge bottom left. White text only; the practice page's sector names sit on boxes in the sector's colour
+    # (purple, green, yellow; grey until known) instead of coloured times (the user: no colour slots left).
+    # Layouts r q s d p, sets on vc_<states>.
+    vc_combos = set()
+
+    def vc_leaf(states):
+        if '_' in states:
+            return states
+        vc_combos.add(states)
+        return 'vc_' + states
+
+    VC_LABEL = (175, 178, 182)
+
+    def vc_text(name, x, y, dbentry, states, size=46, align='left', value='-', style='OSD_24_bold'):
+        scale = M(size) / 250.0 if style == 'OSD_80_bold' else size / 34.0
+        lw = W(900)
+        nm = name + '_vc'
+        left = X(M(x)) if align == 'left' else centred(X(M(x)), lw, scale)
+        lcd.add_text(nm, 'speedo_value', left, Y(M(y)), width=lw, layer=L_TEXT, style=style,
+                     halign=None if align == 'centre' else 'left')
+        if scale != 1.0:
+            lcd.move(nm, sx=scale, sy=scale)
+        tpl.add_label(f'{nm}_w', nm, dbentry, value=value, colour=None, visible=H + vc_leaf(states))
+
+    def vc_box(name, x0, y0, x1, y1, colour, states, layer=None):
+        car_quad(name + '_vc', white_texture(), (M(x0), M(y0), M(x1), M(y1)), colour, H + vc_leaf(states),
+                 L_PART if layer is None else layer)
+
+    VC_SEGS = [(841, 50 + i * 50, 892, 50 + (i + 1) * 50 - 3) for i in range(10)]  # 1.4.7: 10 (was 20)  # top .. bottom
+    SBOX = [(40, 342, 88, 378), (40, 424, 88, 460), (40, 507, 88, 543)]          # the sector names' boxes
+
+    def vc_picture(tag, names, bar=True):
+        img = Image.new('L', (1672, 944), 0)
+        d = ImageDraw.Draw(img)
+        if bar:
+            d.rectangle([M(837), M(46), M(896), M(558)], outline=255, width=3)
+        for word, x, y, anchor, size in list(names) + [('ERS SOC', 939, 325, 'lm', 19)]:
+            d.text((M(x), M(y)), word, font=fp_font(int(M(size))), fill=255, anchor=anchor)
+        car_quad(f'rd_vc_pic_{tag}_vc', overlay_texture(f'rd_ovl_vc{tag}0', img.resize((836, 472), Image.LANCZOS)),
+                 (0, 0, 1670, 942), VC_LABEL, H + vc_leaf(tag), L_SHAPE + 3)
+
+    def tyres(top=61, y1=120, y2=192, word='TYRE TEMPS', right_x=939):
+        return [(word, 46, top, 'lm', 19), ('FL', 46, y1, 'lm', 21), ('RL', 46, y2, 'lm', 21),
+                (word, right_x, top, 'lm', 19), ('FR', right_x, y1, 'lm', 21), ('RR', right_x, y2, 'lm', 21)]
+
+    vc_picture('r', tyres() + [('FUEL', 46, 315, 'lm', 19), ('LAP TIME', 46, 476, 'lm', 19), ('GEAR', 606, 37, 'mm', 19),
+                               ('SPEED', 606, 264, 'mm', 19), ('LAP', 606, 407, 'mm', 19), ('VS REFERENCE', 580, 561, 'mm', 19),
+                               ('BRAKE BIAS', 939, 468, 'lm', 19), ('POSITION', 941, 575, 'lm', 19)])
+    vc_picture('q', tyres() + [('LAST LAP SECTORS', 46, 302, 'lm', 19), ('GEAR', 606, 37, 'mm', 19),
+                               ('SPEED', 606, 264, 'mm', 19), ('LAST LAP', 606, 407, 'mm', 19), ('VS BEST', 580, 561, 'mm', 19),
+                               ('PERSONAL BEST', 941, 575, 'lm', 19)])
+    vc_picture('d', [('CAR DAMAGE', 42, 60, 'lm', 19), ('FUEL MODE', 46, 449, 'lm', 19), ('DIFFERENTIAL', 596, 449, 'mm', 19),
+                     ('BRAKE BIAS', 939, 86, 'lm', 19), ('LAP', 941, 575, 'lm', 19)])
+    vc_picture('p', tyres(word='TYRE WEAR') + [('TYRE AGE', 46, 315, 'lm', 19), ('REPAIR WING', 46, 476, 'lm', 19),
+                                              ('PIT WINDOW', 604, 59, 'mm', 19), ('NEXT TYRES', 604, 250, 'mm', 19),
+                                              ('CURRENT LAP', 604, 407, 'mm', 19), ('PIT STOP TIME', 580, 561, 'mm', 19),
+                                              ('PIT EXIT POS', 939, 468, 'lm', 19), ('BRAKE BIAS', 941, 575, 'lm', 19)])
+    vc_picture('s', [('TYRE TEMPS', 46, 300, 'lm', 19), ('FL', 46, 360, 'lm', 21), ('RL', 46, 432, 'lm', 21),
+                     ('TYRE TEMPS', 420, 300, 'lm', 19), ('FR', 420, 360, 'lm', 21), ('RR', 420, 432, 'lm', 21),
+                     ('FUEL', 46, 508, 'lm', 19), ('LAP', 580, 561, 'mm', 19), ('POSITION', 939, 468, 'lm', 19),
+                     ('PIT WINDOW', 941, 575, 'lm', 19)])
+    # the safety car's band: white names on amber (the battery bar stays over it)
+    sc = Image.new('L', (1672, 944), 0)
+    dsc = ImageDraw.Draw(sc)
+    for word, x, y, anchor in (('VSC DELTA', 44, 55, 'lm'), ('GEAR', 611, 34, 'mm'), ('EST. PIT EXIT', 938, 55, 'lm'),
+                               ('SPEED', 568, 190, 'mm')):
+        dsc.text((M(x), M(y)), word, font=fp_font(int(M(21))), fill=255, anchor=anchor)
+    car_quad('rd_vc_sclab_vc', overlay_texture('rd_ovl_vcsk', sc.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
+             (245, 245, 245), H + vc_leaf('s'), L_SHAPE + 4)
+    vc_box('rd_vc_scband', 0, 0, 1280, 232, (180, 132, 10), 's', L_BACK + 3)
+    # the sector names on their boxes (practice / qualifying): one picture of the names, a box a colour a sector
+    sn = Image.new('L', (1672, 944), 0)
+    dsn = ImageDraw.Draw(sn)
+    for k, (x0, y0, x1, y1) in enumerate(SBOX):
+        dsn.text((M((x0 + x1) / 2), M((y0 + y1) / 2)), f'S{k + 1}', font=fp_font(int(M(21))), fill=255, anchor='mm')
+        for tag, colour in (('p', (150, 70, 220)), ('g', (35, 160, 60)), ('y', (195, 160, 20)), ('n', (70, 72, 80))):
+            vc_box(f'rd_vc_sb{k + 1}{tag}', x0, y0, x1, y1, colour, f'vc_s{k + 1}_{tag}', L_BACK + 3)
+    car_quad('rd_vc_snames_vc', overlay_texture('rd_ovl_vcsn', sn.resize((836, 472), Image.LANCZOS)), (0, 0, 1670, 942),
+             (245, 245, 245), H + vc_leaf('q'), L_SHAPE + 4)
+
+    # ---- every page: the battery bar (20 segments, bottom up), its number, the mode badge
+    vc_box('rd_vc_socbase', 840, 49, 893, 555, (10, 10, 12), 'rqsdp', L_BACK + 4)
+    for i, (x0, y0, x1, y1) in enumerate(VC_SEGS):  # vc_seg00 at the bottom
+        vc_box(f'rd_vc_seg{9 - i:02d}', x0, y0, x1, y1, (75, 230, 160), f'vc_seg{9 - i:02d}')
+        vc_box(f'rd_vc_sob{9 - i:02d}', x0, y0, x1, y1, (40, 110, 255), f'vc_sob{9 - i:02d}')
+    vc_text('rd_vc_soc', 942, 413, H + 'soc_n', 'rqsdp', size=58)
+    for tag, colour in (('p', (110, 75, 185)), ('g', (35, 135, 55)), ('n', (70, 72, 82))):
+        vc_box(f'rd_vc_mode{tag}', 38, 633, 306, 690, colour, f'vc_mode_{tag}')
+    vc_text('rd_vc_mode', 172, 672, H + 'tm_badge', 'vc_mode', size=24, align='centre', value='')
+
+    # ---- the tyres (temperatures; wear on the pit page)
+    for c, (x, y) in {'fl': (130, 140), 'rl': (130, 212), 'fr': (1022, 140), 'rr': (1022, 212)}.items():
+        vc_text(f'rd_vc_t{c}', x, y, H + f't_{c}', 'rq', size=50, value='--')
+        vc_text(f'rd_vc_w{c}', x, y, H + f'w_{c}', 'p', size=50, value='--')
+    for c, (x, y) in {'fl': (130, 380), 'rl': (130, 452), 'fr': (503, 380), 'rr': (503, 452)}.items():
+        vc_text(f'rd_vc_st{c}', x, y, H + f't_{c}', 's', size=50, value='--')
+    # ---- the centre column
+    vc_text('rd_vc_gear', 606, 190, H + 'gear', 'rq', size=120, align='centre', style='OSD_80_bold', value='N')
+    vc_text('rd_vc_spd', 606, 337, H + 'fp_spd', 'rq', size=54, align='centre')
+    vc_text('rd_vc_lap', 606, 485, H + 'lap', 'r', size=46, align='centre')
+    vc_text('rd_vc_qlast', 606, 485, H + 'fp_last', 'q', size=44, align='centre')
+    vc_text('rd_vc_delta', 580, 655, H + 'fp_delta', 'rq', size=62, align='centre')
+    vc_text('rd_vc_pw', 604, 140, H + 'pw', 'p', size=56, align='centre')
+    vc_text('rd_vc_tyre', 604, 330, H + 'tyre', 'p', size=54, align='centre')
+    vc_text('rd_vc_plap', 604, 485, H + 'lap', 'p', size=46, align='centre')
+    vc_text('rd_vc_pst', 580, 655, H + 'pst', 'p', size=62, align='centre')
+    # ---- the left column
+    vc_text('rd_vc_fuel', 52, 395, H + 'fuel', 'r', size=54)
+    vc_text('rd_vc_lt', 52, 553, H + 'cur', 'r', size=46)
+    for k, y in ((1, 375), (2, 458), (3, 541)):
+        vc_text(f'rd_vc_s{k}', 130, y, H + f's{k}', 'q', size=42)
+    vc_text('rd_vc_age', 52, 395, H + 'fp_stint', 'p', size=54)
+    vc_text('rd_vc_wing', 50, 555, H + 'fp_wing', 'p', size=50)
+    # ---- the right column, under the battery's number
+    vc_text('rd_vc_bb', 943, 545, H + 'bbal', 'r', size=46)
+    vc_text('rd_vc_pos', 943, 652, H + 'pos', 'r', size=44)
+    vc_text('rd_vc_sessl', 939, 476, H + 'sess_label', 'q', size=16, value='TIME LEFT')
+    vc_text('rd_vc_left', 943, 545, H + 'fp_togo', 'q', size=46)
+    vc_text('rd_vc_pb', 946, 650, H + 'fp_pb', 'q', size=38)  # a full lap time: 42 ran near the edge
+    vc_text('rd_vc_rejoin', 943, 545, H + 'rejoin', 'p', size=46)
+    vc_text('rd_vc_pbb', 943, 652, H + 'bbal', 'p', size=44)
+    # ---- the safety car
+    vc_text('rd_vc_scd', 46, 165, H + 'fp_delta', 's', size=60)
+    vc_text('rd_vc_sgear', 611, 132, H + 'gear', 's', size=90, align='centre', style='OSD_80_bold', value='N')
+    vc_text('rd_vc_sspd', 655, 202, H + 'fp_spd', 's', size=30)
+    vc_text('rd_vc_spit', 944, 168, H + 'pitnow', 's', size=62)
+    vc_text('rd_vc_sfuel', 50, 588, H + 'fuel', 's', size=50)
+    vc_text('rd_vc_slap', 580, 655, H + 'lap', 's', size=62, align='centre')
+    vc_text('rd_vc_spos', 943, 545, H + 'pos', 's', size=46)
+    vc_text('rd_vc_spw', 943, 652, H + 'pw', 's', size=44)
+    # ---- the car page
+    vc_text('rd_vc_mix', 50, 530, H + 'mix', 'd', size=54)
+    vc_text('rd_vc_diff', 596, 530, H + 'diff', 'd', size=54, align='centre')
+    vc_text('rd_vc_dbb', 943, 168, H + 'bbal', 'd', size=58)
+    vc_text('rd_vc_dlap', 945, 652, H + 'lap', 'd', size=44)
+
+    hdr = ['// Written by tools/build_ui.py: the Racing Bulls pages\' layout sets (vc_<states>), as kFpCombos.',
+           '#pragma once', '', 'inline constexpr const char *kVcCombos[] = {']
+    hdr += [f'    "{c}",' for c in sorted(vc_combos)] + ['};', '']
+    open(os.path.join(ROOT, 'native', 'src', 'vc_combos.hpp'), 'w', encoding='utf-8').write('\n'.join(hdr))
+
+    # ---- 1.4.11: Spool Up (nick.grid-start-2026): while its turbo spool gauge is up (its Pre-Start and the lights),
+    # a full blue screen says CHARGE TURBO; green with TURBO FULL once Spool Up says full. Spool Up's own HUD values
+    # switch it (view_model_data.hud_spool_gauge / _full); without Spool Up they are never set. It covers the boot
+    # screen; the start lights draw over it (1.4.10's bar was hidden behind both). Steady: a flash needs a switch
+    # the plugin sets, and the plugin can't read Spool Up's values.
+    SPV = '#view_model_data.hud_spool_'
+    car_quad('rd_spool_blue', white_texture(), (0, 0, 1670, 942), (25, 80, 215), SPV + 'gauge', L_FULL + 8)
+    car_quad('rd_spool_green', white_texture(), (0, 0, 1670, 942), (30, 150, 65), SPV + 'full', L_FULL + 10)
+    for tag, word, vis, layer in (('c', 'CHARGE TURBO', 'gauge', L_FULL + 9), ('f', 'TURBO FULL', 'full', L_FULL + 11)):
+        img = Image.new('L', (1672, 944), 0)
+        ImageDraw.Draw(img).text((835, 471), word, font=fp_font(170), fill=255, anchor='mm')
+        car_quad(f'rd_spool_{tag}', overlay_texture(f'rd_ovl_sp{tag}0', img.resize((836, 472), Image.LANCZOS)),
+                 (0, 0, 1670, 942), (250, 250, 252), SPV + vis, layer)
 
     # page 0's lines: the shared ones in each of its two layouts (one texture each, not three)
     lines['pgr'] = lines['pg0'] + lines['pgr']
@@ -3092,13 +3487,15 @@ def main():
     import ferrari_screen
     os.makedirs(os.path.join(ROOT, 'erp'), exist_ok=True)
     open(os.path.join(ROOT, 'erp', 'ferrari_screen_vb9.bin'), 'wb').write(ferrari_screen.screen_buffer(GAME))
-    ops.append({'op': 'replace-resource', 'erp': ferrari_screen.REL, 'resource': ferrari_screen.VB_UV, 'fragment': 1,
-                'source': 'erp/ferrari_screen_vb9.bin'})
+    # 1.4.4: both behind the ferrari_screen setting: each replaces a whole buffer of the stock model, which a mod
+    # that replaces the Ferrari's model (another vertex count) can't take
+    ops.append({'op': 'replace-resource', 'when': {'ferrari_screen': 'on'}, 'erp': ferrari_screen.REL,
+                'resource': ferrari_screen.VB_UV, 'fragment': 1, 'source': 'erp/ferrari_screen_vb9.bin'})
     # 1.3.2: and the 2025 Ferrari's (taller, its own band), so the team pages show on it as on the 2026 car
     open(os.path.join(ROOT, 'erp', 'ferrari25_screen_vb3.bin'), 'wb').write(ferrari_screen.screen_buffer(GAME, '2025'))
     c25 = ferrari_screen.CARS['2025']
-    ops.append({'op': 'replace-resource', 'erp': c25['rel'], 'resource': c25['idf'] + 'lod=all&vb=3', 'fragment': 1,
-                'source': 'erp/ferrari25_screen_vb3.bin'})
+    ops.append({'op': 'replace-resource', 'when': {'ferrari_screen': 'on'}, 'erp': c25['rel'],
+                'resource': c25['idf'] + 'lod=all&vb=3', 'fragment': 1, 'source': 'erp/ferrari25_screen_vb3.bin'})
     json.dump({'schema_version': 1, 'ops': ops}, open(os.path.join(ROOT, 'erp', 'driver_display.json'), 'w'), indent=2)
     # 1.2.15: ui/tex keeps only what an op uses (earlier builds left renumbered car part pictures behind, which were
     # packed with every release: 85 files the upload check flagged as unused)
@@ -3118,12 +3515,22 @@ def main():
     # visible at once is what costs (1,470 visible flashed)
     # 1.3.9 (the user's choice): the cap raised to the 4,096-node pad test (hidden shapes drew fine); real
     # layouts with widgets past 2,405 are tested by each build in game
-    LCD_MAX_NODES = 4096
+    # 1.4.7: real layouts have a limit after all: 2,626 nodes (1.4.5 / 1.4.6) made the game abort creating the wheel
+    # screen every time, 2,610 loaded (the pad test's shapes had no widgets). Kept well under it.
+    LCD_MAX_NODES = 2450
     n_nodes = len(lcd.scene0.get('nodeidlookup'))
     print(f'lcd nodes: {n_nodes} of {LCD_MAX_NODES}')
     if n_nodes > LCD_MAX_NODES and not pad_to:
         raise SystemExit(f'the LCD layout has {n_nodes} nodes: past the tested {LCD_MAX_NODES} the display may '
                          "flash with the game's own screen")
+    # 1.4.6: the materials an archive. 1.4.5's 322 made the game abort creating the wheel screen (every time); 309
+    # loaded. Kept under 300 so a new layout can't drift back to the edge unnoticed.
+    MAX_MATERIALS = 300
+    n_mat = sum(1 for o in ops if o.get('type') == 'GfxMaterialRes') // len(PKGS)
+    print(f'materials: {n_mat} an archive of {MAX_MATERIALS} (322 crashed, 309 loaded)')
+    if n_mat > MAX_MATERIALS:
+        raise SystemExit(f'{n_mat} materials an archive: past {MAX_MATERIALS} (the game aborted at 322); '
+                         'share box colours or cut pictures')
     pkgfmt.read(tpl.encode())
     print('wrote ui/lcd_display.idf, ui/race_assets_f1.ui, erp/driver_display.json')
 

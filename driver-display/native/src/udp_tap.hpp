@@ -322,6 +322,7 @@ inline void decode(const uint8_t *d, size_t n)
         g.drs_allowed = c[22];              // drsAllowed: 0 not allowed, 1 allowed
         g.drs_distance = rd<uint16_t>(c + 23); // drsActivationDistance: metres to the next zone, 0 none
         g.fia_flag = int8_t(c[28]);         // vehicleFiaFlags
+        g.tyre_actual = c[25];              // actualTyreCompound: 16 C5 .. 21 C0, 22 C6 (1.4.10, Rainbow names)
         g.tyre_visual = c[26];              // visualTyreCompound
         g.tyre_age = c[27];                 // tyresAgeLaps
         g.status_tick = now;

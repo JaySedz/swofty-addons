@@ -43,6 +43,8 @@
 #include "au_combos.hpp"
 #include "hs_combos.hpp"
 #include "al_combos.hpp"
+#include "cd_combos.hpp"
+#include "vc_combos.hpp"
 #include <ctime>
 
 #include "packet_values.hpp"
@@ -83,6 +85,10 @@ struct Leaf {
     Leaf *au = nullptr;              // 1.3.7: the Audi's (suffix _au)
     Leaf *hs = nullptr;              // 1.3.9: the Haas's (suffix _hs)
     Leaf *al = nullptr;              // 1.3.10: the Alpine's (suffix _al)
+    Leaf *cd = nullptr;              // 1.4.2: the Cadillac's (suffix _cd)
+    Leaf *vc = nullptr;              // 1.4.3: the Racing Bulls' (suffix _vc)
+    Leaf *g[4] = {};                 // 1.4.7: the shared car drawings: _g1 Red Bull + Williams, _g2 Aston Martin +
+                                     // Audi, _g3 Haas + Cadillac, _g4 Mercedes + McLaren
 };
 
 struct NameHash {
@@ -384,6 +390,10 @@ void put_flag(const char *name, bool v) // a separate name: a char buffer would 
             l.au = &leaf(std::string(name) + "_au");
             l.hs = &leaf(std::string(name) + "_hs");
             l.al = &leaf(std::string(name) + "_al");
+            l.cd = &leaf(std::string(name) + "_cd");
+            l.vc = &leaf(std::string(name) + "_vc");
+            for (int k = 0; k < 4; k++)
+                l.g[k] = &leaf(std::string(name) + "_g" + char('1' + k));
         }
     }
     if (l.split) {
@@ -398,6 +408,12 @@ void put_flag(const char *name, bool v) // a separate name: a char buffer would 
         put_flag_one(*l.au, v && g_team == 'u');
         put_flag_one(*l.hs, v && g_team == 'h');
         put_flag_one(*l.al, v && g_team == 'l');
+        put_flag_one(*l.cd, v && g_team == 'c');
+        put_flag_one(*l.vc, v && g_team == 'v');
+        put_flag_one(*l.g[0], v && (g_team == 'b' || g_team == 'w'));
+        put_flag_one(*l.g[1], v && (g_team == 'a' || g_team == 'u'));
+        put_flag_one(*l.g[2], v && (g_team == 'h' || g_team == 'c')); // 1.5.4: Haas + Cadillac again
+        put_flag_one(*l.g[3], v && (g_team == 'e' || g_team == 'm'));
     }
 }
 
@@ -1434,38 +1450,39 @@ void me_page(const Reading &r, int soc, bool on)
     put_flag("me_dpos", in("rq") && dpos);
 }
 
-// ------------------------------------------------------------------ the 2026 Red Bull's own pages (1.2.37)
-// Its switches: the battery's 16 segments (green; blue in the overtake zone), the light top left (the last sector's
-// pace, 1.2.43), the tyre cells' temperature bands (blue under 75, green to 100, orange
-// above: a guide, the game shares no windows).
+// ------------------------------------------------------------------ the 2026 Red Bull's own pages (1.4.5 redesign)
+// Its switches: the battery column (18 segments, bottom up; green, blue in the overtake zone), the 20-light rev strip
+// (against the rev limit), the delta box (green gaining, red losing, amber before a delta), the tyre cells'
+// temperature bands (blue under 75, green to 100, orange above; grey without temperatures).
 void rb_page(const Reading &r, int soc, bool on)
 {
     char t[24];
     const char st = g_fps;
     auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
-    for (int i = 0; i < 16; i++) {
-        bool lit = on && r.soc >= 0 && soc > i * 100 / 16;
+    for (int i = 0; i < 9; i++) { // 1.4.7: 9 (was 18)
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 9;
         std::snprintf(t, sizeof t, "rb_seg%02d", i);
         put_flag(t, lit && !g_overtake);
         std::snprintf(t, sizeof t, "rb_sob%02d", i);
         put_flag(t, lit && g_overtake);
     }
-    // the light top left: the last sector's pace (the game's lap packets: 0 yellow, 1 green, 2 purple), grey before
-    // there is one (1.2.43)
-    {
-        int last = -1;
-        for (int i = 0; i < 3; i++)
-            if (udp_tap::g.sector_ms[i] > 0)
-                last = i;
-        int col = last >= 0 && udp_tap::fresh(udp_tap::g.lap_tick) ? int(udp_tap::g.sector_col[last]) : -1;
-        bool sq = in("rqp");
-        put_flag("rb_sq_n", sq && col < 0);
-        put_flag("rb_sq_y", sq && col == 0);
-        put_flag("rb_sq_g", sq && col == 1);
-        put_flag("rb_sq_p", sq && col == 2);
+    float lim = 13000.f;
+    if (auto me = swofty::live::player(); me && swofty::live::has(*me, SWOFTY_LIVE_HAVE_RPM) && me->rpm_limit > 3000.f)
+        lim = me->rpm_limit;
+    float frac = r.rpm > 0 ? float(r.rpm) / lim : 0.f;
+    bool revs = in("rq");
+    for (int i = 0; i < 10; i++) { // 1.4.7: 10 (was 20)
+        std::snprintf(t, sizeof t, "rb_rev%02d", i);
+        put_flag(t, revs && frac > 0.55f + i * 0.45f / 10.f); // the strip spans the top 45 % of the revs
     }
+    const std::string &d = leaf(g_quali ? "qdelta" : "delta").last;
+    bool dneg = !d.empty() && d[0] == '-' && d != "--.--", dpos = !d.empty() && d[0] == '+';
+    put_flag("rb_dneg", in("rq") && dneg);
+    put_flag("rb_dpos", in("rq") && dpos);
+    put_flag("rb_dnone", in("rq") && !dneg && !dpos);
     static const char *cn[] = {"fl", "fr", "rl", "rr"};
-    bool temps = in("rqs") && udp_tap::fresh(udp_tap::g.tel_tick);
+    bool cells = in("rqs");
+    bool temps = cells && udp_tap::fresh(udp_tap::g.tel_tick);
     for (int i = 0; i < 4; i++) {
         int c = temps ? int(udp_tap::g.tyre_inner[i]) : -1;
         char band = c <= 0 ? 0 : c < 75 ? 'k' : c <= 100 ? 'g' : 'o';
@@ -1473,6 +1490,8 @@ void rb_page(const Reading &r, int soc, bool on)
             std::snprintf(t, sizeof t, "rb_t%s_%c", cn[i], b);
             put_flag(t, band == b);
         }
+        std::snprintf(t, sizeof t, "rb_t%s_n", cn[i]);
+        put_flag(t, cells && band == 0);
     }
 }
 
@@ -1489,9 +1508,9 @@ void am_page(const Reading &r, int soc, bool on)
     if (auto me = swofty::live::player(); me && swofty::live::has(*me, SWOFTY_LIVE_HAVE_RPM) && me->rpm_limit > 3000.f)
         lim = me->rpm_limit;
     float frac = r.rpm > 0 ? float(r.rpm) / lim : 0.f;
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 15; i++) { // 1.4.7: 15 (was 30)
         std::snprintf(t, sizeof t, "am_rpm%02d", i);
-        put_flag(t, on && frac > i / 30.f);
+        put_flag(t, on && frac > i / 15.f);
     }
     // fuel: the tank against its capacity (else the most seen this session)
     static uint32_t gen = ~0u;
@@ -1507,12 +1526,12 @@ void am_page(const Reading &r, int soc, bool on)
     float full = cap > 1.f ? cap : most;
     int pct = tank >= 0.f && full > 1.f ? std::clamp(int(std::lround(tank / full * 100.f)), 0, 100) : -1;
     put("am_fuelpct", pct >= 0 ? std::to_string(pct) + "%" : std::string("-"));
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 16; i++) { // 1.4.7: 16 (was 32)
         std::snprintf(t, sizeof t, "am_fuel%02d", i);
-        put_flag(t, on && pct > i * 100 / 32);
+        put_flag(t, on && pct > i * 100 / 16);
     }
-    for (int i = 0; i < 32; i++) {
-        bool lit = on && r.soc >= 0 && soc > i * 100 / 32;
+    for (int i = 0; i < 16; i++) { // 1.4.7: 16 (was 32)
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 16;
         std::snprintf(t, sizeof t, "am_seg%02d", i);
         put_flag(t, lit && !g_overtake);
         std::snprintf(t, sizeof t, "am_sob%02d", i);
@@ -1528,7 +1547,6 @@ void am_page(const Reading &r, int soc, bool on)
             put_flag(t, band == b);
         }
     }
-    put("fp_scshort", r.sc == 2 ? "VSC" : "SC");
 }
 
 // ------------------------------------------------------------------ the 2026 Williams's own pages (1.3.4)
@@ -1586,8 +1604,8 @@ void wi_page(const Reading &r, int soc, bool on)
 void au_page(const Reading &r, int soc, bool on)
 {
     char t[24];
-    for (int i = 0; i < 24; i++) {
-        bool lit = on && r.soc >= 0 && soc > i * 100 / 24;
+    for (int i = 0; i < 12; i++) { // 1.4.7: 12 (was 24)
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 12;
         std::snprintf(t, sizeof t, "au_seg%02d", i);
         put_flag(t, lit && !g_overtake);
         std::snprintf(t, sizeof t, "au_sob%02d", i);
@@ -1595,43 +1613,170 @@ void au_page(const Reading &r, int soc, bool on)
     }
 }
 
-// ------------------------------------------------------------------ the 2026 Haas's own pages (1.3.9)
-// Its switches: the battery's bar across the top (25 pieces, left to right; green, blue in the overtake zone).
+// ------------------------------------------------------------------ the 2026 Haas's own pages (1.5.3 redesign)
+// Its switches: the battery bar along the bottom (12 pieces, left to right; green, blue in the overtake zone), the
+// revs column (20 lights against the rev limit), the delta's cell (green gaining, red losing); its values: the lap
+// or the session top right, the pit limiter, the intervals to the four cars around (race, SC: the place, the code,
+// the gap: + ahead, - behind).
 void hs_page(const Reading &r, int soc, bool on)
 {
-    char t[24];
-    for (int i = 0; i < 25; i++) {
-        bool lit = on && r.soc >= 0 && soc > i * 4;
+    char t[32];
+    const char st = g_fps;
+    auto in = [&](const char *states) { return on && st != 0 && std::strchr(states, st) != nullptr; };
+    for (int i = 0; i < 12; i++) {
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 12;
         std::snprintf(t, sizeof t, "hs_seg%02d", i);
         put_flag(t, lit && !g_overtake);
         std::snprintf(t, sizeof t, "hs_sob%02d", i);
         put_flag(t, lit && g_overtake);
     }
+    float lim = 13000.f;
+    if (auto me = swofty::live::player(); me && swofty::live::has(*me, SWOFTY_LIVE_HAVE_RPM) && me->rpm_limit > 3000.f)
+        lim = me->rpm_limit;
+    float frac = r.rpm > 0 ? float(r.rpm) / lim : 0.f;
+    for (int i = 0; i < 20; i++) {
+        std::snprintf(t, sizeof t, "hs_rev%02d", i);
+        put_flag(t, on && frac > i / 20.f);
+    }
+    const std::string &d = leaf(g_quali ? "qdelta" : "delta").last;
+    bool dneg = !d.empty() && d[0] == '-' && d != "--.--", dpos = !d.empty() && d[0] == '+';
+    put_flag("hs_dneg", in("rq") && dneg);
+    put_flag("hs_dpos", in("rq") && dpos);
+    // the intervals: two cars ahead and two behind (more on one side at the front or the back of the field)
+    std::string pos[4], code[4], gap[4];
+    int rows = 0;
+    if (in("rs"))
+        if (auto me = swofty::live::player()) {
+            auto o = swofty::live::order();
+            int rk = o.rank_of(me->vehicle), n = int(o.ids.size());
+            auto gap_of = [](const swofty::live::Car &c) -> int {
+                return swofty::live::has(c, SWOFTY_LIVE_HAVE_GAP_AHEAD) && c.gap_ahead_ms != SWOFTY_LIVE_NO_GAP
+                           ? int(c.gap_ahead_ms) : -1;
+            };
+            if (rk >= 0) {
+                int ahead = std::min(rk, std::max(2, 4 - (n - 1 - rk)));
+                std::vector<int> cum(size_t(n), -1);
+                cum[size_t(rk)] = 0;
+                for (int k = rk - 1; k >= 0; k--) {
+                    auto below = swofty::live::car(o.ids[size_t(k + 1)]);
+                    int g = below ? gap_of(*below) : -1;
+                    cum[size_t(k)] = (cum[size_t(k + 1)] >= 0 && g >= 0) ? cum[size_t(k + 1)] + g : -1;
+                }
+                for (int k = rk + 1; k < n; k++) {
+                    auto c = swofty::live::car(o.ids[size_t(k)]);
+                    int g = c ? gap_of(*c) : -1;
+                    cum[size_t(k)] = (cum[size_t(k - 1)] >= 0 && g >= 0) ? cum[size_t(k - 1)] + g : -1;
+                }
+                for (int k = rk - ahead; k < n && rows < 4; k++) {
+                    if (k == rk)
+                        continue;
+                    std::snprintf(t, sizeof t, "P%02d", k + 1);
+                    pos[rows] = t;
+                    code[rows] = car_code(int(o.ids[size_t(k)]));
+                    if (cum[size_t(k)] >= 0)
+                        std::snprintf(t, sizeof t, "%c%.3f", k < rk ? '+' : '-', cum[size_t(k)] / 1000.0);
+                    else
+                        std::snprintf(t, sizeof t, "-");
+                    gap[rows++] = t;
+                }
+            }
+        }
+    for (int i = 0; i < 4; i++) {
+        std::snprintf(t, sizeof t, "hs_ivp%d", i);
+        put(t, pos[i]);
+        std::snprintf(t, sizeof t, "hs_ivc%d", i);
+        put(t, code[i]);
+        std::snprintf(t, sizeof t, "hs_ivg%d", i);
+        put(t, gap[i]);
+        std::snprintf(t, sizeof t, "hs_ivr%d", i);
+        put_flag(t, i < rows);
+    }
+    if (!on)
+        return;
+    const std::string &lap = leaf("lap").last;
+    put("hs_tr", st == 'q' ? leaf("fp_sess").last : "LAP " + (lap.empty() ? std::string("-") : lap));
+    bool lim_on = udp_tap::fresh(udp_tap::g.status_tick) && udp_tap::g.pit_limiter == 1;
+    put("hs_lim", udp_tap::fresh(udp_tap::g.status_tick) ? (lim_on ? "ON" : "OFF") : "-");
 }
 
 // ------------------------------------------------------------------ the 2026 Alpine's own pages (1.3.10)
-// Its switches: the battery column (32 segments, bottom up; green, blue in the overtake zone); its value: the
-// clock (the PC's local time) on the race and practice pages.
+// Its switches: the battery column (32 segments, bottom up; green, blue in the overtake zone). (1.4.1: the clock
+// box is the lap time now, the user's choice.)
 void al_page(const Reading &r, int soc, bool on)
 {
     char t[24];
-    for (int i = 0; i < 32; i++) {
-        bool lit = on && r.soc >= 0 && soc > i * 100 / 32;
+    for (int i = 0; i < 16; i++) { // 1.4.7: 16 (was 32)
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 16;
         std::snprintf(t, sizeof t, "al_seg%02d", i);
         put_flag(t, lit && !g_overtake);
         std::snprintf(t, sizeof t, "al_sob%02d", i);
         put_flag(t, lit && g_overtake);
     }
+}
+
+// ------------------------------------------------------------------ the 2026 Cadillac's own pages (1.4.2)
+// Its switches: the battery bar (24 segments, left to right; green, blue in the overtake zone), the practice /
+// qualifying sector times' colours (the game's: purple, green, yellow; white until known); its value: the top right
+// (the lap, or the session and its time left).
+void cd_page(const Reading &r, int soc, bool on)
+{
+    char t[32];
+    for (int i = 0; i < 12; i++) { // 1.4.7: 12 (was 24)
+        bool lit = on && r.soc >= 0 && soc > i * 100 / 12;
+        std::snprintf(t, sizeof t, "cd_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "cd_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    const bool q = on && g_fps == 'q';
+    static const char tags[] = {'y', 'g', 'p'};
+    for (int i = 0; i < 3; i++) {
+        int col = udp_tap::g.sector_ms[i] > 0 ? int(udp_tap::g.sector_col[i]) : -1;
+        for (int k = 0; k < 3; k++) {
+            std::snprintf(t, sizeof t, "cd_s%d_%c", i + 1, tags[k]);
+            put_flag(t, q && col == k);
+        }
+        std::snprintf(t, sizeof t, "cd_s%d_n", i + 1);
+        put_flag(t, q && (col < 0 || col > 2));
+    }
     if (!on)
         return;
-    std::time_t now = std::time(nullptr);
-    std::tm lt{};
-    localtime_s(&lt, &now);
-    std::snprintf(t, sizeof t, "%02d:%02d:%02d", lt.tm_hour, lt.tm_min, lt.tm_sec);
-    put("al_clock", t);
+    const std::string &lap = leaf("lap").last;
+    if (g_fps == 'q')
+        put("cd_tr", leaf("fp_sess").last + "  " + leaf("fp_togo").last);
+    else
+        put("cd_tr", "LAP " + (lap.empty() ? std::string("-") : lap));
+}
+
+// ------------------------------------------------------------------ the 2026 Racing Bulls' own pages (1.4.3)
+// Its switches: the battery bar (20 segments, bottom up; green, blue in the overtake zone), the practice /
+// qualifying sector names' boxes in the sector's colour (the game's: purple, green, yellow; grey until known).
+void vc_page(const Reading &r, int soc, bool on)
+{
+    char t[32];
+    for (int i = 0; i < 10; i++) { // 1.4.7: 10 (was 20)
+        bool lit = on && r.soc >= 0 && soc > i * 10;
+        std::snprintf(t, sizeof t, "vc_seg%02d", i);
+        put_flag(t, lit && !g_overtake);
+        std::snprintf(t, sizeof t, "vc_sob%02d", i);
+        put_flag(t, lit && g_overtake);
+    }
+    const bool q = on && g_fps == 'q';
+    static const char tags[] = {'y', 'g', 'p'};
+    for (int i = 0; i < 3; i++) {
+        int col = udp_tap::g.sector_ms[i] > 0 ? int(udp_tap::g.sector_col[i]) : -1;
+        for (int k = 0; k < 3; k++) {
+            std::snprintf(t, sizeof t, "vc_s%d_%c", i + 1, tags[k]);
+            put_flag(t, q && col == k);
+        }
+        std::snprintf(t, sizeof t, "vc_s%d_n", i + 1);
+        put_flag(t, q && (col < 0 || col > 2));
+    }
 }
 
 const char *session_name(int type); // below
+
+bool g_team_was[128] = {}; // 1.4.4: a team's pages showed at the last update
 
 void fp_page(const Reading &r, int soc)
 {
@@ -1642,37 +1787,77 @@ void fp_page(const Reading &r, int soc)
     const bool F = g_team == 'f', MC = g_team == 'm';
     for (const char *c : kFpCombos)
         put_flag((std::string("fp_") + c).c_str(), F && in(c));
-    for (const char *c : kMcCombos)
-        put_flag((std::string("mc_") + c).c_str(), MC && in(c));
-    mc_page(r, soc, MC);
+    // 1.4.4: a team's switches are set only while its pages show, and once more after to clear them (all eleven
+    // every update built ~150 names and ran ten pages that weren't showing)
+    if (MC || g_team_was['m']) {
+        for (const char *c : kMcCombos)
+            put_flag((std::string("mc_") + c).c_str(), MC && in(c));
+        mc_page(r, soc, MC);
+    }
+    g_team_was['m'] = MC;
     const bool ME = g_team == 'e';
-    for (const char *c : kMeCombos)
-        put_flag((std::string("me_") + c).c_str(), ME && in(c));
-    me_page(r, soc, ME);
+    if (ME || g_team_was['e']) {
+        for (const char *c : kMeCombos)
+            put_flag((std::string("me_") + c).c_str(), ME && in(c));
+        me_page(r, soc, ME);
+    }
+    g_team_was['e'] = ME;
     const bool RB = g_team == 'b';
-    for (const char *c : kRbCombos)
-        put_flag((std::string("rb_") + c).c_str(), RB && in(c));
-    rb_page(r, soc, RB);
+    if (RB || g_team_was['b']) {
+        for (const char *c : kRbCombos)
+            put_flag((std::string("rb_") + c).c_str(), RB && in(c));
+        rb_page(r, soc, RB);
+    }
+    g_team_was['b'] = RB;
     const bool AM = g_team == 'a';
-    for (const char *c : kAmCombos)
-        put_flag((std::string("am_") + c).c_str(), AM && in(c));
-    am_page(r, soc, AM);
+    if (AM || g_team_was['a']) {
+        for (const char *c : kAmCombos)
+            put_flag((std::string("am_") + c).c_str(), AM && in(c));
+        am_page(r, soc, AM);
+    }
+    g_team_was['a'] = AM;
     const bool WI = g_team == 'w';
-    for (const char *c : kWiCombos)
-        put_flag((std::string("wi_") + c).c_str(), WI && in(c));
-    wi_page(r, soc, WI);
+    if (WI || g_team_was['w']) {
+        for (const char *c : kWiCombos)
+            put_flag((std::string("wi_") + c).c_str(), WI && in(c));
+        wi_page(r, soc, WI);
+    }
+    g_team_was['w'] = WI;
     const bool AU = g_team == 'u';
-    for (const char *c : kAuCombos)
-        put_flag((std::string("au_") + c).c_str(), AU && in(c));
-    au_page(r, soc, AU);
+    if (AU || g_team_was['u']) {
+        for (const char *c : kAuCombos)
+            put_flag((std::string("au_") + c).c_str(), AU && in(c));
+        au_page(r, soc, AU);
+    }
+    g_team_was['u'] = AU;
     const bool HS = g_team == 'h';
-    for (const char *c : kHsCombos)
-        put_flag((std::string("hs_") + c).c_str(), HS && in(c));
-    hs_page(r, soc, HS);
+    if (HS || g_team_was['h']) {
+        for (const char *c : kHsCombos)
+            put_flag((std::string("hs_") + c).c_str(), HS && in(c));
+        hs_page(r, soc, HS);
+    }
+    g_team_was['h'] = HS;
     const bool AL = g_team == 'l';
-    for (const char *c : kAlCombos)
-        put_flag((std::string("al_") + c).c_str(), AL && in(c));
-    al_page(r, soc, AL);
+    if (AL || g_team_was['l']) {
+        for (const char *c : kAlCombos)
+            put_flag((std::string("al_") + c).c_str(), AL && in(c));
+        al_page(r, soc, AL);
+    }
+    g_team_was['l'] = AL;
+    const bool CD = g_team == 'c';
+    if (CD || g_team_was['c']) {
+        for (const char *c : kCdCombos)
+            put_flag((std::string("cd_") + c).c_str(), CD && in(c));
+        cd_page(r, soc, CD);
+    }
+    g_team_was['c'] = CD;
+    const bool VC = g_team == 'v';
+    if (VC || g_team_was['v']) {
+        for (const char *c : kVcCombos)
+            put_flag((std::string("vc_") + c).c_str(), VC && in(c));
+        vc_page(r, soc, VC);
+    }
+    g_team_was['v'] = VC;
     if (!g_fp) { // everything Ferrari-only off
         for (const char *k : {"fp_sec_on", "fp_sec_p", "fp_sec_g", "fp_sec_y", "fp_k_dep", "fp_k_har", "fp_gaps",
                               "fp_dneg", "fp_dpos", "fp_dnone", "fp_dsc"})
@@ -1709,6 +1894,7 @@ void fp_page(const Reading &r, int soc)
     put_flag("fp_dnone", dset && !dneg && !dpos);
     put_flag("fp_dsc", F && st == 's');
     put("fp_scname", r.sc == 2 ? "VIRTUAL SAFETY CAR" : "SAFETY CAR");
+    put("fp_scshort", r.sc == 2 ? "VSC" : "SC"); // 1.4.4: here (was the Aston's page): shared by the team pages
     // the sector just finished and its colour (the game's lap packets: 0 yellow, 1 green, 2 purple): race, car page
     {
         int last = -1;
@@ -1960,8 +2146,17 @@ void ip_messages()
             }
             // the loose wheel across the bottom row until the pit lane (kept up each frame)
             auto car = swofty::live::car(uint32_t(i));
-            if (c.loose && !c.wheel_off && !c.retired && !(car && swofty::live::in_pit(*car)))
-                row("LOOSE WHEEL  BOX NOW", 'r', 0.3);
+            if (c.loose && !c.wheel_off && !c.retired && !(car && swofty::live::in_pit(*car))) {
+                // 1.5.1: in Immersive Pitstops' Ferrari Mode (Light or Full) its HUD says "Something is wrong. We are
+                // checking", then "Stay out, stay out. Do not box": the dash says WE ARE CHECKING (as the Ferrari Mode
+                // BOX CONFIRMED tag does), not BOX NOW. 1.5.2: in a Ferrari only (2025 or 2026, by its team badge), as
+                // Immersive Pitstops swaps its own calls only there
+                auto fm = g_ip_fmode.load();
+                if (g_team == 'f' && fm && fm())
+                    row("WE ARE CHECKING", 'b', 0.3);
+                else
+                    row("LOOSE WHEEL  BOX NOW", 'r', 0.3);
+            }
             if (c.loose && !w.loose)
                 swofty::log("[driver-display] immersive pitstops: the player's loose wheel");
         } else {
@@ -2673,6 +2868,9 @@ void popups(const Reading &r, const std::string &mode, double dt)
     }
     // the screen's colour: the flag's, or for the limiter the flag out under it (blue when none, or a blue flag)
     int tone = kind == 7 ? (flag_kind >= 1 && flag_kind <= 5 ? flag_kind : 6) : kind == 11 ? g_msg_tone : kind;
+    if (tone == 9)
+        tone = 12; // 1.4.12: the white screens (penalties, disqualified) black with white writing (the user: dark
+                   // writing on white read as white on the wheel)
     // the green flag flashes (the blink of the strip along the top edge)
     static double green_blink = 0.0;
     green_blink = kind == 8 ? green_blink + dt : 0.0;
@@ -2967,6 +3165,25 @@ void pit_page(const Reading &r)
     case 8: name = "WET"; ty = 'w'; break;
     default: if (r.tyre_vis > 0) name = "TYRE " + std::to_string(r.tyre_vis); break;
     }
+    // 1.4.11: Pirelli Rainbow Tyres (Ashton's addon) puts the cars on its own visual records 0..6 (Hypersoft ..
+    // Superhard: its log's "visual record 0 is hypersoft"), so those codes name the rainbow tyre with no setting.
+    // Record 0 reads as "no tyre", so Hypersoft also comes from the UDP actual compound (22 = C6). Short names (the team
+    // pages size the tyre for ~6 letters); colours from the copies there are (no colour slots to spare).
+    {
+        int rv = r.tyre_vis;
+        if (rv < 0 && udp_tap::fresh(G.status_tick) && !G.from_launcher && G.tyre_visual == 0 && G.tyre_actual == 22)
+            rv = 0;
+        switch (rv) {
+        case 0: name = "HYPER"; ty = 's'; break;  // pink
+        case 1: name = "ULTRA"; ty = 's'; break;  // purple
+        case 2: name = "SUPER"; ty = 's'; break;  // red
+        case 3: name = "SOFT"; ty = 'm'; break;   // yellow
+        case 4: name = "MEDIUM"; ty = 'h'; break; // white
+        case 5: name = "HARD"; ty = 'w'; break;   // ice blue
+        case 6: name = "S-HARD"; ty = 'm'; break; // orange
+        default: break;
+        }
+    }
     put("tyre", name);
     static const char tys[] = {'s', 'm', 'h', 'i', 'w'};
     for (char c : tys) {
@@ -3076,7 +3293,7 @@ void aero(double dt)
     // 1.2.35: the team pages' badge says STRAIGHT MODE whatever the game's text (STRAIGHT ACTIVE, STRAIGHT 120M
     // overflowed the boxes), purple while it's active, grey otherwise (the user's choice)
     put("tm_badge", badge.rfind("STRAIGHT", 0) == 0 ? std::string("STRAIGHT") : badge); // 1.2.41: one word (the user)
-    for (char tc : {'f', 'm', 'e', 'b', 'a', 'w', 'u', 'h', 'l'}) {
+    for (char tc : {'f', 'm', 'e', 'b', 'a', 'w', 'u', 'h', 'l', 'c', 'v'}) {
         bool on = tm && g_team == tc;
         std::string p = tc == 'f'   ? "fp_mode"
                         : tc == 'm' ? "mc_mode"
@@ -3086,7 +3303,9 @@ void aero(double dt)
                         : tc == 'w' ? "wi_mode"
                         : tc == 'u' ? "au_mode"
                         : tc == 'h' ? "hs_mode"
-                                    : "al_mode";
+                        : tc == 'l' ? "al_mode"
+                        : tc == 'c' ? "cd_mode"
+                                    : "vc_mode";
         put_flag(p.c_str(), on);
         put_flag((p + "_p").c_str(), on && colour == 'p');
         put_flag((p + "_g").c_str(), false);
@@ -3104,8 +3323,11 @@ double since = 0.0;
 char last_src = 1;
 double g_session_s = 0.0; // time in the session (paused time excluded), from the first data on
 
+void tap_frame(double dt, void *); // below
+
 void on_frame(double dt, void *)
 {
+    tap_frame(dt, nullptr); // 1.4.4: one frame callback (the tap's retries were a second)
     since += dt;
     if (since < 0.05) // 20 Hz
         return;
@@ -3139,6 +3361,8 @@ void on_frame(double dt, void *)
                        : (k == "alfa_romeo" || k == "alfaromeo" || k == "sauber" || k == "audi") ? 'u'
                        : k == "haas" ? 'h' // 1.3.9
                        : (k == "alpine" || k == "renault") ? 'l' // 1.3.10
+                       : (k == "gm_cadillac" || k == "cadillac") ? 'c' // 1.4.2
+                       : (k == "alphatauri" || k == "racing_bulls" || k == "tororosso") ? 'v' // 1.4.3
                        : 0;
             }
         // 1.3.0: the team pages are always on (the Team pages setting is gone)
@@ -3152,6 +3376,8 @@ void on_frame(double dt, void *)
                                                            : team == 'u' ? "Audi"
                                                            : team == 'h' ? "Haas"
                                                            : team == 'l' ? "Alpine"
+                                                           : team == 'c' ? "Cadillac"
+                                                           : team == 'v' ? "Racing Bulls"
                                                                          : "off");
             g_team = team;
             g_fer = team == 'f';
@@ -3644,7 +3870,7 @@ void tap_frame(double dt, void *)
 
 SWOFTY_ON_LOAD
 {
-    swofty::log("[driver-display] loaded 1.4.0: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
+    swofty::log("[driver-display] loaded 1.5.5: hud %s, live %s, telemetry %s", swofty::hud::available() ? "available" : "not available",
                 swofty::live::available() ? "available" : "not available (yet)",
                 swofty::telemetry::available() ? "available" : "not available (yet)");
     swofty::events::on_frame(on_frame);
@@ -3709,7 +3935,6 @@ SWOFTY_ON_LOAD
                          : "the LED update isn't found on this build: the game's own lights");
     }
     try_tap();
-    swofty::events::on_frame(tap_frame);
 }
 
 SWOFTY_ADDON()

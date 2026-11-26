@@ -5,11 +5,14 @@ rem   swofty addons install dist\sedz.immersive-pitstops.swoftyaddon
 setlocal
 cd /d "%~dp0"
 if not exist native\immersive_pitstops.dll (echo native\immersive_pitstops.dll is missing: run build.bat & exit /b 1)
+if not exist bin\immersive-pitstops-helper.exe (echo bin\immersive-pitstops-helper.exe is missing: run build.bat & exit /b 1)
 if exist build\pkg rmdir /s /q build\pkg
 mkdir build\pkg\db
 mkdir build\pkg\erp
 mkdir build\pkg\native
+mkdir build\pkg\bin
 copy /y native\immersive_pitstops.dll build\pkg\native\ >nul
+copy /y bin\immersive-pitstops-helper.exe build\pkg\bin\ >nul
 copy /y swofty.json build\pkg\ >nul
 copy /y README.md build\pkg\ >nul
 copy /y LICENSE build\pkg\ >nul

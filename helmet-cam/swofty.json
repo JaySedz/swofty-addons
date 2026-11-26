@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "sedz.helmet-cam",
   "name": "Helmet Cam",
-  "version": "0.1.8",
+  "version": "0.1.11",
   "author": "Sedz",
   "description": "The cockpit camera as seen from inside a helmet: the eye port's edges, the brow padding, a tinted visor with smudges and your team's visor strip, plus head sway under braking and cornering and road vibration. The helmet stays still while the world moves, like a real visor cam.\n\nOnly the cockpit camera changes, and the HUD stays on top and untouched. Turn it off and the game's camera is exactly as before. Works with Driver Display.",
   "license": "MIT",
@@ -150,6 +150,14 @@
       "binds": "native"
     },
     {
+      "id": "aston_mode",
+      "type": "toggle",
+      "label": "Aston Martin Mode",
+      "description": "In the 2026 Aston Martin, the road vibration is 300 %, and the Road vibration slider can't turn it down. Other cars are unchanged.",
+      "default": false,
+      "binds": "native"
+    },
+    {
       "id": "rain_mode",
       "type": "choice",
       "label": "Visor rain",
@@ -284,8 +292,7 @@
       "name": "state_a",
       "width": 3,
       "height": 1,
-      "format": "r32f",
-      "persistent": true
+      "format": "r32f"
     },
     {
       "name": "state_b",
@@ -300,8 +307,7 @@
       "name": "state",
       "entry": "update",
       "inputs": [
-        "state_a",
-        "previous"
+        "state_a"
       ],
       "output": "state_b",
       "enabled": "{{visor_on}}",

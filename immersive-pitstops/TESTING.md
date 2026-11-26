@@ -1,4 +1,171 @@
-# Immersive Pitstops 1.0.29: what to test
+# Immersive Pitstops 1.1.0: what to test
+
+1.0.50 released as 1.1.0 (no change).
+
+## 1.0.50
+
+A log line once per race session: `teams (car, page row, team badge): 0 mclaren (mclaren_26), ...`. Check a 2025
+race: every car on the right row; any `NO ROW: All teams` is a badge the page doesn't know yet (send the line).
+
+## 1.0.49
+
+No behaviour change: the Loose wheel chance help is "Your car will be told to box this lap. AI cars lose the wheel on its out lap".
+
+## 1.0.48
+
+No behaviour change: the Retirement chance help is "Chance a stuck wheel nut ends the car's race".
+
+## 1.0.47
+
+The page's subtitle names Papaya Rules too ("N team(s) edited, Ferrari Mode X, Papaya Rules on/off"), and the profile card's PIT STOPS summary lists "Papaya Rules on".
+
+## 1.0.46
+
+No behaviour change: the Extra Features tab's line, and Ferrari Mode's and Papaya Rules' help, are the user's wording.
+
+## 1.0.45
+
+Page: the Ferrari Mode tab is now "Extra Features": the Ferrari Mode dropdown (Off/Light/Full, no separate switches
+or chances: Light = crew never ready, messages, wrong tyres 50 %, Driver Display pop-ups; Full = Light + stuck/loose
+50 %) and the Papaya Rules switch (McLaren identical stops, moved from McLaren's panel). Tab badge = how many are on.
+Old per-feature switches in config.json are ignored. Same in-game checks as 1.0.44 for Papaya Rules.
+
+## 1.0.44
+
+McLaren identical stops (Teams tab, McLaren's panel, card "Identical stops"; config.json "mclaren": {"identical": true}).
+Each McLaren stop copies the team-mate's stop with the same number, whichever stops first. Log lines `(McLaren identical
+stops, stop N): ... as car X's` for the crew speed, stuck nut, retirement, loose wheel and wrong tyres.
+- with Log pit stops on: both McLarens' `crew start ... speed xN` the same, and their box times close (compare the
+  `in its box` / status lines)
+- set McLaren Own values with stuck nut 100 % or 50 %: the second McLaren copies the first's stuck nut or no stuck
+  nut, the same wheel and length; retirement the same
+- wrong tyres (testing switches or a high McLaren chance): the second gets the same compound
+- a drive-through for one McLaren doesn't count as its stop
+- switch off: each McLaren rolls its own
+
+## 1.0.43
+
+The addon settings now hold only the 4 testing switches and Log pit stops; every chance, crew readiness and stop times
+are on the page. Teams tab: the first row "All teams" sets every team (its panel has the sliders and selects);
+a team's panel has "Own values" (on: its own, starting from All teams; off: back to All teams, values greyed). One
+value per team for your car and the AI's (no separate AI chances any more). The "(setting)" options are gone.
+- the load line, then `page settings read: all teams stuck nut ..., retirement ..., loose wheel ..., wrong tyres ...,
+  crew ..., stop times ...; N team(s) with their own; Ferrari Mode X`
+- All teams values used by every team without its own; a team with Own values uses its own
+- If you pressed Play with 1.0.42, All teams starts from those settings (options.json); otherwise 1 / 25 / 0.3 / 0.3,
+  ready when called, default
+
+## 1.0.42
+
+The Pit Stops page (launcher sidebar; bin/immersive-pitstops-helper.exe, helper/src/main.cpp). The Ferrari Mode setting
+is gone from the addon settings: it's on the page now.
+- Teams tab: the table shows every team; grey values = the addon settings (shown from the second Play on, when the
+  build has passed the settings to the page). Click a team: "Own chances" on gives sliders (starting at the
+  settings), crew readiness and stop times selects; Edited pill; "Back to the addon settings" resets.
+- In game: the load line, then `page settings read: N team(s) edited, Ferrari Mode X` (again within 2 s of an edit
+  while the game runs). Give a team 100 % stuck nut (or loose wheel / wrong tyres) and check its cars, yours and the
+  AI's, get it; another team doesn't. Crew readiness Never ready on your team: `held (the team's crew are never ready)`.
+  Stop times Slow on one team: its `crew start ... speed` lines mostly below x1.
+- Ferrari Mode tab: Off/Light/Full; picking a mode resets the switches to it; each switch on its own (the crew, the
+  messages, wrong tyres + chance, stuck/loose + chance, Driver Display pop-ups); switches greyed while Off.
+- MyTeam tab: in a MyTeam career, the MyTeam crew values apply to both MyTeam cars (team key "myteam", from the
+  telemetry participant's my_team flag); check with 100 % stuck nut.
+- the launcher's profile card: PIT STOPS summary.
+
+## 1.0.41
+
+No behaviour change: the Ferrari Mode setting's description is the user's own wording.
+
+## 1.0.40
+
+1.0.39 worked for your car (20261126-124520: every car's tyre data seen at the start, the first stop swapped at the pit
+lane entry). 1.0.40 does the same for the AI: AI wrong tyres chance (0.3 %, 0-10) and AI wrong tyres every stop
+(testing); Ferrari Mode Light/Full: the AI Ferraris 50 % too. Check with the AI testing switch and Log pit stops on:
+- AI crews carry the wrong set (log `AI car N picked X ..., the crew fit Y ... (pit lane entry)`)
+- `next set was changed to ... in the pit lane ... written again` lines: the AI's strategy (or Smarter AI Strategies)
+  picking its tyres after the pit lane entry; those stops may switch mid stop
+- whether the AI then pits differently (an early stop off wrong Softs, or a long stint on wrong Hards), and any AI
+  car penalised or unclassified for not using two dry compounds
+
+## 1.0.39
+
+1.0.38 worked from the second stop (20261126-094413: called and uncalled, the crew carried the wrong tyres). Two fixes:
+- the first stop: each car's tyre data is now learned when its fitted set is applied (Car_Tyre_SetWearFactor), so the
+  first stop should swap at the pit lane entry too. Log (Log pit stops on): `car 21's tyre data seen` before the first
+  stop, then `(pit lane entry)` on the first stop's `picked ... the crew fit` line
+- never the set already on the car: stops 2 and 3 fitted soft set 4 again, the set the car was already on
+
+## 1.0.38
+
+1.0.37 worked (20261126-085248) but the crew brought out the tyres you picked and they changed as they went on. 1.0.38
+makes the swap when your car enters the pit lane and rebuilds the crew's tyre models (Game_TyreSystem_ApplyCompoundModels,
+found from the tyre change: load line `wrong tyres: the crew's tyre models call found`), so the crew should bring out
+the wrong tyres. It needs your car's tyre data, learned at a stop, so the FIRST stop of a session still swaps in the
+box; from the second stop on it should be right. Check:
+- stops 2+: the crew carry the wrong compound from the start; log `(pit lane entry)` on the `picked ... the crew fit`
+  line
+- a drive-through (or flashback to before the pit entry) puts your tyres back: `left the pit lane without stopping`
+- with Log pit stops on, `tyre relate:` lines (for fixing the first stop next)
+Same setup: Wrong tyres every stop (testing) + Log pit stops (testing), 3+ stops.
+
+## 1.0.37
+
+Wrong tyres (your car only). Mapped from 1.0.36 (20261126-083515): the next set is the group (0 soft .. 4 wet) at
+tyre component +0x9c70 and its index at +0x9c74, read by Car_Tyre_ChangeToNextCompound(component, 0) from the pit box;
+a wrong set is written there just before it. Settings: Wrong tyres chance (0.3 %, 0-10), Wrong tyres every stop
+(testing); Ferrari Mode Light/Full in a Ferrari: 50 %.
+Check with the testing switch and Log pit stops on:
+- after the stop the car really runs the wrong compound (the HUD tyre icon, Driver Display, the feel), not only the
+  alert; log line `wrong tyres: car N picked X (set a), the crew fit Y (set b)`
+- dry race: only Softs/Mediums/Hards; rain: only Inters/Wets
+- the alert after release: WRONG TYRES "The crew fitted Y, not X" (Ferrari Mode: TYRES "Y fitted. All as planned")
+- anything odd with the crew's tyres visually, or the next stop's tyre choice in the MFD
+
+## 1.0.36
+
+1.0.35 (20261126-082300): race stops change tyres with pit flag 0 (the pit box's own call, ~0.7 s after the car
+stops), never through ApplyPitstopTyres, so no dumps were written. 1.0.36 dumps every race session tyre change and
+reads the car from the tyre component. Same test again: a few race stops, a different compound each time.
+
+## 1.0.35
+
+1.0.34's tyre diagnostic logged nothing on your 3 stops (20261126-080643): the wraps installed, but the car check
+never matched. 1.0.35 logs every call (`tyre diag: change ...` / `tyre diag: apply ...`, the first 400) and the full
+dump for every pit stop change, AI cars included. Same test: a few race stops with a different compound each time,
+noting what you picked. AI stops in the same race help too (for AI wrong tyres).
+
+## 1.0.34
+
+Tyre diagnostic (read only, nothing changes in game) for the planned wrong tyres feature. Each of your own race
+stops logs `tyre diag before` / `tyre diag after` lines: the tyre component fields, class entries, the next set and
+the allocation groups, with the live compound and weather. Please do 2-3 race stops picking a different compound in
+the MFD each time (e.g. Soft, then Hard; an Inter stop too if it rains) and note which compound you picked for each
+stop. No lines at all = the game build has no Car_Tyre_ChangeToNextCompound binding (say which build).
+
+## 1.0.33
+
+No behaviour change: the docs name Driver Display 1.5.2, which shows WE ARE CHECKING for the loose wheel only in a
+Ferrari (as Immersive Pitstops' own alerts).
+
+## 1.0.32
+
+No behaviour change: the docs name Driver Display 1.5.1 as the version with WE ARE CHECKING for the loose wheel.
+
+## 1.0.31
+
+Your loose wheel is reported to Driver Display again in Ferrari Mode, so Driver Display (1.5.1 or later) can show WE
+ARE CHECKING for it instead of LOOSE WHEEL BOX NOW. With an older Driver Display, BOX NOW shows as before 1.0.30.
+
+## 1.0.30
+
+Ferrari Mode (Light and Full), your loose wheel: instead of LOOSE WHEEL - box this lap, the alert is SOMETHING IS WRONG
+"Something is wrong. We are checking", and 6 s later STAY OUT "Stay out, stay out. Do not box" (not shown if you've
+already entered the pit lane). Driver Display's LOOSE WHEEL BOX NOW row stays off for your car (1.0.31: reported again, for WE ARE CHECKING). If you stay out, the
+wheel comes off as usual, with "The wheel has come off" (no "You didn't box"). Pitting still fixes it. Log lines:
+`Ferrari Mode, car N is told something is wrong` and `... is told to stay out`. Quick test: Ferrari Mode Light + Loose
+wheel every stop (testing), in a Ferrari.
+
+## 1.0.29
 
 No behaviour change: "A joke mode" dropped from the Ferrari Mode description.
 

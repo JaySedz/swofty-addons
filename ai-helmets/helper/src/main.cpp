@@ -65,14 +65,16 @@ constexpr TeamDef kTeams[] = {
 };
 
 // The game's helmet designs (customisation.custom_avatar.helmets rows the player can pick), by label.
-// A team's newcomers wear one of these unless you pick another; tier01_livery76 ("Simplicity") by default.
+// A team's newcomers can wear one of these. Since 1.0.9 they keep their own helmet by default ("own"); before
+// that the default was tier01_livery76 ("Simplicity"), and config.json saved it as "".
 struct Design {
     const char *label, *name;
 };
 struct GridHelmet {
     const char *driver, *helmet;  // a driver and his newest helmet row (helmet rows are <year>-<team>_<driver>)
 };
-constexpr const char *kDefaultBase = "game/tier01_livery76";
+constexpr const char *kOwnHelmet = "own";  // the newcomer default: the driver keeps his own helmet
+constexpr const char *kDefaultBase = kOwnHelmet;
 constexpr const char *kDefaultShell = "game/2026-ferrari_lewis_hamilton";
 constexpr Design kDesigns[] = {
     {"tier04_livery100", "Apex Hunter"},
@@ -463,6 +465,8 @@ struct Plugin {
 
     std::string helmet_label(const std::string &ref)
     {
+        if (ref == kOwnHelmet)
+            return "Their own helmet";
         if (ref.rfind("game/hx_", 0) == 0) {
             auto it = hx().find(ref);
             return (it != hx().end() ? it->second : "Helmet " + ref.substr(8)) + " (HX)";
@@ -756,8 +760,9 @@ J::Value view()
         // ---- imported helmets, and the default newcomer helmet
         blocks.push_back(card("Default helmet for newcomers",
                               J::Value::array({select_form("default", "A driver who joins a team wears", J::Value(dflt),
-                                                           with(J::Value::array()),
-                                                           "Used by every team that has no helmet of its own set on the Teams tab.")})));
+                                                           with(J::Value::array({option(kOwnHelmet, "Their own helmet")})),
+                                                           "Used by every team that has no helmet of its own set on the Teams tab. "
+                                                           "Their own helmet: a driver who moves keeps the helmet they had.")})));
         J::Value own = J::Value::array();
         if (custom.empty())
             own.push_back(text_block("No imported helmets yet. Use Import helmet… at the top, or an import button in a "
@@ -974,7 +979,9 @@ J::Value view()
             J::Value detail = J::Value::array();
             detail.push_back(text_block(lu.live ? "The loaded career's line-up." : "The original line-up.", "muted"));
             detail.push_back(select_form("team:" + t, "Drivers who join " + tname + " wear", J::Value(th),
-                                         with(J::Value::array({option("", "Default: " + g.helmet_label(dflt))})),
+                                         with(dflt == kOwnHelmet ? J::Value::array({option("", "Default: Their own helmet")})
+                                                                 : J::Value::array({option("", "Default: " + g.helmet_label(dflt)),
+                                                                                    option(kOwnHelmet, "Their own helmet")})),
                                          "When the automatic setting is on and a driver moves here."));
             detail.push_back(J::Value::object(
                 {{"buttons", J::Value::array({import_button("import-team:" + t, "Import helmet for new " + tname + " drivers…")})}}));
@@ -1778,7 +1785,7 @@ J::Value submit(const J::Value &s)
     for (auto &[id, v] : *values) {
         std::string value(v.as_string());
         if (form == "default" && id == "helmet")
-            g.config["default_helmet"] = value == kDefaultBase ? std::string() : value;
+            g.config["default_helmet"] = value == kOwnHelmet ? std::string() : value;  // "" = their own helmet
         else if (form.rfind("team:", 0) == 0 && id == "helmet")
             g.config["teams"][form.substr(5)]["helmet"] = value;
         else if (form.rfind("pick:", 0) == 0 && id == "helmet") {

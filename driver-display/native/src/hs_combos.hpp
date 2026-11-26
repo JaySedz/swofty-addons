@@ -7,8 +7,8 @@ inline constexpr const char *kHsCombos[] = {
     "q",
     "r",
     "rq",
-    "rqp",
+    "rqs",
     "rqsdp",
-    "rsdp",
+    "rqsp",
     "s",
 };

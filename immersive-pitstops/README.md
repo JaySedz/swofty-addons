@@ -75,13 +75,16 @@ A push of your retired car into the garage by Terminal Damage's crew is in the p
 (`kTdHandOff`): on the current game build Terminal Damage's push doesn't start. It waits for a Terminal Damage
 update.
 
+**Wrong tyres.** Now and then the crew fit a different compound from the one you picked (**Wrong tyres chance**),
+always one for the current weather, and you're told once you leave the box. The AI teams get it too, with no alert.
+
 **Loose wheel.** Now and then a normal stop sends you out with a wheel that isn't on properly (**Loose wheel
 chance**): "LOOSE WHEEL - box this lap". Pit and you get a normal stop that fixes it. Cross the line on track
 without pitting and the wheel comes off: the plugin sets the game's own damage for that corner just past its
 detach limit, the game tears the wheel off and its wheel loss ends your race (if the car is somehow still running
 20 s later, the team retires it). A flashback back before the line leaves the wheel loose again; one that leaves
 you past the line takes it off again. A red flag fixes it. AI cars can't be told to pit, so for them it's a very
-rare incident (**AI loose wheel chance**): the wheel comes off 5-25 s into the out-lap. The safety car is left out.
+rare incident (the same chance): the wheel comes off 5-25 s into the out-lap. The safety car is left out.
 
 **Call your stop** (race stops). Pick **Box This Lap** in the MFD radio menu before you come in: the engineer
 confirms and the crew come out for you as usual. Come in without calling and the crew aren't
@@ -102,7 +105,8 @@ ready: they stay in the garage until you have stopped in your box, then run out 
   sequence as the session loads, in garage order) or by your or your team-mate's last stop.
 - If the call-out can't be found, the crew come out but stand still in the box instead.
 
-**Call your stop** in the settings turns this off: the crew are then always ready, as in the stock game. A loose
+**Crew readiness** on the Pit Stops page (Always ready) turns this off for a team: its crew are then always ready, as
+in the stock game; Never ready keeps them in the garage even when you call. A loose
 wheel you were told to box for counts as called; a car Terminal Damage has broken never waits. AI stops
 are unchanged. Without the launcher's speech events every stop counts as called.
 
@@ -117,29 +121,47 @@ car.
 and the time in the box, a loose wheel, a wheel that came off, a retirement and why), through a launcher service
 (`native/src/ip_link.hpp`); Driver Display shows them. It only reads them: nothing changes in either addon when the
 other isn't installed.
-With Driver Display 1.2.25 or later, **Ferrari Mode** (Light or Full) also changes Driver Display's Ferrari pages (in the 2026
-Ferrari).
+With Driver Display 1.2.25 or later, **Ferrari Mode** (Light or Full) also changes Driver Display's Ferrari pages (in the
+2026 Ferrari).
 
 ## Settings
 
-- **Stuck wheel nut chance (%)**: 1 by default; how many stops get a stuck wheel nut. 0 turns it off, 100 gives one
-  on every stop (testing).
-- **Stop times**: Default, More fast stops or More slow stops (see above).
-- **Retirement chance (%)**: 25 by default; how many stuck wheel nuts end the car's race. 0 turns it off.
-- **Loose wheel chance (%)**: 0.3 by default, 0-10 in 0.1 steps; how many of your normal race stops leave a loose
-  wheel. 0 turns it off.
-- **AI loose wheel chance (%)**: 0.3 by default, 0-10 in 0.1 steps; how many AI stops lose a wheel on the out-lap. 0 turns it off.
-- **Ferrari Mode**: Off by default.
-  - Light: if you drive for Ferrari your crew are never ready when you come in, called or not, so your stops are a bit
-    slower. Everything else is normal.
-  - Full: that, and Ferrari's cars get a stuck wheel nut or a loose wheel at 50 %.
-  Ferrari is found by its team badge in the launcher's live data.
-- **Call your stop**: On (default) or Off. Off: the crew are always ready, whether you called or not.
+Every chance, crew readiness and stop times are set on the **Pit Stops** page (below). The addon's settings only hold
+the testing switches and logging:
+
 - **Loose wheel every stop (testing)**: Off by default. On, every normal race stop of yours leaves a loose wheel.
 - **AI loose wheel every stop (testing)**: Off by default. On, every AI normal race stop leaves a loose wheel.
+- **Wrong tyres every stop (testing)**: Off by default. On, every race stop of yours gets the wrong tyres.
+- **AI wrong tyres every stop (testing)**: Off by default. On, every AI race stop gets the wrong tyres.
 - **Log pit stops (testing)**: Off by default; writes each stop's details to the launcher log.
 
-Every setting applies at once, in game too (Career → ADDON SETTINGS).
+They apply at once, in game too (Career → ADDON SETTINGS).
+
+## The Pit Stops page
+
+The addon adds a **Pit Stops** page to the launcher's sidebar, with three tabs. Changes save at once, and while the game
+runs they apply within a couple of seconds.
+
+- **Teams**: every team's pit stop values in a table:
+  - **Stuck wheel nut chance**: 1 % by default; 100 gives one at every stop.
+  - **Retirement chance**: 25 % by default. Chance a stuck wheel nut ends the car's race.
+  - **Loose wheel chance**: 0.3 % by default, 0-10 in 0.1 steps. Your car will be told to box this lap. AI cars lose the wheel on its out lap.
+  - **Wrong tyres chance**: 0.3 % by default, 0-10 in 0.1 steps.
+  - **Crew readiness**: Ready when called (default: an uncalled stop finds the crew in the garage), Always ready or
+    Never ready. Your stops only: the AI always calls its stops.
+  - **Stop times**: Default, Fast or Slow (see above).
+  The first row, **All teams**, sets every team's values. Click a team and turn on **Own values** to give its crew its
+  own; turning it off goes back to All teams. Values apply to the team's cars, yours and the AI's: it's the crew doing
+  the stop.
+- **Extra Features**: Extra team features, on top of the team tab's values
+  - **Ferrari Mode** (Off, Light or Full; Off by default): Ferrari only, player and AI. In Light mode your crew is never ready for you, so your stops are a bit slower. Full mode increases the chance of a stuck or loose wheel to 50%. Adds Ferrari specific popups to Driver Display if installed.
+  - **Papaya Rules** (Off by default): McLaren only, player and AI. Both McLarens get identical pit stops.
+- **MyTeam**: your MyTeam career team's crew values, the same as a team's. More MyTeam features are planned.
+
+The page keeps its settings in `config.json` in the addon's launcher data folder and hands it to the game when you
+press Play (`swofty/addons/sedz.immersive-pitstops/`). Up to 1.0.42 the chances were addon settings; 1.0.43 starts
+All teams from them if you pressed Play with 1.0.42, else from the defaults. Ferrari Mode was an addon setting up to
+1.0.41; pick it again on the page.
 
 ## Limits
 
@@ -165,6 +187,7 @@ Every setting applies at once, in game too (Career → ADDON SETTINGS).
 
 `python tools/make_stuck_nut.py "<F1 25 folder>"` writes the sequences in `erp/` (needs the `zstandard`
 package and the launcher's `tools/erp.py` and `tools/vtf.py`). `python tools/make_ops.py` writes
-`db/pitstops.json` and `erp/stuck_nut.json`. `build.bat` builds `native/immersive_pitstops.dll` (Visual
+`db/pitstops.json` and `erp/stuck_nut.json`. `build.bat` builds `native/immersive_pitstops.dll` and the page's
+launcher helper `bin/immersive-pitstops-helper.exe` (`helper/src/main.cpp`) (Visual
 Studio 2022 or later with "Desktop development with C++"; the SDK headers in `native/include` are the launcher's,
 with the same one-line MSVC fix in `mixin.hpp` as Driver Display's copy). Then run `package.bat`.

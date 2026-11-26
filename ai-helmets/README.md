@@ -4,8 +4,8 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
 
 - **A helmet for movers.** When an AI driver moves to another team in a career (Silly Season, Career Mode
   Editor, the game's own market, or a one-weekend injury or sickness stand-in from another addon), they stop
-  wearing their old team's sponsors and wear the helmet set for their new team: Simplicity by default, or any
-  stock design, driver's helmet or helmet you imported. It changes at runtime, with no restart, and they get their
+  wearing their old team's sponsors and wear the helmet set for their new team: any stock design, driver's
+  helmet or helmet you imported. With nothing set (the default since 1.0.9), they keep their own helmet. It changes at runtime, with no restart, and they get their
   own helmet back if they return.
 - **Each driver's helmet per team.** Give any AI driver a helmet of your choice at a team.
 - **Your own helmets.** Import helmet `.erp` files (team helmet mods); each becomes a helmet of its own
@@ -24,7 +24,7 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
   runs, it shows the loaded career's line-up (after its first Team HQ): a driver who moved is listed under his
   new team, "from" his old one. When the game closes it goes back to the original line-ups.
 - **Click a team** to open its panel:
-  - **Drivers who join <team> wear**: the helmet a driver who moves there wears (default: Simplicity), and
+  - **Drivers who join <team> wear**: the helmet a driver who moves there wears (default: their own helmet), and
     **Import helmet for new <team> drivers…**, which imports a `.erp` and makes it that helmet.
   - **One card per driver**: their helmet at that team (their own, the team default, a stock design, another
     driver's helmet, another addon's or one you imported), and **Import helmet for <name>…**, which imports
@@ -97,9 +97,10 @@ Helmets for the AI drivers, the way Helmet Exchange does it for your own driver:
 
 ## How it works
 
-- A driver who moves wears the helmet set for his new team on the page, else the default newcomer helmet
-  (`game/tier01_livery76`, "Simplicity"). 0.5.0 dropped the tinted placeholders: the game ignored their colours
-  for AI drivers. Import a team helmet mod instead.
+- A driver who moves wears the helmet set for his new team on the page, else the default newcomer helmet: his
+  own helmet since 1.0.9 (before, Simplicity, `game/tier01_livery76`, so every mover wore the same one). The
+  default can still be set to Simplicity or any other helmet on the Imported helmets tab. 0.5.0 dropped the tinted
+  placeholders: the game ignored their colours for AI drivers. Import a team helmet mod instead.
 - Once the game database has loaded, the plugin reads the drivers, teams, looks and helmet rows from it. A
   driver's looks are rows like `2026-ferrari_lewis_hamilton`, one per season and team; a helmet change goes
   on all of them. It keeps the list in `looks.json`.
